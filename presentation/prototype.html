@@ -192,6 +192,9 @@
     <nav class="tabs" id="tabs">
       <button data-view="queue" aria-current="page">คิวของฉัน</button>
       <button data-view="board">ทุกดีล</button>
+      <button data-view="claims">เคลม / ร้องเรียน</button>
+      <button data-view="itemcodes">รหัสสินค้า</button>
+      <button data-view="files">เอกสารเก็บที่ไหน</button>
       <button data-view="bottleneck">คอขวด</button>
     </nav>
     <div class="who" id="who"></div>
@@ -245,8 +248,7 @@
     { c: "SAMPLE_QC", n: "ผลตรวจตัวอย่าง",       o: "QC", at: 1,  req: false },
     { c: "PI",        n: "PI (Proforma Invoice)", o: "SR", at: 4,  req: true },
     { c: "CODE_REQ",  n: "ใบขออนุมัติเพิ่มรหัส",  o: "SR", at: 5,  req: false },
-    { c: "PO",        n: "PO",                    o: "SR", at: 6,  req: true },
-    { c: "PO_SIGNED", n: "PO ที่ซัพเซ็นกลับ",     o: "SR", at: 8,  req: true },
+    { c: "PO_SIGNED", n: "PO ที่เซ็นครบแล้ว",     o: "SR", at: 8,  req: true },
     { c: "LABEL",     n: "Pattern label",         o: "SR", at: 8,  req: false, off: true },
     { c: "QC_RC",     n: "ผลตรวจรับ / RC",        o: "QC", at: 10, req: true },
     { c: "GR",        n: "GR",                    o: "WH", at: 11, req: true },
@@ -290,10 +292,61 @@
           ["30 ก.ค. 06:00","ระบบ","3-way ผ่าน — พร้อมบันทึกบัญชี"]] }
   ];
 
+  /* ---------------- ใบขอเปิดรหัสสินค้า ---------------- */
+  let ITEMREQS = [
+    { id:"IC-26-0007", deal:"D-26-0051", name:"ปลาหมึกกล้วยแช่แข็ง", brand:"NO-BRAND",
+      group:"Food", uom:"KG", pack:"10 KG x 1 CTN", sup:"Thai Frozen Foods",
+      hs:"0307.43.00", storage:"FROZEN", shelf:"730", by:"คุณสมชาย", date:"30 ก.ค. 09:20",
+      status:"WAIT_APPROVE", sap:"", note:"สินค้าใหม่ ยังไม่เคยสั่ง" },
+    { id:"IC-26-0006", deal:"D-26-0042", name:"กุ้งแช่แข็ง 16/20", brand:"ABC",
+      group:"Food", uom:"KG", pack:"1 KG x 10 PACK", sup:"ABC Foods",
+      hs:"0306.17.00", storage:"FROZEN", shelf:"730", by:"คุณสมชาย", date:"27 ก.ค. 14:05",
+      status:"DONE", sap:"FG-SHR-1620", note:"" }
+  ];
+  const IC_STATUS = {
+    DRAFT:        { t:"ร่าง",                owner:"SR", cls:"wait" },
+    WAIT_APPROVE: { t:"รอ SR Head อนุมัติ",  owner:"SR", cls:"due"  },
+    WAIT_LS:      { t:"รอ LS เปิดใน SAP",    owner:"LS", cls:"due"  },
+    DONE:         { t:"เปิดรหัสแล้ว",        owner:"—",  cls:"ok"   },
+    REJECTED:     { t:"ไม่อนุมัติ",           owner:"SR", cls:"late" }
+  };
+
+  /* ---------------- ใบเคลม / ใบร้องเรียน (QC-F006) ---------------- */
+  let CLAIMS = [
+    { id:"EX-2026001", src:"CUSTOMER", date:"01/07/2026", group:"Food",
+      seller:"นายชัยธัช ชุณหะ", unit:"SE", pos:"Sales Executive",
+      cust:"บริษัท พีพอร์ค โปรดักส์ จำกัด", pi:"126070001", dn:"126070003", buyDate:"01/07/2026",
+      item:"สาหร่ายวากาเมะอบแห้ง", brand:"NO-BRAND", lot:"C260225 #1",
+      wh:"CHOD", pack:"50 PACK(S) X 1 CARTON(S)", qty:"1", uom:"กล่อง", kg:"0.2",
+      desc:"สินค้าไม่ครบจำนวน 1 กล่อง โดยยังไม่มีรอยแกะที่กล่อง ขาดไปจำนวน 2 pack",
+      place:"คลังโชติ", truck:"ไม่ควบคุมอุณหภูมิ",
+      qcResult:"FAIL", qcNote:"ลูกค้าแจ้งขาดไป 2 Pack — อ้างอิง Report QC", custWantsDoc:"ใช่",
+      supPo:"", supplier:"WAWA", stage:"SEC3",
+      photos:3, deal:"",
+      tl:[["01 ก.ค. 10:20","นายชัยธัช (SE)","เปิดใบร้องเรียน ส่วนที่ 1"],
+          ["03 ก.ค. 09:00","คุณสมหญิง (QC)","รับสินค้าคืน ตรวจที่คลังโชติ"],
+          ["10 ก.ค. 11:30","คุณสมหญิง (QC)","บันทึกผลตรวจ ส่วนที่ 2 — ไม่ผ่าน"],
+          ["10 ก.ค. 11:31","ระบบ","สร้าง INSPECTION REPORT อัตโนมัติจากผลตรวจ"],
+          ["14 ก.ค. 15:00","คุณสมชาย (SR)","เตรียมเคลมกับผู้ขาย WAWA"]] },
+    { id:"CL-26-0004", src:"INCOMING", date:"29/07/2026", group:"Food",
+      seller:"—", unit:"—", pos:"—", cust:"—", pi:"", dn:"", buyDate:"",
+      item:"หอยเชลล์", brand:"—", lot:"TF-2607C", wh:"CHOD",
+      pack:"5 KG x 1 CTN", qty:"40", uom:"KG", kg:"40",
+      desc:"อุณหภูมิสินค้าเกินกำหนดตอนตรวจรับ (-12°C ต่ำกว่าสเปก -18°C)",
+      place:"ห้องเย็นต้นทาง", truck:"ควบคุมอุณหภูมิ",
+      qcResult:"FAIL", qcNote:"ปฏิเสธ 40 KG จาก 120 KG", custWantsDoc:"ไม่ใช่",
+      supPo:"4500012288", supplier:"Thai Frozen Foods", stage:"SEC3",
+      photos:5, deal:"D-26-0029",
+      tl:[["29 ก.ค. 07:10","คุณสมหญิง (QC)","บันทึกผลตรวจรับ — ไม่ผ่าน"],
+          ["29 ก.ค. 07:11","ระบบ","เปิดใบเคลมอัตโนมัติ + ล็อกการจ่าย 40 KG"],
+          ["29 ก.ค. 09:45","คุณสมชาย (SR)","แจ้งซัพเพื่อเคลม"]] }
+  ];
+
   /* ---------------- สถานะ ---------------- */
   let role = "SR";
   let view = "queue";
   let openDeal = null;
+  let openClaim = null;
 
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? "" : s)
@@ -440,6 +493,204 @@
     return h;
   }
 
+  /* ---------------- หน้า: รหัสสินค้า ---------------- */
+  function viewItemCodes() {
+    let h = "<h2>ขอเปิดรหัสสินค้าใหม่</h2>" +
+      '<p class="sub">เดิมเป็นใบขออนุมัติกระดาษ ให้ SR Head เซ็น แล้วเดินเอกสารไปให้ LS คีย์เข้า SAP — ' +
+      "ในระบบกลายเป็นแบบฟอร์มเดียวที่วิ่งเอง</p>";
+
+    h += '<div class="panel"><h3>ใบขอที่มีอยู่<span class="c">' + ITEMREQS.length + " ใบ</span></h3>" +
+      '<div class="tablewrap"><table><thead><tr><th>เลขที่</th><th>สินค้า</th><th>ซัพ</th>' +
+      "<th>ดีลที่เกี่ยวข้อง</th><th>สถานะ</th><th>รหัสใน SAP</th><th></th></tr></thead><tbody>";
+    ITEMREQS.forEach(r => {
+      const s = IC_STATUS[r.status];
+      h += "<tr>" +
+        '<td><span class="did">' + esc(r.id) + "</span></td>" +
+        "<td>" + esc(r.name) + '<br><span class="mono" style="font-size:11px;color:var(--ink-3)">' + esc(r.pack) + "</span></td>" +
+        "<td>" + esc(r.sup) + "</td>" +
+        '<td class="mono">' + (r.deal ? esc(r.deal) : "—") + "</td>" +
+        '<td><span class="pill ' + s.cls + '">' + esc(s.t) + "</span></td>" +
+        '<td class="mono">' + (r.sap ? esc(r.sap) : "—") + "</td>" +
+        "<td>" + icAction(r) + "</td></tr>";
+    });
+    h += "</tbody></table></div></div>";
+
+    // ฟอร์มตัวอย่าง
+    const draft = ITEMREQS.filter(r => r.status === "WAIT_APPROVE")[0] || ITEMREQS[0];
+    h += '<div class="panel"><h3>แบบฟอร์มขอเปิดรหัสสินค้า<span class="c">' + esc(draft.id) + "</span></h3>";
+    [["ชื่อสินค้า", draft.name], ["แบรนด์", draft.brand], ["กลุ่มสินค้า", draft.group],
+     ["หน่วยนับ", draft.uom], ["ขนาดบรรจุ", draft.pack], ["ซัพพลายเออร์", draft.sup],
+     ["พิกัดศุลกากร (HS)", draft.hs], ["การเก็บรักษา", draft.storage],
+     ["อายุสินค้า (วัน)", draft.shelf], ["ดีลที่เกี่ยวข้อง", draft.deal || "—"],
+     ["ผู้ขอ", draft.by + " · " + draft.date], ["หมายเหตุ", draft.note || "—"]
+    ].forEach(f => {
+      h += '<div class="docrow"><span class="nm" style="flex:0 0 42%;color:var(--ink-3)">' + esc(f[0]) +
+        '</span><span class="nm"><b>' + esc(f[1]) + "</b></span></div>";
+    });
+    h += '<div class="note warn"><span class="ic">▸</span><span>' +
+      "ระบบล็อกไม่ให้ปิด PO ได้จนกว่าจะมีรหัสจริงจาก SAP — กันเคสที่ตอนนี้เปิด PO ไปก่อนแล้วรหัสยังไม่มา" +
+      "</span></div>";
+    h += '<div class="actions">' + icFormActions(draft) + "</div></div>";
+    return h;
+  }
+
+  function icAction(r) {
+    if (r.status === "WAIT_APPROVE" && role === "SR")
+      return '<button class="btn ok" data-ic="approve" data-id="' + esc(r.id) + '">อนุมัติ</button>';
+    if (r.status === "WAIT_LS" && role === "LS")
+      return '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">บันทึกรหัสจาก SAP</button>';
+    return "";
+  }
+  function icFormActions(r) {
+    if (r.status === "WAIT_APPROVE")
+      return role === "SR"
+        ? '<button class="btn ok" data-ic="approve" data-id="' + esc(r.id) + '">อนุมัติ (SR Head)</button>' +
+          '<button class="btn bad" data-ic="reject" data-id="' + esc(r.id) + '">ไม่อนุมัติ</button>'
+        : '<span class="hint">รอ SR Head อนุมัติ</span>';
+    if (r.status === "WAIT_LS")
+      return role === "LS"
+        ? '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">บันทึกรหัสจาก SAP</button>'
+        : '<span class="hint">รอ Logistics เปิดรหัสใน SAP</span>';
+    if (r.status === "DONE") return '<span class="hint">เปิดรหัสแล้ว: ' + esc(r.sap) + "</span>";
+    return '<span class="hint">—</span>';
+  }
+
+  /* ---------------- หน้า: เคลม / ร้องเรียน ---------------- */
+  function viewClaims() {
+    let h = "<h2>เคลม / ใบแจ้งการร้องเรียนและการคืนสินค้า</h2>" +
+      '<p class="sub">รวมสองเรื่องที่ตอนนี้แยกกัน — <b>ลูกค้าร้องเรียน</b> (ฟอร์ม QC-F006) ' +
+      "และ <b>ตรวจรับไม่ผ่าน</b> ที่ต้องเคลมกับซัพ ใช้ใบเดียวกันเพราะปลายทางเหมือนกันคือใบลดหนี้</p>";
+
+    h += '<div class="panel"><h3>รายการเคลม<span class="c">' + CLAIMS.length + " ใบ</span></h3>" +
+      '<div class="tablewrap"><table><thead><tr><th>เลขที่</th><th>ที่มา</th><th>สินค้า / Lot</th>' +
+      "<th>อ้างอิง</th><th>จำนวน</th><th>ผล QC</th><th>ขั้นตอน</th></tr></thead><tbody>";
+    CLAIMS.forEach(c => {
+      h += '<tr class="click" data-claim="' + esc(c.id) + '">' +
+        '<td><span class="did">' + esc(c.id) + "</span></td>" +
+        "<td>" + (c.src === "CUSTOMER"
+          ? '<span class="pill" style="color:var(--ac)">ลูกค้าร้องเรียน</span>'
+          : '<span class="pill" style="color:var(--qc)">ตรวจรับไม่ผ่าน</span>') + "</td>" +
+        "<td>" + esc(c.item) + '<br><span class="mono" style="font-size:11px;color:var(--ink-3)">' + esc(c.lot) + "</span></td>" +
+        '<td class="mono" style="font-size:12px">' +
+          (c.src === "CUSTOMER" ? "PI " + esc(c.pi) + "<br>DN " + esc(c.dn)
+                                : "PO " + esc(c.supPo) + "<br>" + esc(c.deal)) + "</td>" +
+        '<td class="num">' + esc(c.qty) + " " + esc(c.uom) + "</td>" +
+        "<td>" + (c.qcResult === "FAIL"
+          ? '<span class="pill late">ไม่ผ่าน</span>' : '<span class="pill ok">ผ่าน</span>') + "</td>" +
+        '<td><span class="pill due">ส่วนที่ 3 — เคลมกับผู้ขาย</span></td></tr>';
+    });
+    h += "</tbody></table></div></div>";
+
+    if (!openClaim) {
+      h += '<div class="note warn"><span class="ic">▸</span><span>กดที่แถวเพื่อดูใบเคลมเต็มรูปแบบ</span></div>';
+      return h;
+    }
+    return h + claimDetail(CLAIMS.filter(c => c.id === openClaim)[0]);
+  }
+
+  function claimDetail(c) {
+    if (!c) return "";
+    const F = (k, v) => '<div class="docrow"><span class="nm" style="flex:0 0 40%;color:var(--ink-3)">' +
+      esc(k) + '</span><span class="nm"><b>' + esc(v || "—") + "</b></span></div>";
+
+    let h = '<div class="panel"><h3>' + esc(c.id) +
+      ' — ตามแบบฟอร์ม QC-F006-V00<span class="c">' + (c.src === "CUSTOMER" ? "External" : "Incoming") + "</span></h3>";
+
+    h += '<div class="note good"><span class="ic">1</span><span><b>ส่วนที่ 1 — การร้องเรียน</b> ' +
+      (c.src === "CUSTOMER" ? "ผู้ดำเนินการ: Sales Coordinator" : "สร้างอัตโนมัติจากผลตรวจรับของ QC") + "</span></div>";
+    if (c.src === "CUSTOMER") {
+      h += F("ประเภทกลุ่มสินค้า", c.group) +
+        F("ชื่อผู้ขาย", c.seller + " · " + c.unit + " · " + c.pos) +
+        F("ชื่อลูกค้า", c.cust) + F("เลขที่ PI", c.pi) + F("เลขที่ DN", c.dn) +
+        F("วันที่ซื้อสินค้า", c.buyDate);
+    } else {
+      h += F("ที่มา", "ตรวจรับไม่ผ่าน — ดีล " + c.deal) + F("PO ซัพพลายเออร์", c.supPo) + F("ผู้ขาย", c.supplier);
+    }
+    h += F("ชื่อสินค้า / แบรนด์", c.item + " · " + c.brand) + F("Lot / Item", c.lot) +
+      F("คลัง / Packing", c.wh + " · " + c.pack) +
+      F("จำนวนที่พบปัญหา", c.qty + " " + c.uom + " · " + c.kg + " กก.") +
+      F("อธิบายลักษณะสินค้า", c.desc) + F("สถานที่ทำการตรวจสินค้า", c.place);
+
+    h += '<div class="note good"><span class="ic">2</span><span><b>ส่วนที่ 2 — ผลการตรวจสินค้า</b> ผู้ดำเนินการ: QC</span></div>';
+    h += F("ประเภทรถขนส่งสินค้าคืน", c.truck) +
+      F("ผลการตรวจสอบจาก QC", c.qcResult === "FAIL" ? "ไม่ผ่าน → ดำเนินการส่วนที่ 3" : "ผ่าน") +
+      F("หมายเหตุ", c.qcNote) + F("ลูกค้าขอเอกสารร้องเรียน", c.custWantsDoc) +
+      F("รูปหลักฐานแนบ", c.photos + " รูป");
+
+    h += '<div class="note ' + (c.qcResult === "FAIL" ? "bad" : "good") + '"><span class="ic">3</span><span>' +
+      "<b>ส่วนที่ 3 — การเคลมกับผู้ขาย</b> " +
+      (c.qcResult === "FAIL"
+        ? "ผู้ดำเนินการ: SR + Procurement Manager · ปลายทางคือ<b>ใบลดหนี้จากซัพ</b> ซึ่งจะปลดล็อกการจ่ายเงินให้เอง"
+        : "ไม่ต้องดำเนินการ") + "</span></div>";
+    h += F("ผู้ขายที่เคลม", c.supplier) +
+      F("สถานะการเคลม", "รอใบลดหนี้จากซัพ") +
+      F("ผลต่อการจ่ายเงิน", c.deal ? "ล็อกการจ่าย " + c.qty + " " + c.uom + " ในดีล " + c.deal : "ไม่กระทบ (ฝั่งขาย)");
+
+    h += '<div class="note warn"><span class="ic">!</span><span>' +
+      "<b>INSPECTION REPORT ไม่ต้องพิมพ์ใหม่</b> — ระบบสร้าง PDF ตามฟอร์มเดิม (Po Ref No., Supplier, " +
+      "Sampling plan, Inspection Location, Defect Details, ลงนาม QC + Procurement Manager) " +
+      "จากข้อมูลที่ QC กรอกไปแล้วในส่วนที่ 2</span></div>";
+
+    h += '<div class="actions">';
+    if (role === "QC") h += '<button class="btn pri" data-cl="report">สร้าง Inspection Report (PDF)</button>';
+    if (role === "SR") h += '<button class="btn pri" data-cl="tosup">ส่งใบเคลมให้ผู้ขาย</button>';
+    if (role === "AC") h += '<button class="btn ok" data-cl="cn">บันทึกใบลดหนี้ที่ได้รับ</button>';
+    h += '<span class="hint">ลายเซ็น 5 ตำแหน่งตามฟอร์มเดิมเก็บเป็นหลักฐานอิเล็กทรอนิกส์ในระบบ</span></div>';
+
+    h += '<div class="tl">';
+    c.tl.slice().reverse().forEach(e => {
+      h += '<div class="e"><time>' + esc(e[0]) + "</time><div><b>" + esc(e[1]) + "</b> " + esc(e[2]) + "</div></div>";
+    });
+    h += "</div></div>";
+    return h;
+  }
+
+  /* ---------------- หน้า: เอกสารเก็บที่ไหน ---------------- */
+  function viewFiles() {
+    let h = "<h2>เอกสารทั้งหมดเก็บไว้ที่ไหน</h2>" +
+      '<p class="sub">คำตอบสั้น: <b>ไฟล์อยู่ใน Google Drive · ทะเบียนอยู่ในระบบ</b> — ' +
+      "คนไม่ต้องเข้า Drive เอง เข้าผ่านหน้าดีล/ใบเคลมเท่านั้น</p>";
+
+    h += '<div class="panel"><h3>โครงโฟลเดอร์</h3><div class="tl" style="max-height:none">' +
+      '<pre style="margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.7;overflow-x:auto">' +
+esc(`/MGS-DocHub/            (Shared Drive ของบริษัท ไม่ใช่ My Drive ของใคร)
+├── 01_Deals/2026/07/D-26-0042_4500012345/
+│   ├── 01_PI/            PI จากซัพ
+│   ├── 02_PO/            PO ที่เซ็นครบแล้วเท่านั้น
+│   ├── 03_QC/            ผลตรวจรับ + รูป
+│   ├── 04_GR/            GR จาก SAP
+│   ├── 05_Invoice/       ใบแจ้งหนี้ + ใบลดหนี้
+│   └── 06_Payment/       สลิป Swift ใบเสร็จตัวจริง
+├── 02_Claims/2026/EX-2026001/
+│   ├── ใบร้องเรียน QC-F006 (ระบบสร้าง)
+│   ├── Inspection Report (ระบบสร้าง)
+│   ├── รูปหลักฐาน
+│   └── ใบลดหนี้จากซัพ
+├── 03_ItemCodes/2026/IC-26-0007/
+│   └── ใบขอเปิดรหัส (ระบบสร้าง)
+├── 04_Suppliers/{รหัสซัพ}/   สัญญา ใบรับรอง
+└── 05_Archive/2026/          ดีลที่ปิดเกิน 30 วัน ย้ายมาเอง`) +
+      "</pre></div></div>";
+
+    h += '<div class="panel"><h3>กฎการจัดเก็บ</h3>';
+    [["ไฟล์อยู่ที่เดียว", "ไม่มีการก๊อปไฟล์ข้ามโฟลเดอร์ ถ้าต้องอ้างถึงใช้ลิงก์ — ก๊อปแล้วสองใบจะไม่ตรงกัน"],
+     ["ระบบตั้งชื่อไฟล์ให้เอง", "PO_D-26-0042_4500012345_v1_20260730.pdf — ไม่ฝากไว้กับวินัยคน"],
+     ["อัพทับได้ เก็บทุก version", "ของเก่าไม่หาย แต่ที่แสดงคือฉบับล่าสุด"],
+     ["คนไม่ต้องเข้า Drive", "เข้าผ่านหน้าดีลหรือใบเคลม ระบบเปิดสิทธิ์ให้เฉพาะที่เกี่ยวข้อง"],
+     ["ทะเบียนคือความจริง ไม่ใช่โฟลเดอร์", "ระบบรู้ว่าใบไหนมี/ขาด จากทะเบียน ไม่ใช่จากการไล่ดูโฟลเดอร์"],
+     ["ไดรฟ์ M: เดิม", "ย้ายของเก่ามาเป็นล็อต แล้วตั้งเป็น read-only เพื่อไม่ให้เกิดสองแหล่งความจริง"]
+    ].forEach(x => {
+      h += '<div class="docrow"><span class="nm" style="flex:0 0 34%"><b>' + esc(x[0]) +
+        '</b></span><span class="nm" style="color:var(--ink-2)">' + esc(x[1]) + "</span></div>";
+    });
+    h += "</div>";
+
+    h += '<div class="note warn"><span class="ic">▸</span><span>' +
+      "<b>ใบร้องเรียนลูกค้าไม่ได้อยู่ใต้ PO</b> เพราะอ้าง PI/DN ฝั่งขาย จึงแยกเป็น <span class=\"mono\">02_Claims/</span> " +
+      "แล้วลิงก์ไปหาดีลฝั่งซื้อเฉพาะตอนที่เคลมกลับไปหาซัพ</span></div>";
+    return h;
+  }
+
   /* ---------------- หน้า: คอขวด ---------------- */
   function viewBottleneck() {
     const agg = {};
@@ -574,7 +825,10 @@
            '<span class="hint">ผู้ขออนุมัติเองไม่ได้</span>';
     } else if (st.c === "QC_INCOMING") {
       h += '<button class="btn ok" data-act="qcpass">บันทึกผล — ผ่าน</button>' +
-           '<button class="btn bad" data-act="qcfail">ไม่ผ่าน (เปิดเคลม)</button>';
+           '<button class="btn bad" data-act="qcfail">ไม่ผ่าน → เปิดใบเคลม</button>';
+    } else if (st.c === "ITEM_CODE") {
+      h += '<button class="btn pri" data-act="goic">ไปหน้าขอเปิดรหัสสินค้า</button>' +
+           '<span class="hint">ดีลจะเดินต่อไม่ได้จนกว่ารหัสจริงจาก SAP จะกลับมา</span>';
     } else {
       h += '<button class="btn pri" data-act="done">ทำขั้นตอนนี้เสร็จ</button>' +
            '<span class="hint">' + esc(st.n) + "</span>";
@@ -612,7 +866,42 @@
     if (roleBtn) { role = roleBtn.dataset.role; render(); return; }
 
     const tab = ev.target.closest("#tabs button");
-    if (tab) { view = tab.dataset.view; openDeal = null; render(); return; }
+    if (tab) { view = tab.dataset.view; openDeal = null; openClaim = null; render(); return; }
+
+    const clRow = ev.target.closest("[data-claim]");
+    if (clRow) { openClaim = clRow.dataset.claim; view = "claims"; render(); return; }
+
+    const ic = ev.target.closest("[data-ic]");
+    if (ic) {
+      const r = ITEMREQS.filter(x => x.id === ic.dataset.id)[0];
+      if (!r) return;
+      if (ic.dataset.ic === "approve") {
+        r.status = "WAIT_LS";
+        toast("อนุมัติแล้ว — ส่งเข้าคิว Logistics ให้เปิดรหัสใน SAP โดยไม่ต้องเดินเอกสาร");
+      } else if (ic.dataset.ic === "reject") {
+        r.status = "REJECTED"; toast("ตีกลับให้ผู้ขอพร้อมเหตุผล");
+      } else if (ic.dataset.ic === "sap") {
+        r.status = "DONE";
+        r.sap = "FG-" + Math.floor(1000 + Math.random() * 8999);
+        toast("บันทึกรหัส " + r.sap + " แล้ว — ดีล " + (r.deal || "-") + " เดินต่อได้");
+      }
+      render(); return;
+    }
+
+    const cl = ev.target.closest("[data-cl]");
+    if (cl) {
+      const c = CLAIMS.filter(x => x.id === openClaim)[0];
+      const a = cl.dataset.cl;
+      if (a === "report") { c.tl.push(["วันนี้", ROLES[role].person, "สร้าง Inspection Report จากผลตรวจในระบบ"]); toast("สร้าง Inspection Report แล้ว — ไม่ต้องพิมพ์ซ้ำ"); }
+      if (a === "tosup") { c.tl.push(["วันนี้", ROLES[role].person, "ส่งใบเคลม + Inspection Report ให้ผู้ขาย"]); toast("ส่งให้ผู้ขายแล้ว พร้อมรูปหลักฐาน"); }
+      if (a === "cn") {
+        c.tl.push(["วันนี้", ROLES[role].person, "บันทึกใบลดหนี้จากผู้ขาย"]);
+        const d = DEALS.filter(x => x.id === c.deal)[0];
+        if (d) { d.claim = false; d.tl.push(["วันนี้", "ระบบ", "ได้รับใบลดหนี้ — ปลดล็อกการจ่ายเงิน"]); }
+        toast("ปลดล็อกการจ่ายเงินให้อัตโนมัติแล้ว");
+      }
+      render(); return;
+    }
 
     if (ev.target.closest("[data-back]")) { view = "queue"; openDeal = null; render(); return; }
 
@@ -635,11 +924,26 @@
     if (a === "approve") advance(d, "อนุมัติ PO");
     else if (a === "reject") { d.tl.push(["30 ก.ค.", ROLES[role].person, "ไม่อนุมัติ — ตีกลับให้ SR แก้"]); toast("ตีกลับให้ SR พร้อมเหตุผลแล้ว"); }
     else if (a === "qcpass") advance(d, "บันทึกผลตรวจรับ — ผ่าน");
+    else if (a === "goic") { view = "itemcodes"; render(); return; }
     else if (a === "qcfail") {
       d.claim = true;
+      const cid = "CL-26-" + String(1000 + CLAIMS.length).slice(1);
       d.tl.push(["30 ก.ค.", ROLES[role].person, "บันทึกผลตรวจรับ — ไม่ผ่าน"]);
-      d.tl.push(["30 ก.ค.", "ระบบ", "เปิดเรื่องเคลม + ล็อกการจ่ายเงิน + แจ้ง SR และ AC"]);
-      toast("เปิดเรื่องเคลมและล็อกการจ่ายเงินให้แล้ว — SR และ AC ได้รับแจ้งเตือน");
+      d.tl.push(["30 ก.ค.", "ระบบ", "เปิดใบเคลม " + cid + " + ล็อกการจ่ายเงิน + แจ้ง SR และ AC"]);
+      CLAIMS.unshift({
+        id: cid, src: "INCOMING", date: "30/07/2026", group: "Food",
+        seller: "—", unit: "—", pos: "—", cust: "—", pi: "", dn: "", buyDate: "",
+        item: d.item, brand: "—", lot: "LOT-" + d.id.slice(-4), wh: "CHOD",
+        pack: "—", qty: "40", uom: "KG", kg: "40",
+        desc: "ตรวจรับไม่ผ่านที่ห้องเย็นต้นทาง", place: "ห้องเย็นต้นทาง", truck: "ควบคุมอุณหภูมิ",
+        qcResult: "FAIL", qcNote: "บันทึกจากหน้าตรวจรับ", custWantsDoc: "ไม่ใช่",
+        supPo: d.po, supplier: d.sup, stage: "SEC3", photos: 0, deal: d.id,
+        tl: [["30 ก.ค.", ROLES[role].person, "บันทึกผลตรวจรับ — ไม่ผ่าน"],
+             ["30 ก.ค.", "ระบบ", "เปิดใบเคลมอัตโนมัติจากผลตรวจ ไม่ต้องกรอกซ้ำ"]]
+      });
+      openClaim = cid; view = "claims";
+      toast("เปิดใบเคลม " + cid + " ให้อัตโนมัติแล้ว — ล็อกการจ่ายเงินและแจ้ง SR + AC");
+      render(); return;
     } else if (a === "done") advance(d, "ทำ " + STAGES[d.stage].n + " เสร็จ");
     render();
   });
@@ -649,6 +953,9 @@
     const m = $("#main");
     if (view === "deal") m.innerHTML = viewDeal();
     else if (view === "board") m.innerHTML = viewBoard();
+    else if (view === "claims") m.innerHTML = viewClaims();
+    else if (view === "itemcodes") m.innerHTML = viewItemCodes();
+    else if (view === "files") m.innerHTML = viewFiles();
     else if (view === "bottleneck") m.innerHTML = viewBottleneck();
     else m.innerHTML = viewQueue();
     window.scrollTo({ top: 0, behavior: "instant" });

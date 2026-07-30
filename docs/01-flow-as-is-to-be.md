@@ -180,9 +180,9 @@ flowchart TD
 | 4 | `ORDER_CONFIRM` | SR | — | 1 วัน | — |
 | 5 | `PI_RECEIVED` | SR | **PI** | 2 วัน | — |
 | 6 | `ITEM_CODE` | LS | ใบขออนุมัติเพิ่มรหัส | 1 วัน | มี code ใน SAP แล้ว |
-| 7 | `PO_CREATED` | SR | **PO (SAP)** | 1 วัน | — |
+| 7 | `PO_CREATED` | SR | — (บันทึกเลข PO เท่านั้น) | 1 วัน | — |
 | 8 | `INTERNAL_APPROVAL` | SR Team → GM | PO + PI | 1 วัน | — |
-| 9 | `SUPPLIER_SIGN` | SR | **PO ที่ซัพเซ็นกลับ**, Pattern label | 3 วัน | — |
+| 9 | `SUPPLIER_SIGN` | SR | **PO ที่เซ็นครบแล้ว**, Pattern label | 3 วัน | — |
 | 10 | `DELIVERY_BOOKING` | LS | — | 1 วัน (ก่อนรับของ) | — |
 | 11 | `QC_INCOMING` | QC | **ผลตรวจรับ / RC** | 1 วัน | — |
 | 12 | `GR` | WH | **GR (SAP)** | 1 วัน | — |
@@ -204,8 +204,7 @@ flowchart TD
 | ผลตรวจตัวอย่าง | QC | ถ้ามีการดูตัวอย่าง | 2 | แนบรูปได้ |
 | PI (Proforma Invoice) | SR | ✅ | 5 | จากซัพผ่าน LINE/Email |
 | ใบขออนุมัติเพิ่มรหัสสินค้า | SR | ถ้าไม่มี code | 6 | SR Head เซ็น |
-| **PO** | SR | ✅ | 7 | พิมพ์จาก SAP |
-| **PO ที่ซัพเซ็นกลับ** | SR | ✅ | 9 | หลักฐานผูกพันกับซัพ |
+| **PO ที่เซ็นครบแล้ว** | SR | ✅ | 9 | เก็บเฉพาะใบที่เซ็นครบ — ใบที่ยังไม่เซ็นอยู่ใน SAP แล้ว |
 | Pattern label | SR | ถ้ามี | 9 | — |
 | **ผลตรวจรับ / RC** | QC | ✅ | 11 | ตรวจที่ห้องเย็นต้นทาง |
 | **GR** | WH | ✅ | 12 | พิมพ์จาก SAP |
