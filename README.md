@@ -42,7 +42,7 @@ flowchart ให้เป็นระบบจริง — แต่ละแ�
 | ไฟล์ | ใช้ทำอะไร |
 |---|---|
 | [`presentation/flow-summary.html`](presentation/flow-summary.html) | สรุป flow หน้าเดียว เปิดบนมือถือได้ |
-| [`presentation/prototype.html`](presentation/prototype.html) | **ตัวอย่างระบบกดเล่นได้** — สลับบทบาทดูหน้าจอของแต่ละแผนก ข้อมูลสมมติ ไม่ต่อ SAP จริง |
+| [`presentation/prototype.html`](presentation/prototype.html) | **ตัวอย่างระบบกดเล่นได้** — หน้าตาแบบ ERP · PO แยกกำลังดำเนินการ/เสร็จสิ้น · ค้นหา PO · จ่ายหลายงวด · เคลม · รหัสสินค้า |
 
 > เปิด `prototype.html` ในที่ประชุมแล้วให้หัวหน้าแต่ละแผนกกดบทบาทของตัวเอง จะเห็นทันทีว่า
 > หน้าจอตัวเองมีอะไร ต้องกรอกอะไร และทำไม QC/LS/WH ถึงไม่เห็นช่องราคา

@@ -1,966 +1,879 @@
 <title>MGS Document Hub — ตัวอย่างระบบ (Prototype)</title>
 
 <style>
-  :root {
-    --paper:#fff; --surface:#f1f4f6; --surface-2:#e6ebee;
-    --ink:#16202b; --ink-2:#47576a; --ink-3:#71818f;
-    --line:#d3dde3; --line-2:#b9c7d0;
-    --gold:#8f6d1c; --gold-bg:#f7f0dd; --cold:#24607d; --cold-bg:#e2eef4;
-    --go:#2c6e49; --go-bg:#e4f0e8; --warn:#a4501d; --warn-bg:#faeee3; --stop:#9c2a26; --stop-bg:#fbe9e8;
+  :root{
+    --paper:#fff; --surface:#f4f6f8; --surface-2:#e8edf1; --sidebar:#16202b;
+    --ink:#16202b; --ink-2:#47576a; --ink-3:#7a8895; --line:#dbe3e9; --line-2:#c2ced7;
+    --gold:#8f6d1c; --gold-bg:#f9f2df; --cold:#24607d; --cold-bg:#e4eff5;
+    --go:#2c6e49; --go-bg:#e6f1ea; --warn:#a4501d; --warn-bg:#fbefe4; --stop:#9c2a26; --stop-bg:#fceae9;
     --sr:#8f6d1c; --qc:#1a6a5c; --ls:#43539c; --wh:#4e5f6c; --ac:#7d3660; --gm:#47576a;
     --sans:"Leelawadee UI","Noto Sans Thai","Sarabun","IBM Plex Sans Thai","Thonburi",system-ui,-apple-system,"Segoe UI",sans-serif;
     --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Consolas,monospace;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --paper:#0e151c; --surface:#17212b; --surface-2:#1f2b37;
-      --ink:#e8eef3; --ink-2:#a9bac7; --ink-3:#7d8f9d;
-      --line:#2a3844; --line-2:#3a4b59;
-      --gold:#d7ae53; --gold-bg:#2a2213; --cold:#6cb3d4; --cold-bg:#122a36;
-      --go:#62b98a; --go-bg:#15291f; --warn:#e0925c; --warn-bg:#2e2015; --stop:#e8827d; --stop-bg:#301818;
-      --sr:#d7ae53; --qc:#46b39f; --ls:#909cdc; --wh:#93a6b4; --ac:#cd82ad; --gm:#a9bac7;
-    }
-  }
+  @media (prefers-color-scheme:dark){:root{
+    --paper:#0f161d; --surface:#151e26; --surface-2:#1e2a35; --sidebar:#0a1017;
+    --ink:#e9eff4; --ink-2:#a9bac7; --ink-3:#7c8b98; --line:#28353f; --line-2:#3a4a56;
+    --gold:#d7ae53; --gold-bg:#291f10; --cold:#6cb3d4; --cold-bg:#102734;
+    --go:#63bb8b; --go-bg:#132a1f; --warn:#e0925c; --warn-bg:#2c1f14; --stop:#e8827d; --stop-bg:#2e1717;
+    --sr:#d7ae53; --qc:#46b39f; --ls:#909cdc; --wh:#93a6b4; --ac:#cd82ad; --gm:#a9bac7;
+  }}
   :root[data-theme="dark"]{
-    --paper:#0e151c; --surface:#17212b; --surface-2:#1f2b37;
-    --ink:#e8eef3; --ink-2:#a9bac7; --ink-3:#7d8f9d; --line:#2a3844; --line-2:#3a4b59;
-    --gold:#d7ae53; --gold-bg:#2a2213; --cold:#6cb3d4; --cold-bg:#122a36;
-    --go:#62b98a; --go-bg:#15291f; --warn:#e0925c; --warn-bg:#2e2015; --stop:#e8827d; --stop-bg:#301818;
+    --paper:#0f161d; --surface:#151e26; --surface-2:#1e2a35; --sidebar:#0a1017;
+    --ink:#e9eff4; --ink-2:#a9bac7; --ink-3:#7c8b98; --line:#28353f; --line-2:#3a4a56;
+    --gold:#d7ae53; --gold-bg:#291f10; --cold:#6cb3d4; --cold-bg:#102734;
+    --go:#63bb8b; --go-bg:#132a1f; --warn:#e0925c; --warn-bg:#2c1f14; --stop:#e8827d; --stop-bg:#2e1717;
     --sr:#d7ae53; --qc:#46b39f; --ls:#909cdc; --wh:#93a6b4; --ac:#cd82ad; --gm:#a9bac7;
   }
   :root[data-theme="light"]{
-    --paper:#fff; --surface:#f1f4f6; --surface-2:#e6ebee;
-    --ink:#16202b; --ink-2:#47576a; --ink-3:#71818f; --line:#d3dde3; --line-2:#b9c7d0;
-    --gold:#8f6d1c; --gold-bg:#f7f0dd; --cold:#24607d; --cold-bg:#e2eef4;
-    --go:#2c6e49; --go-bg:#e4f0e8; --warn:#a4501d; --warn-bg:#faeee3; --stop:#9c2a26; --stop-bg:#fbe9e8;
+    --paper:#fff; --surface:#f4f6f8; --surface-2:#e8edf1; --sidebar:#16202b;
+    --ink:#16202b; --ink-2:#47576a; --ink-3:#7a8895; --line:#dbe3e9; --line-2:#c2ced7;
+    --gold:#8f6d1c; --gold-bg:#f9f2df; --cold:#24607d; --cold-bg:#e4eff5;
+    --go:#2c6e49; --go-bg:#e6f1ea; --warn:#a4501d; --warn-bg:#fbefe4; --stop:#9c2a26; --stop-bg:#fceae9;
     --sr:#8f6d1c; --qc:#1a6a5c; --ls:#43539c; --wh:#4e5f6c; --ac:#7d3660; --gm:#47576a;
   }
 
   *{box-sizing:border-box}
-  body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55}
-  button{font:inherit;color:inherit;cursor:pointer}
+  body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--sans);font-size:14.5px;line-height:1.5}
+  button,input,select{font:inherit;color:inherit}
+  button{cursor:pointer}
   .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
-  /* demo banner */
-  .demo{background:var(--gold-bg);border-bottom:1px solid var(--line);padding:8px 16px;font-size:13px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:center;text-align:center}
+  .demo{background:var(--gold-bg);color:var(--ink-2);padding:7px 16px;font-size:12.5px;text-align:center;border-bottom:1px solid var(--line)}
   .demo b{color:var(--gold)}
 
-  /* app chrome */
-  .app{max-width:1180px;margin:0 auto;background:var(--paper);min-height:100vh;border-left:1px solid var(--line);border-right:1px solid var(--line)}
-  header.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:20}
-  .brand{font-weight:800;letter-spacing:-.01em;white-space:nowrap}
-  .brand small{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--ink-3);display:block;font-weight:500;text-transform:uppercase}
-  nav.tabs{display:flex;gap:2px;flex:1;flex-wrap:wrap}
-  nav.tabs button{background:none;border:0;padding:7px 12px;border-radius:0;color:var(--ink-2);border-bottom:2px solid transparent;font-size:14px}
-  nav.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--gold);font-weight:700}
-  nav.tabs button:hover{color:var(--ink)}
-  .who{display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
-  .who .av{width:26px;height:26px;background:var(--rc);color:#fff;display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:700}
-  :root[data-theme="dark"] .who .av{color:#0e151c}
-  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .who .av{color:#0e151c}}
+  /* ---------- ERP shell ---------- */
+  .shell{display:grid;grid-template-columns:212px 1fr;min-height:100vh}
+  @media (max-width:820px){.shell{grid-template-columns:1fr}}
 
-  /* role switcher */
-  .roles{display:flex;flex-wrap:wrap;gap:6px;padding:10px 18px;background:var(--surface);border-bottom:1px solid var(--line);align-items:center}
-  .roles .lb{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-right:4px}
-  .roles button{background:var(--paper);border:1px solid var(--line-2);padding:5px 11px;font-size:13px;display:flex;align-items:center;gap:7px}
-  .roles button i{width:9px;height:9px;background:var(--rc);display:block}
-  .roles button[aria-pressed="true"]{border-color:var(--rc);color:var(--rc);font-weight:700;background:var(--paper);box-shadow:inset 0 0 0 1px var(--rc)}
+  aside{background:var(--sidebar);color:#c9d6e0;display:flex;flex-direction:column}
+  @media (max-width:820px){aside{position:sticky;top:0;z-index:30}}
+  .logo{padding:16px 18px 14px;border-bottom:1px solid rgba(255,255,255,.09)}
+  .logo b{color:#fff;font-size:16px;letter-spacing:-.01em;display:block}
+  .logo span{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#7d8fa0}
+  nav.side{padding:10px 0;display:flex;flex-direction:column}
+  @media (max-width:820px){nav.side{flex-direction:row;overflow-x:auto;padding:0}}
+  nav.side button{background:none;border:0;text-align:left;padding:10px 18px;color:#b3c3d0;
+    display:flex;align-items:center;gap:10px;font-size:14px;border-left:3px solid transparent;white-space:nowrap}
+  nav.side button:hover{color:#fff;background:rgba(255,255,255,.05)}
+  nav.side button[aria-current="page"]{color:#fff;background:rgba(255,255,255,.08);border-left-color:var(--gold);font-weight:700}
+  @media (max-width:820px){nav.side button{border-left:0;border-bottom:3px solid transparent;padding:12px 14px}
+    nav.side button[aria-current="page"]{border-left:0;border-bottom-color:var(--gold)}}
+  nav.side .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.12);padding:1px 7px;border-radius:9px}
+  @media (max-width:820px){nav.side .cnt{margin-left:6px}}
+  .sidefoot{margin-top:auto;padding:14px 18px;border-top:1px solid rgba(255,255,255,.09);font-size:11.5px;color:#7d8fa0}
+  @media (max-width:820px){.sidefoot{display:none}}
 
-  main{padding:20px 18px 60px}
-  h2{margin:0 0 4px;font-size:19px;font-weight:750}
-  .sub{margin:0 0 18px;color:var(--ink-2);font-size:14px}
+  .mainwrap{display:flex;flex-direction:column;min-width:0}
+  .topbar{background:var(--paper);border-bottom:1px solid var(--line);padding:10px 20px;
+    display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;position:sticky;top:0;z-index:20}
+  .rolepick{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .rolepick .lb{font-size:11.5px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
+  .rolepick button{background:var(--paper);border:1px solid var(--line-2);padding:4px 9px;font-size:12.5px;display:flex;align-items:center;gap:6px}
+  .rolepick button i{width:8px;height:8px;background:var(--rc);display:block}
+  .rolepick button[aria-pressed="true"]{border-color:var(--rc);color:var(--rc);font-weight:700;box-shadow:inset 0 0 0 1px var(--rc)}
+  .topbar .sp{flex:1}
+  .user{display:flex;align-items:center;gap:8px;font-size:12.5px;white-space:nowrap}
+  .user .av{width:26px;height:26px;background:var(--rc);color:#fff;display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;font-weight:700}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .user .av{color:#0f161d}}
+  :root[data-theme="dark"] .user .av{color:#0f161d}
 
-  /* stat row */
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:22px}
-  .kpi{background:var(--paper);padding:14px 16px}
-  .kpi .n{font-family:var(--mono);font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
-  .kpi .k{font-size:12.5px;color:var(--ink-2)}
-  .kpi.a .n{color:var(--gold)} .kpi.r .n{color:var(--stop)} .kpi.g .n{color:var(--go)}
+  main{padding:18px 20px 60px;min-width:0}
+  .ph{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;margin-bottom:14px}
+  .ph h1{margin:0;font-size:20px;font-weight:750}
+  .ph .d{color:var(--ink-3);font-size:13px}
 
-  /* lists / tables */
-  .panel{border:1px solid var(--line);margin-bottom:20px}
-  .panel > h3{margin:0;padding:11px 16px;font-size:13px;font-weight:700;background:var(--surface);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
-  .panel > h3 .c{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-weight:500}
-  .tablewrap{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
-  th,td{text-align:left;padding:10px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
-  thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600;background:var(--paper);white-space:nowrap}
+  /* status tabs */
+  .stabs{display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+  .stabs button{background:none;border:0;padding:9px 16px;color:var(--ink-2);border-bottom:2px solid transparent;font-size:14px;white-space:nowrap}
+  .stabs button[aria-current="true"]{color:var(--ink);border-bottom-color:var(--cold);font-weight:700}
+  .stabs .n{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-left:5px}
+
+  /* cards / kpis */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:18px}
+  .kpi{background:var(--paper);padding:12px 14px}
+  .kpi .n{font-family:var(--mono);font-size:23px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+  .kpi .k{font-size:12px;color:var(--ink-2)}
+  .kpi.a .n{color:var(--gold)} .kpi.r .n{color:var(--stop)} .kpi.g .n{color:var(--go)} .kpi.b .n{color:var(--cold)}
+
+  .card{border:1px solid var(--line);background:var(--paper);margin-bottom:16px}
+  .card>h3{margin:0;padding:10px 16px;font-size:13px;font-weight:700;background:var(--surface);
+    border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center}
+  .card>h3 .c{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);font-weight:500}
+
+  /* toolbar / search */
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;background:var(--paper);border:1px solid var(--line);margin-bottom:14px;align-items:center}
+  .toolbar input[type=search],.toolbar select{border:1px solid var(--line-2);background:var(--paper);padding:7px 10px;font-size:14px;min-width:0}
+  .toolbar input[type=search]{flex:1;min-width:180px}
+  .toolbar label{font-size:12.5px;color:var(--ink-3)}
+
+  /* table */
+  .tw{overflow-x:auto;border:1px solid var(--line);background:var(--paper)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:680px}
+  th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+  thead th{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+    font-weight:600;background:var(--surface);white-space:nowrap;position:sticky;top:0}
   tbody tr:last-child td{border-bottom:0}
   tbody tr.click{cursor:pointer}
   tbody tr.click:hover{background:var(--surface)}
-  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .did{font-family:var(--mono);font-weight:700;color:var(--cold);white-space:nowrap}
+  td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .pono{font-family:var(--mono);font-weight:700;color:var(--cold);white-space:nowrap}
+  .sub{font-size:11.5px;color:var(--ink-3)}
 
-  .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 9px;border:1px solid currentColor;white-space:nowrap;font-family:var(--mono)}
-  .pill.ok{color:var(--go);background:var(--go-bg)}
-  .pill.wait{color:var(--ink-3)}
+  .pill{display:inline-block;font-size:11.5px;padding:2px 8px;border:1px solid currentColor;white-space:nowrap;font-family:var(--mono)}
+  .pill.ok{color:var(--go);background:var(--go-bg)} .pill.wait{color:var(--ink-3)}
   .pill.late{color:var(--stop);background:var(--stop-bg);font-weight:700}
-  .pill.due{color:var(--warn);background:var(--warn-bg)}
-  .pill.claim{color:var(--stop);background:var(--stop-bg);font-weight:700}
-  .dept{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 7px;border:1px solid currentColor;white-space:nowrap}
+  .pill.due{color:var(--warn);background:var(--warn-bg)} .pill.info{color:var(--cold);background:var(--cold-bg)}
+  .dept{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:1px 6px;border:1px solid currentColor;white-space:nowrap}
 
-  .empty{padding:26px 16px;color:var(--ink-3);font-size:14px;text-align:center}
-  .mine{box-shadow:inset 3px 0 0 var(--rc)}
+  /* phase bar — ยุบ 17 ขั้นเหลือ 4 เฟส */
+  .phases{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:14px 16px}
+  @media (max-width:620px){.phases{grid-template-columns:repeat(2,1fr)}}
+  .pz{border:1px solid var(--line);padding:9px 11px;background:var(--surface)}
+  .pz .t{font-size:12.5px;font-weight:700;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .pz .m{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+  .pz .tr{height:4px;background:var(--surface-2);margin-top:7px}
+  .pz .fl{height:4px;background:var(--line-2)}
+  .pz.done{background:var(--go-bg);border-color:var(--go)} .pz.done .fl{background:var(--go)} .pz.done .t{color:var(--go)}
+  .pz.now{background:var(--cold-bg);border-color:var(--cold)} .pz.now .fl{background:var(--cold)} .pz.now .t{color:var(--cold)}
 
-  /* buttons */
-  .btn{border:1px solid var(--line-2);background:var(--paper);padding:7px 14px;font-size:13.5px;font-weight:600}
-  .btn:hover{border-color:var(--ink-3)}
-  .btn.pri{background:var(--cold);border-color:var(--cold);color:#fff}
-  :root[data-theme="dark"] .btn.pri{color:#0e151c}
-  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.pri{color:#0e151c}}
-  .btn.ok{background:var(--go);border-color:var(--go);color:#fff}
-  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.ok{color:#0e151c}}
-  :root[data-theme="dark"] .btn.ok{color:#0e151c}
-  .btn.bad{color:var(--stop);border-color:var(--stop)}
-  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-  .actions{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px;background:var(--surface);border-top:1px solid var(--line)}
-  .actions .hint{font-size:13px;color:var(--ink-3);align-self:center}
+  /* detail header */
+  .dh{border:1px solid var(--line);background:var(--paper);margin-bottom:16px}
+  .dh .top{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;padding:14px 16px 10px}
+  .dh .top .n{font-family:var(--mono);font-size:19px;font-weight:700;color:var(--cold)}
+  .dh .top .t{font-size:16px;font-weight:700}
+  .dh .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--line);border-top:1px solid var(--line)}
+  .dh .f{background:var(--paper);padding:9px 16px}
+  .dh .f .k{font-size:11px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em}
+  .dh .f .v{font-size:14px;font-weight:600;margin-top:1px}
 
-  /* deal detail */
-  .back{background:none;border:0;padding:0;color:var(--cold);font-size:14px;margin-bottom:12px}
-  .dhead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:6px}
-  .dhead .t{font-size:21px;font-weight:750}
-  .dmeta{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px;color:var(--ink-2);margin-bottom:18px}
-  .dmeta b{color:var(--ink);font-weight:600}
-  .grid2{display:grid;grid-template-columns:1fr;gap:20px}
-  @media (min-width:900px){.grid2{grid-template-columns:1.35fr 1fr}}
+  .rowline{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line);font-size:13.5px}
+  .rowline:last-of-type{border-bottom:0}
+  .rowline .nm{flex:1;min-width:0}
+  .rowline.miss{background:var(--warn-bg)}
 
-  .railwrap{overflow-x:auto;padding:14px 16px}
-  .rail{display:flex;min-width:820px}
-  .st{flex:1 1 0;min-width:60px;padding-right:6px;display:flex;flex-direction:column;gap:5px}
-  .st .b{height:5px;background:var(--line-2)}
-  .st.done .b{background:var(--go)}
-  .st.now .b{background:var(--cold)}
-  .st.skip .b{background:repeating-linear-gradient(90deg,var(--line-2) 0 3px,transparent 3px 6px)}
-  .st .n{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
-  .st .m{font-size:11px;line-height:1.3;color:var(--ink-3)}
-  .st.done .m{color:var(--ink-2)}
-  .st.now .m{color:var(--cold);font-weight:700}
-
-  .docrow{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line);font-size:14px}
-  .docrow:last-of-type{border-bottom:0}
-  .docrow .nm{flex:1;min-width:0}
-  .docrow .nm small{display:block;font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
-  .docrow.miss{background:var(--warn-bg)}
-
-  .tl{padding:10px 16px;display:flex;flex-direction:column;gap:0;max-height:340px;overflow-y:auto}
-  .tl .e{display:grid;grid-template-columns:74px 1fr;gap:10px;padding:7px 0;border-bottom:1px dotted var(--line);font-size:13px}
-  .tl .e:last-child{border-bottom:0}
-  .tl .e time{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
-  .tl .e b{font-weight:700}
-
-  .note{display:flex;gap:12px;padding:12px 16px;font-size:13.5px;border-top:1px solid var(--line)}
-  .note.warn{background:var(--warn-bg);color:var(--warn)}
-  .note.bad{background:var(--stop-bg);color:var(--stop)}
-  .note.good{background:var(--go-bg);color:var(--go)}
+  .note{display:flex;gap:10px;padding:11px 16px;font-size:13px;border-top:1px solid var(--line)}
+  .note.warn{background:var(--warn-bg);color:var(--warn)} .note.bad{background:var(--stop-bg);color:var(--stop)}
+  .note.good{background:var(--go-bg);color:var(--go)} .note.info{background:var(--cold-bg);color:var(--cold)}
   .note .ic{font-family:var(--mono);font-weight:700}
 
-  /* bottleneck bars */
-  .bars{padding:6px 16px 16px}
-  .bar{display:grid;grid-template-columns:150px 1fr 76px;gap:12px;align-items:center;padding:8px 0;font-size:13.5px}
-  @media (max-width:640px){.bar{grid-template-columns:110px 1fr 64px;gap:8px;font-size:12.5px}}
-  .bar .tr{height:16px;background:var(--surface-2)}
-  .bar .fl{height:16px;background:var(--cold)}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;background:var(--surface);border-top:1px solid var(--line);align-items:center}
+  .actions .hint{font-size:12.5px;color:var(--ink-3)}
+  .btn{border:1px solid var(--line-2);background:var(--paper);padding:6px 13px;font-size:13px;font-weight:600}
+  .btn:hover{border-color:var(--ink-3)}
+  .btn.pri{background:var(--cold);border-color:var(--cold);color:#fff}
+  .btn.ok{background:var(--go);border-color:var(--go);color:#fff}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.pri,:root:not([data-theme="light"]) .btn.ok{color:#0f161d}}
+  :root[data-theme="dark"] .btn.pri,:root[data-theme="dark"] .btn.ok{color:#0f161d}
+  .btn.bad{color:var(--stop);border-color:var(--stop)}
+  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .back{background:none;border:0;padding:0 0 10px;color:var(--cold);font-size:13.5px}
+
+  .tl{padding:8px 16px;max-height:300px;overflow-y:auto}
+  .tl .e{display:grid;grid-template-columns:78px 1fr;gap:10px;padding:6px 0;border-bottom:1px dotted var(--line);font-size:13px}
+  .tl .e:last-child{border-bottom:0}
+  .tl .e time{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+
+  .steps{padding:8px 16px}
+  .step{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dotted var(--line);font-size:13.5px}
+  .step:last-child{border-bottom:0}
+  .step .i{font-family:var(--mono);font-size:11px;color:var(--ink-3);text-align:right}
+  .step.done .nm{color:var(--ink-2)} .step.done .i{color:var(--go)}
+  .step.now{font-weight:700;color:var(--cold)}
+  .step.skip{color:var(--ink-3);text-decoration:line-through}
+
+  .bars{padding:6px 16px 14px}
+  .bar{display:grid;grid-template-columns:150px 1fr 84px;gap:10px;align-items:center;padding:7px 0;font-size:13px}
+  @media (max-width:640px){.bar{grid-template-columns:104px 1fr 66px;font-size:12px}}
+  .bar .tr{height:14px;background:var(--surface-2)} .bar .fl{height:14px;background:var(--cold)}
   .bar.r .fl{background:var(--stop)}
-  .bar .v{font-family:var(--mono);font-size:12px;text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .bar .v{font-family:var(--mono);font-size:11.5px;text-align:right;color:var(--ink-2)}
 
-  /* lark preview */
-  .lark{margin:0 16px 16px;border:1px solid var(--line);background:var(--surface);padding:0;max-width:420px}
-  .lark .h{padding:8px 12px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
-  .lark .bd{padding:12px;font-size:13.5px}
-  .lark .bd .ti{font-weight:700;margin-bottom:6px}
-  .lark .bd dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px}
-  .lark .bd dt{color:var(--ink-3)} .lark .bd dd{margin:0}
-  .lark .btns{display:flex;gap:6px;padding:0 12px 12px}
-  .lark .btns span{font-size:12.5px;border:1px solid var(--line-2);padding:4px 12px;color:var(--ink-2)}
-
-  /* toast */
-  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--paper);padding:11px 18px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:90vw;text-align:center}
+  .empty{padding:28px 16px;color:var(--ink-3);text-align:center;font-size:13.5px}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(8px);background:var(--ink);
+    color:var(--paper);padding:10px 18px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:92vw;text-align:center}
   #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
   @media (prefers-reduced-motion:reduce){#toast{transition:none}}
-  .hidden{display:none !important}
 </style>
 
 <div class="demo">
-  <span><b>ตัวอย่างระบบ (Prototype)</b> — ข้อมูลสมมติ กดเล่นได้ ยังไม่เชื่อมกับ SAP หรือ Google Sheet จริง</span>
-  <span>·  ลองกดเปลี่ยน <b>บทบาท</b> เพื่อดูหน้าจอของแผนกตัวเอง</span>
+  <b>ตัวอย่างระบบ</b> — ข้อมูลสมมติ กดเล่นได้ ยังไม่เชื่อม SAP จริง · ลองเปลี่ยน <b>บทบาท</b> เพื่อดูหน้าจอของแผนกตัวเอง
 </div>
 
-<div class="app">
-  <header class="bar">
-    <div class="brand">MGS DocHub<small>document hub</small></div>
-    <nav class="tabs" id="tabs">
-      <button data-view="queue" aria-current="page">คิวของฉัน</button>
-      <button data-view="board">ทุกดีล</button>
-      <button data-view="claims">เคลม / ร้องเรียน</button>
-      <button data-view="itemcodes">รหัสสินค้า</button>
-      <button data-view="files">เอกสารเก็บที่ไหน</button>
-      <button data-view="bottleneck">คอขวด</button>
-    </nav>
-    <div class="who" id="who"></div>
-  </header>
+<div class="shell">
+  <aside>
+    <div class="logo"><b>MGS DocHub</b><span>procure to pay</span></div>
+    <nav class="side" id="nav"></nav>
+    <div class="sidefoot">SAP ยังเป็นระบบหลัก<br>ที่นี่คือเอกสารและสถานะ</div>
+  </aside>
 
-  <div class="roles" id="roles"><span class="lb">บทบาท</span></div>
-
-  <main id="main"></main>
+  <div class="mainwrap">
+    <div class="topbar">
+      <div class="rolepick" id="roles"><span class="lb">บทบาท</span></div>
+      <span class="sp"></span>
+      <div class="user" id="user"></div>
+    </div>
+    <main id="main"></main>
+  </div>
 </div>
-
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (function () {
   "use strict";
 
-  /* ---------------- ข้อมูลตัวอย่าง ---------------- */
+  /* ================= ข้อมูลตัวอย่าง ================= */
 
   const ROLES = {
-    SR: { name: "Sourcing", person: "คุณสมชาย", init: "สช", money: true,  v: "--sr" },
-    QC: { name: "QC",         person: "คุณสมหญิง", init: "สญ", money: false, v: "--qc" },
-    LS: { name: "Logistics",  person: "คุณอนุชา",  init: "อช", money: false, v: "--ls" },
-    WH: { name: "Warehouse",  person: "คุณประเสริฐ", init: "ปส", money: false, v: "--wh" },
-    AC: { name: "Accounting", person: "คุณวิภา",   init: "วภ", money: true,  v: "--ac" },
-    GM: { name: "GM",         person: "คุณผู้จัดการ", init: "GM", money: true,  v: "--gm" }
+    SR:{name:"จัดซื้อ", en:"Sourcing",   person:"คุณสมชาย",   init:"สช", money:true,  v:"--sr"},
+    QC:{name:"QC",      en:"Quality",    person:"คุณสมหญิง",  init:"สญ", money:false, v:"--qc"},
+    LS:{name:"โลจิสติกส์",en:"Logistics", person:"คุณอนุชา",   init:"อช", money:false, v:"--ls"},
+    WH:{name:"คลังสินค้า",en:"Warehouse", person:"คุณประเสริฐ",init:"ปส", money:false, v:"--wh"},
+    AC:{name:"บัญชี",   en:"Accounting", person:"คุณวิภา",    init:"วภ", money:true,  v:"--ac"},
+    GM:{name:"ผู้บริหาร",en:"GM",        person:"คุณผู้จัดการ",init:"GM", money:true,  v:"--gm"}
   };
 
-  // 17 ขั้นตอน — owner คือแผนกที่ต้องลงมือ
+  // 4 เฟส ครอบ 17 ขั้น — ผู้ใช้เห็นเฟสก่อน ค่อยเจาะดูขั้นย่อย
+  const PHASES = [
+    { code:"BUY",  name:"จัดซื้อ",   from:0,  to:8  },
+    { code:"RECV", name:"รับของ",    from:9,  to:11 },
+    { code:"AP",   name:"ตั้งหนี้",  from:12, to:13 },
+    { code:"PAY",  name:"จ่าย / ปิด", from:14, to:16 }
+  ];
+
   const STAGES = [
-    { c: "PRICE_REQUEST",     n: "เช็คราคา",          o: "SR", sla: 24 },
-    { c: "SAMPLE_CHECK",      n: "ตรวจตัวอย่าง",      o: "QC", sla: 48, skippable: true },
-    { c: "GM_DECISION",       n: "GM ตัดสินใจ",       o: "GM", sla: 24, skippable: true },
-    { c: "ORDER_CONFIRM",     n: "คอนเฟิร์มออเดอร์",  o: "SR", sla: 24 },
-    { c: "PI_RECEIVED",       n: "รับ PI",            o: "SR", sla: 48 },
-    { c: "ITEM_CODE",         n: "เปิดรหัสสินค้า",     o: "LS", sla: 24, skippable: true },
-    { c: "PO_CREATED",        n: "เปิด PO ใน SAP",    o: "SR", sla: 24 },
-    { c: "INTERNAL_APPROVAL", n: "อนุมัติภายใน",       o: "GM", sla: 24 },
-    { c: "SUPPLIER_SIGN",     n: "ซัพเซ็น PO กลับ",   o: "SR", sla: 72 },
-    { c: "DELIVERY_BOOKING",  n: "จองรถรับของ",       o: "LS", sla: 24 },
-    { c: "QC_INCOMING",       n: "ตรวจรับห้องเย็น",   o: "QC", sla: 24 },
-    { c: "GR",                n: "รับเข้าคลัง + GR",  o: "WH", sla: 24 },
-    { c: "INVOICE_RECEIVED",  n: "รับใบแจ้งหนี้",     o: "AC", sla: 72 },
-    { c: "DOC_HANDOVER",      n: "ส่งมอบเอกสาร",      o: "SR", sla: 24 },
-    { c: "PAYMENT",           n: "ทำจ่าย",            o: "AC", sla: 48 },
-    { c: "RECEIPT_ORIGINAL",  n: "ใบเสร็จตัวจริง",    o: "AC", sla: 336 },
-    { c: "AC_CLOSE",          n: "3-way + ปิดรายการ", o: "AC", sla: 48 }
+    {c:"PRICE_REQUEST",    n:"เช็คราคา",           o:"SR", sla:24},
+    {c:"SAMPLE_CHECK",     n:"ตรวจตัวอย่าง",       o:"QC", sla:48},
+    {c:"GM_DECISION",      n:"ผู้บริหารตัดสินใจ",  o:"GM", sla:24},
+    {c:"ORDER_CONFIRM",    n:"คอนเฟิร์มออเดอร์",   o:"SR", sla:24},
+    {c:"PI_RECEIVED",      n:"รับ PI จากผู้ขาย",   o:"SR", sla:48},
+    {c:"ITEM_CODE",        n:"เปิดรหัสสินค้า",     o:"LS", sla:24},
+    {c:"PO_CREATED",       n:"เปิด PO ใน SAP",     o:"SR", sla:24},
+    {c:"INTERNAL_APPROVAL",n:"อนุมัติภายใน",       o:"GM", sla:24},
+    {c:"SUPPLIER_SIGN",    n:"ผู้ขายเซ็น PO กลับ", o:"SR", sla:72},
+    {c:"DELIVERY_BOOKING", n:"จองรถรับของ",        o:"LS", sla:24},
+    {c:"QC_INCOMING",      n:"QC ตรวจรับ",         o:"QC", sla:24},
+    {c:"GR",               n:"รับเข้าคลัง + GR",   o:"WH", sla:24},
+    {c:"INVOICE_RECEIVED", n:"รับใบแจ้งหนี้",      o:"AC", sla:72},
+    {c:"DOC_HANDOVER",     n:"ส่งมอบเอกสาร",       o:"SR", sla:24},
+    {c:"PAYMENT",          n:"ทำจ่าย",             o:"AC", sla:48},
+    {c:"RECEIPT_ORIGINAL", n:"ใบเสร็จตัวจริง",     o:"AC", sla:336},
+    {c:"AC_CLOSE",         n:"ตรวจ 3 ทาง + ปิด",   o:"AC", sla:48}
   ];
 
-  // เอกสาร: ผูกกับขั้นตอน + แผนกเจ้าของ
+  // เอกสาร (สลิปไม่อยู่ตรงนี้ เพราะผูกกับ "งวดจ่าย" ไม่ใช่ผูกกับ PO)
   const DOCS = [
-    { c: "SAMPLE_QC", n: "ผลตรวจตัวอย่าง",       o: "QC", at: 1,  req: false },
-    { c: "PI",        n: "PI (Proforma Invoice)", o: "SR", at: 4,  req: true },
-    { c: "CODE_REQ",  n: "ใบขออนุมัติเพิ่มรหัส",  o: "SR", at: 5,  req: false },
-    { c: "PO_SIGNED", n: "PO ที่เซ็นครบแล้ว",     o: "SR", at: 8,  req: true },
-    { c: "LABEL",     n: "Pattern label",         o: "SR", at: 8,  req: false, off: true },
-    { c: "QC_RC",     n: "ผลตรวจรับ / RC",        o: "QC", at: 10, req: true },
-    { c: "GR",        n: "GR",                    o: "WH", at: 11, req: true },
-    { c: "INVOICE",   n: "ใบแจ้งหนี้",            o: "AC", at: 12, req: true },
-    { c: "CREDIT",    n: "ใบลดหนี้",              o: "AC", at: 12, req: false, claimOnly: true },
-    { c: "SLIP",      n: "สลิป / Swift",          o: "AC", at: 14, req: true },
-    { c: "RECEIPT",   n: "ใบเสร็จรับเงินตัวจริง", o: "AC", at: 15, req: true }
+    {c:"PI",        n:"PI จากผู้ขาย",       o:"SR", at:4,  req:true},
+    {c:"PO_SIGNED", n:"PO ที่เซ็นครบแล้ว",  o:"SR", at:8,  req:true},
+    {c:"QC_RC",     n:"ผลตรวจรับ / RC",     o:"QC", at:10, req:true},
+    {c:"GR",        n:"GR จาก SAP",         o:"WH", at:11, req:true},
+    {c:"INVOICE",   n:"ใบแจ้งหนี้",         o:"AC", at:12, req:true},
+    {c:"RECEIPT",   n:"ใบเสร็จตัวจริง",     o:"AC", at:15, req:true}
   ];
 
-  let DEALS = [
-    { id:"D-26-0042", po:"4500012345", sup:"ABC Foods", item:"กุ้งแช่แข็ง 16/20", qty:"500 KG",
-      amt:130000, stage:10, age:26, sr:"คุณสมชาย", skip:[5], claim:false,
-      tl:[["28 ก.ค. 09:12","คุณสมชาย","สร้างดีล"],["28 ก.ค. 14:40","คุณสมชาย","อัพโหลด PI"],
-          ["29 ก.ค. 10:05","คุณสมชาย","กรอกเลข PO 4500012345"],["29 ก.ค. 11:20","คุณผู้จัดการ","อนุมัติ PO"],
-          ["29 ก.ค. 16:02","คุณสมชาย","อัพโหลด PO ที่ซัพเซ็นกลับ"],["30 ก.ค. 08:30","คุณอนุชา","จองรถรับของ 31 ก.ค."]] },
-    { id:"D-26-0051", po:"", sup:"Thai Frozen Foods", item:"ปลาหมึกกล้วย", qty:"300 KG",
-      amt:78000, stage:6, age:4, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
-      tl:[["30 ก.ค. 08:05","คุณสมชาย","สร้างดีล"],["30 ก.ค. 09:30","คุณสมชาย","อัพโหลด PI"]] },
-    { id:"D-26-0038", po:"4500012301", sup:"Siam Marine", item:"กุ้งขาว 21/25", qty:"800 KG",
-      amt:196000, stage:11, age:7, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
-      tl:[["27 ก.ค. 10:00","คุณสมชาย","สร้างดีล"],["28 ก.ค. 09:15","คุณผู้จัดการ","อนุมัติ PO"],
-          ["30 ก.ค. 07:40","คุณสมหญิง","บันทึกผลตรวจรับ — ผ่าน"]] },
-    { id:"D-26-0029", po:"4500012288", sup:"Thai Frozen Foods", item:"หอยเชลล์", qty:"120 KG",
-      amt:45000, stage:12, age:52, sr:"คุณสมชาย", skip:[1,2,5], claim:true,
-      tl:[["25 ก.ค. 09:00","คุณสมชาย","สร้างดีล"],["27 ก.ค. 08:20","คุณผู้จัดการ","อนุมัติ PO"],
-          ["29 ก.ค. 07:10","คุณสมหญิง","บันทึกผลตรวจรับ — ไม่ผ่าน (อุณหภูมิเกิน)"],
-          ["29 ก.ค. 07:11","ระบบ","เปิดเรื่องเคลม + ล็อกการจ่าย 40 KG"],
-          ["29 ก.ค. 09:45","คุณสมชาย","แจ้งซัพเพื่อเคลม"]] },
-    { id:"D-26-0033", po:"4500012299", sup:"Ocean Best", item:"ปลาแซลมอนแล่", qty:"200 KG",
-      amt:310000, stage:14, age:20, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
-      tl:[["22 ก.ค. 11:00","คุณสมชาย","สร้างดีล"],["24 ก.ค. 10:00","คุณผู้จัดการ","อนุมัติ PO"],
-          ["28 ก.ค. 15:20","คุณประเสริฐ","อัพโหลด GR"],["29 ก.ค. 09:00","คุณวิภา","อัพโหลดใบแจ้งหนี้"]] },
-    { id:"D-26-0025", po:"4500012250", sup:"Ocean Best", item:"ปลาทูน่าท่อน", qty:"400 KG",
-      amt:268000, stage:15, age:126, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
-      tl:[["18 ก.ค. 09:00","คุณสมชาย","สร้างดีล"],["25 ก.ค. 14:00","คุณวิภา","ทำจ่าย + อัพโหลดสลิป"],
-          ["25 ก.ค. 14:01","ระบบ","ส่งสลิปให้ซัพทางอีเมล"],
-          ["26 ก.ค. 10:00","คุณวิภา","บันทึกเลข tracking EMS EX123456789"]] },
-    { id:"D-26-0031", po:"4500012260", sup:"Siam Marine", item:"กุ้งก้ามกราม", qty:"150 KG",
-      amt:84000, stage:16, age:9, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
-      tl:[["20 ก.ค. 09:00","คุณสมชาย","สร้างดีล"],["27 ก.ค. 16:00","คุณวิภา","รับใบเสร็จตัวจริง"],
-          ["30 ก.ค. 06:00","ระบบ","3-way ผ่าน — พร้อมบันทึกบัญชี"]] }
+  const pay = (seq,type,pct,amt,due,st,paid) =>
+    ({seq:seq, type:type, pct:pct, amount:amt, due:due, status:st, paidAt:paid||"", slip:st==="PAID"});
+
+  let POS = [
+    {no:"PO-26-0042", sap:"4500012345", sup:"ABC Foods", item:"กุ้งแช่แข็ง 16/20", qty:"500 KG",
+     amt:130000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:10, age:26, owner:"คุณสมชาย",
+     status:"ACTIVE", claim:false, skip:[1,2,5], date:"28/07/2026",
+     payments:[pay(1,"มัดจำ",30,39000,"05/08/2026","PAID","05/08/2026"),
+               pay(2,"ส่วนที่เหลือ",70,91000,"30/08/2026","PENDING")],
+     tl:[["28 ก.ค. 09:12","คุณสมชาย","สร้าง PO"],["29 ก.ค. 10:05","คุณสมชาย","กรอกเลข PO จาก SAP"],
+         ["29 ก.ค. 11:20","คุณผู้จัดการ","อนุมัติภายใน"],["29 ก.ค. 16:02","คุณสมชาย","อัพโหลด PO ที่เซ็นครบ"],
+         ["30 ก.ค. 08:30","คุณอนุชา","จองรถรับของ 31 ก.ค."],["05 ส.ค. 10:00","คุณวิภา","จ่ายมัดจำงวดที่ 1"]]},
+
+    {no:"PO-26-0051", sap:"", sup:"Thai Frozen Foods", item:"ปลาหมึกกล้วย", qty:"300 KG",
+     amt:78000, cur:"THB", term:"เครดิต 30 วัน", stage:5, age:4, owner:"คุณสมชาย",
+     status:"ACTIVE", claim:false, skip:[1,2], date:"30/07/2026",
+     payments:[pay(1,"ชำระเต็ม",100,78000,"—","PENDING")],
+     tl:[["30 ก.ค. 08:05","คุณสมชาย","สร้าง PO"],["30 ก.ค. 09:30","คุณสมชาย","อัพโหลด PI"],
+         ["30 ก.ค. 09:35","ระบบ","ไม่มีรหัสสินค้าใน SAP — เปิดใบขอ IC-26-0007"]]},
+
+    {no:"PO-26-0038", sap:"4500012301", sup:"Siam Marine", item:"กุ้งขาว 21/25", qty:"800 KG",
+     amt:196000, cur:"THB", term:"เครดิต 30 วัน", stage:11, age:7, owner:"คุณสมชาย",
+     status:"ACTIVE", claim:false, skip:[1,2,5], date:"27/07/2026",
+     payments:[pay(1,"ชำระเต็ม",100,196000,"28/08/2026","PENDING")],
+     tl:[["27 ก.ค. 10:00","คุณสมชาย","สร้าง PO"],["30 ก.ค. 07:40","คุณสมหญิง","ตรวจรับผ่าน"]]},
+
+    {no:"PO-26-0029", sap:"4500012288", sup:"Thai Frozen Foods", item:"หอยเชลล์", qty:"120 KG",
+     amt:45000, cur:"THB", term:"เครดิต 30 วัน", stage:12, age:52, owner:"คุณสมชาย",
+     status:"ACTIVE", claim:true, skip:[1,2,5], date:"25/07/2026",
+     payments:[pay(1,"ชำระเต็ม",100,45000,"25/08/2026","BLOCKED")],
+     tl:[["25 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["29 ก.ค. 07:10","คุณสมหญิง","ตรวจรับไม่ผ่าน"],
+         ["29 ก.ค. 07:11","ระบบ","เปิดใบเคลม CL-26-0004 + ล็อกการจ่าย 40 KG"]]},
+
+    {no:"PO-26-0033", sap:"4500012299", sup:"Ocean Best", item:"ปลาแซลมอนแล่", qty:"200 KG",
+     amt:310000, cur:"THB", term:"มัดจำ 50% / ที่เหลือ 50%", stage:14, age:20, owner:"คุณสมชาย",
+     status:"ACTIVE", claim:false, skip:[1,2,5], date:"22/07/2026",
+     payments:[pay(1,"มัดจำ",50,155000,"25/07/2026","PAID","25/07/2026"),
+               pay(2,"ส่วนที่เหลือ",50,155000,"20/08/2026","PENDING")],
+     tl:[["22 ก.ค. 11:00","คุณสมชาย","สร้าง PO"],["25 ก.ค. 09:00","คุณวิภา","จ่ายมัดจำ 50%"],
+         ["28 ก.ค. 15:20","คุณประเสริฐ","อัพโหลด GR"],["29 ก.ค. 09:00","คุณวิภา","อัพโหลดใบแจ้งหนี้"]]},
+
+    {no:"PO-26-0031", sap:"4500012260", sup:"Siam Marine", item:"กุ้งก้ามกราม", qty:"150 KG",
+     amt:84000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
+     status:"COMPLETED", claim:false, skip:[1,2,5], date:"20/07/2026",
+     payments:[pay(1,"ชำระเต็ม",100,84000,"20/08/2026","PAID","18/08/2026")],
+     tl:[["20 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["18 ส.ค.","คุณวิภา","จ่ายเงินครบ"],
+         ["20 ส.ค.","คุณวิภา","ตรวจ 3 ทางผ่าน — ปิดรายการ"]]},
+
+    {no:"PO-26-0025", sap:"4500012250", sup:"Ocean Best", item:"ปลาทูน่าท่อน", qty:"400 KG",
+     amt:268000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:17, age:0, owner:"คุณสมชาย",
+     status:"COMPLETED", claim:false, skip:[1,2,5], date:"18/07/2026",
+     payments:[pay(1,"มัดจำ",30,80400,"20/07/2026","PAID","20/07/2026"),
+               pay(2,"ส่วนที่เหลือ",70,187600,"15/08/2026","PAID","14/08/2026")],
+     tl:[["18 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["14 ส.ค.","คุณวิภา","จ่ายงวดที่ 2 ครบ"],
+         ["16 ส.ค.","คุณวิภา","ปิดรายการ"]]},
+
+    {no:"PO-26-0019", sap:"4500012210", sup:"ABC Foods", item:"ปลาหมึกยักษ์", qty:"250 KG",
+     amt:112000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
+     status:"COMPLETED", claim:false, skip:[1,2,5], date:"10/07/2026",
+     payments:[pay(1,"ชำระเต็ม",100,112000,"10/08/2026","PAID","09/08/2026")],
+     tl:[["10 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["12 ส.ค.","คุณวิภา","ปิดรายการ"]]},
+
+    {no:"PO-26-0012", sap:"", sup:"Ocean Best", item:"กุ้งแวนนาไม", qty:"600 KG",
+     amt:0, cur:"THB", term:"—", stage:2, age:0, owner:"คุณสมชาย",
+     status:"CANCELLED", claim:false, skip:[], date:"05/07/2026",
+     payments:[],
+     tl:[["05 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["07 ก.ค.","คุณสมหญิง","ตรวจตัวอย่างไม่ผ่าน"],
+         ["07 ก.ค.","คุณสมชาย","ยกเลิก — แจ้งผู้ขายและปฏิเสธการสั่งซื้อ"]]}
   ];
 
-  /* ---------------- ใบขอเปิดรหัสสินค้า ---------------- */
   let ITEMREQS = [
-    { id:"IC-26-0007", deal:"D-26-0051", name:"ปลาหมึกกล้วยแช่แข็ง", brand:"NO-BRAND",
-      group:"Food", uom:"KG", pack:"10 KG x 1 CTN", sup:"Thai Frozen Foods",
-      hs:"0307.43.00", storage:"FROZEN", shelf:"730", by:"คุณสมชาย", date:"30 ก.ค. 09:20",
-      status:"WAIT_APPROVE", sap:"", note:"สินค้าใหม่ ยังไม่เคยสั่ง" },
-    { id:"IC-26-0006", deal:"D-26-0042", name:"กุ้งแช่แข็ง 16/20", brand:"ABC",
-      group:"Food", uom:"KG", pack:"1 KG x 10 PACK", sup:"ABC Foods",
-      hs:"0306.17.00", storage:"FROZEN", shelf:"730", by:"คุณสมชาย", date:"27 ก.ค. 14:05",
-      status:"DONE", sap:"FG-SHR-1620", note:"" }
+    {id:"IC-26-0007", po:"PO-26-0051", name:"ปลาหมึกกล้วยแช่แข็ง", brand:"NO-BRAND", group:"Food",
+     uom:"KG", pack:"10 KG x 1 CTN", sup:"Thai Frozen Foods", hs:"0307.43.00", storage:"แช่แข็ง",
+     shelf:"730", by:"คุณสมชาย", date:"30 ก.ค. 09:20", status:"WAIT_APPROVE", sap:"", note:"สินค้าใหม่"},
+    {id:"IC-26-0006", po:"PO-26-0042", name:"กุ้งแช่แข็ง 16/20", brand:"ABC", group:"Food",
+     uom:"KG", pack:"1 KG x 10 PACK", sup:"ABC Foods", hs:"0306.17.00", storage:"แช่แข็ง",
+     shelf:"730", by:"คุณสมชาย", date:"27 ก.ค. 14:05", status:"DONE", sap:"FG-SHR-1620", note:""}
   ];
-  const IC_STATUS = {
-    DRAFT:        { t:"ร่าง",                owner:"SR", cls:"wait" },
-    WAIT_APPROVE: { t:"รอ SR Head อนุมัติ",  owner:"SR", cls:"due"  },
-    WAIT_LS:      { t:"รอ LS เปิดใน SAP",    owner:"LS", cls:"due"  },
-    DONE:         { t:"เปิดรหัสแล้ว",        owner:"—",  cls:"ok"   },
-    REJECTED:     { t:"ไม่อนุมัติ",           owner:"SR", cls:"late" }
-  };
+  const IC_ST = {DRAFT:{t:"ร่าง",cls:"wait"},WAIT_APPROVE:{t:"รอหัวหน้าอนุมัติ",cls:"due"},
+    WAIT_LS:{t:"รอเปิดใน SAP",cls:"due"},DONE:{t:"เปิดรหัสแล้ว",cls:"ok"},REJECTED:{t:"ไม่อนุมัติ",cls:"late"}};
 
-  /* ---------------- ใบเคลม / ใบร้องเรียน (QC-F006) ---------------- */
   let CLAIMS = [
-    { id:"EX-2026001", src:"CUSTOMER", date:"01/07/2026", group:"Food",
-      seller:"นายชัยธัช ชุณหะ", unit:"SE", pos:"Sales Executive",
-      cust:"บริษัท พีพอร์ค โปรดักส์ จำกัด", pi:"126070001", dn:"126070003", buyDate:"01/07/2026",
-      item:"สาหร่ายวากาเมะอบแห้ง", brand:"NO-BRAND", lot:"C260225 #1",
-      wh:"CHOD", pack:"50 PACK(S) X 1 CARTON(S)", qty:"1", uom:"กล่อง", kg:"0.2",
-      desc:"สินค้าไม่ครบจำนวน 1 กล่อง โดยยังไม่มีรอยแกะที่กล่อง ขาดไปจำนวน 2 pack",
-      place:"คลังโชติ", truck:"ไม่ควบคุมอุณหภูมิ",
-      qcResult:"FAIL", qcNote:"ลูกค้าแจ้งขาดไป 2 Pack — อ้างอิง Report QC", custWantsDoc:"ใช่",
-      supPo:"", supplier:"WAWA", stage:"SEC3",
-      photos:3, deal:"",
-      tl:[["01 ก.ค. 10:20","นายชัยธัช (SE)","เปิดใบร้องเรียน ส่วนที่ 1"],
-          ["03 ก.ค. 09:00","คุณสมหญิง (QC)","รับสินค้าคืน ตรวจที่คลังโชติ"],
-          ["10 ก.ค. 11:30","คุณสมหญิง (QC)","บันทึกผลตรวจ ส่วนที่ 2 — ไม่ผ่าน"],
-          ["10 ก.ค. 11:31","ระบบ","สร้าง INSPECTION REPORT อัตโนมัติจากผลตรวจ"],
-          ["14 ก.ค. 15:00","คุณสมชาย (SR)","เตรียมเคลมกับผู้ขาย WAWA"]] },
-    { id:"CL-26-0004", src:"INCOMING", date:"29/07/2026", group:"Food",
-      seller:"—", unit:"—", pos:"—", cust:"—", pi:"", dn:"", buyDate:"",
-      item:"หอยเชลล์", brand:"—", lot:"TF-2607C", wh:"CHOD",
-      pack:"5 KG x 1 CTN", qty:"40", uom:"KG", kg:"40",
-      desc:"อุณหภูมิสินค้าเกินกำหนดตอนตรวจรับ (-12°C ต่ำกว่าสเปก -18°C)",
-      place:"ห้องเย็นต้นทาง", truck:"ควบคุมอุณหภูมิ",
-      qcResult:"FAIL", qcNote:"ปฏิเสธ 40 KG จาก 120 KG", custWantsDoc:"ไม่ใช่",
-      supPo:"4500012288", supplier:"Thai Frozen Foods", stage:"SEC3",
-      photos:5, deal:"D-26-0029",
-      tl:[["29 ก.ค. 07:10","คุณสมหญิง (QC)","บันทึกผลตรวจรับ — ไม่ผ่าน"],
-          ["29 ก.ค. 07:11","ระบบ","เปิดใบเคลมอัตโนมัติ + ล็อกการจ่าย 40 KG"],
-          ["29 ก.ค. 09:45","คุณสมชาย (SR)","แจ้งซัพเพื่อเคลม"]] }
+    {id:"EX-2026001", src:"CUSTOMER", date:"01/07/2026", cust:"บริษัท พีพอร์ค โปรดักส์ จำกัด",
+     pi:"126070001", dn:"126070003", item:"สาหร่ายวากาเมะอบแห้ง", lot:"C260225 #1",
+     qty:"1 กล่อง (0.2 กก.)", desc:"สินค้าไม่ครบ 1 กล่อง ยังไม่มีรอยแกะ ขาดไป 2 pack",
+     qcResult:"FAIL", supplier:"WAWA", po:"", cn:"", photos:3},
+    {id:"CL-26-0004", src:"INCOMING", date:"29/07/2026", cust:"—", pi:"", dn:"",
+     item:"หอยเชลล์", lot:"TF-2607C", qty:"40 KG",
+     desc:"อุณหภูมิเกินกำหนดตอนตรวจรับ (-12°C ต่ำกว่าสเปก -18°C)",
+     qcResult:"FAIL", supplier:"Thai Frozen Foods", po:"PO-26-0029", cn:"", photos:5}
   ];
 
-  /* ---------------- สถานะ ---------------- */
-  let role = "SR";
-  let view = "queue";
-  let openDeal = null;
-  let openClaim = null;
+  /* ================= สถานะหน้าจอ ================= */
+  let role = "SR", page = "home", subtab = "ACTIVE", openPo = null, openClaim = null, q = "", fDept = "";
 
   const $ = s => document.querySelector(s);
-  const esc = s => String(s == null ? "" : s)
-    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  const baht = n => "฿" + Number(n).toLocaleString("en-US");
-  const seesMoney = () => ROLES[role].money;
+  const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const baht = n => "฿" + Number(n||0).toLocaleString("en-US");
+  const money = () => ROLES[role].money;
+  const st = p => STAGES[p.stage] || null;
+  const ownerOf = p => st(p) ? st(p).o : "—";
+  const isActive = p => p.status === "ACTIVE";
+  const ageTxt = h => h < 24 ? h + " ชม." : Math.floor(h/24) + " วัน";
+  const dept = k => '<span class="dept" style="color:var(' + (ROLES[k]?ROLES[k].v:"--ink-3") + ')">' + esc(k) + "</span>";
 
-  function ageTxt(h) {
-    if (h < 24) return h + " ชม.";
-    return Math.floor(h / 24) + " วัน";
+  function statusPill(p) {
+    if (p.status === "COMPLETED") return '<span class="pill ok">เสร็จสิ้น</span>';
+    if (p.status === "CANCELLED") return '<span class="pill wait">ยกเลิก</span>';
+    if (p.claim) return '<span class="pill late">มีเคลมค้าง</span>';
+    const s = st(p);
+    if (s && p.age > s.sla) return '<span class="pill late">เลยกำหนด</span>';
+    return '<span class="pill info">กำลังดำเนินการ</span>';
   }
-  function agePill(d) {
-    const st = STAGES[d.stage];
-    if (d.claim) return '<span class="pill claim">เคลมค้าง</span>';
-    if (!st) return '<span class="pill ok">ปิดแล้ว</span>';
-    if (d.age > st.sla) return '<span class="pill late">เลยกำหนด ' + ageTxt(d.age) + "</span>";
-    if (d.age > st.sla * 0.6) return '<span class="pill due">' + ageTxt(d.age) + "</span>";
-    return '<span class="pill wait">' + ageTxt(d.age) + "</span>";
-  }
-  function ownerOf(d) {
-    const st = STAGES[d.stage];
-    return st ? st.o : "—";
-  }
-  function deptChip(k) {
-    return '<span class="dept" style="color:var(' + ROLES[k].v + ')">' + k + "</span>";
-  }
-  // สถานะเอกสาร: อิงจากขั้นตอนที่ดีลไปถึงแล้ว
-  function docState(d, doc) {
-    if (doc.off) return "na";
-    if (doc.claimOnly && !d.claim) return "na";
-    if (!doc.req && d.skip.indexOf(doc.at) >= 0) return "na";
-    if (doc.c === "LABEL" || doc.c === "CODE_REQ" || doc.c === "SAMPLE_QC") {
-      if (d.skip.indexOf(doc.at) >= 0) return "na";
-    }
-    if (d.stage > doc.at) return "ok";
-    if (d.stage === doc.at) return "wait";
+  function phaseOf(p){ for(const ph of PHASES) if(p.stage<=ph.to) return ph; return PHASES[3]; }
+  function docState(p, d) {
+    if (p.skip.indexOf(d.at) >= 0) return "na";
+    if (p.stage > d.at) return "ok";
+    if (p.stage === d.at) return "wait";
     return "pend";
   }
-  function missingDocs(d) {
-    return DOCS.filter(x => x.req && docState(d, x) !== "ok");
-  }
+  const missing = p => DOCS.filter(d => d.req && docState(p,d) === "wait");
+  const unpaid = p => p.payments.filter(x => x.status !== "PAID");
+  function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");
+    clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),2600);}
 
-  function toast(msg) {
-    const t = $("#toast");
-    t.textContent = msg;
-    t.classList.add("on");
-    clearTimeout(t._t);
-    t._t = setTimeout(() => t.classList.remove("on"), 2600);
-  }
+  /* ================= โครง ================= */
+  const NAV = [
+    {k:"home",   t:"หน้าหลัก"},
+    {k:"po",     t:"ใบสั่งซื้อ (PO)"},
+    {k:"claims", t:"เคลม / ร้องเรียน"},
+    {k:"items",  t:"รหัสสินค้า"},
+    {k:"report", t:"รายงาน"}
+  ];
 
-  /* ---------------- header ---------------- */
-  function renderChrome() {
+  function chrome() {
     const r = ROLES[role];
     document.documentElement.style.setProperty("--rc", "var(" + r.v + ")");
-    $("#who").innerHTML =
-      '<span class="av" style="background:var(' + r.v + ')">' + esc(r.init) + "</span>" +
-      "<span>" + esc(r.person) + "<br><span class=\"mono\" style=\"font-size:11px;color:var(--ink-3)\">" +
-      esc(r.name) + "</span></span>";
+    const myQueue = POS.filter(p => isActive(p) && ownerOf(p) === role).length;
 
-    const rs = $("#roles");
-    rs.querySelectorAll("button").forEach(b => b.remove());
-    Object.keys(ROLES).forEach(k => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.dataset.role = k;
-      b.setAttribute("aria-pressed", String(k === role));
-      b.style.setProperty("--rc", "var(" + ROLES[k].v + ")");
-      b.innerHTML = '<i></i>' + esc(k) + ' — ' + esc(ROLES[k].name);
-      rs.appendChild(b);
-    });
-    $("#tabs").querySelectorAll("button").forEach(b => {
-      if (view !== "deal" && b.dataset.view === view) b.setAttribute("aria-current", "page");
-      else b.removeAttribute("aria-current");
-    });
+    $("#nav").innerHTML = NAV.map(n => {
+      const cur = n.k === page ? ' aria-current="page"' : "";
+      let badge = "";
+      if (n.k === "po" && myQueue) badge = '<span class="cnt">' + myQueue + "</span>";
+      if (n.k === "claims" && CLAIMS.filter(c=>!c.cn).length) badge = '<span class="cnt">' + CLAIMS.filter(c=>!c.cn).length + "</span>";
+      if (n.k === "items" && ITEMREQS.filter(x=>x.status!=="DONE").length) badge = '<span class="cnt">' + ITEMREQS.filter(x=>x.status!=="DONE").length + "</span>";
+      return '<button data-page="' + n.k + '"' + cur + ">" + esc(n.t) + badge + "</button>";
+    }).join("");
+
+    $("#user").innerHTML = '<span class="av">' + esc(r.init) + "</span><span>" + esc(r.person) +
+      '<br><span class="mono" style="font-size:10.5px;color:var(--ink-3)">' + esc(r.name) + "</span></span>";
+
+    $("#roles").innerHTML = '<span class="lb">บทบาท</span>' + Object.keys(ROLES).map(k =>
+      '<button data-role="' + k + '" aria-pressed="' + (k===role) + '" style="--rc:var(' + ROLES[k].v + ')">' +
+      '<i></i>' + esc(ROLES[k].name) + "</button>").join("");
   }
 
-  /* ---------------- หน้า: คิวของฉัน ---------------- */
-  function viewQueue() {
-    const mine = DEALS.filter(d => STAGES[d.stage] && ownerOf(d) === role);
-    const waiting = DEALS.filter(d => STAGES[d.stage] && ownerOf(d) !== role);
-    const late = mine.filter(d => d.age > STAGES[d.stage].sla);
-    const missing = DEALS.filter(d => missingDocs(d).some(x => x.o === role));
+  /* ================= หน้าหลัก ================= */
+  function pageHome() {
+    const act = POS.filter(isActive);
+    const mine = act.filter(p => ownerOf(p) === role);
+    const late = act.filter(p => st(p) && p.age > st(p).sla);
+    const duePay = act.reduce((n,p) => n + unpaid(p).filter(x=>x.status==="PENDING").length, 0);
+    const missDocs = act.filter(p => missing(p).some(d => d.o === role)).length;
 
-    let h = "<h2>คิวของฉัน — " + esc(ROLES[role].name) + "</h2>" +
-      '<p class="sub">หน้านี้เปลี่ยนตามบทบาท ลองกดสลับบทบาทด้านบนเพื่อดูของแผนกอื่น</p>';
-
+    let h = '<div class="ph"><h1>หน้าหลัก</h1><span class="d">มุมมองของ ' + esc(ROLES[role].name) + "</span></div>";
     h += '<div class="kpis">' +
       '<div class="kpi a"><div class="n">' + mine.length + '</div><div class="k">ค้างที่ฉัน</div></div>' +
       '<div class="kpi r"><div class="n">' + late.length + '</div><div class="k">เลยกำหนด</div></div>' +
-      '<div class="kpi"><div class="n">' + waiting.length + '</div><div class="k">รอคนอื่น</div></div>' +
-      '<div class="kpi"><div class="n">' + missing.length + '</div><div class="k">เอกสารที่ฉันต้องส่ง</div></div>' +
+      '<div class="kpi b"><div class="n">' + act.length + '</div><div class="k">PO กำลังดำเนินการ</div></div>' +
+      (money() ? '<div class="kpi"><div class="n">' + duePay + '</div><div class="k">งวดที่ยังไม่จ่าย</div></div>' : "") +
+      '<div class="kpi"><div class="n">' + missDocs + '</div><div class="k">PO ที่รอเอกสารจากฉัน</div></div>' +
+      '<div class="kpi g"><div class="n">' + POS.filter(p=>p.status==="COMPLETED").length + '</div><div class="k">เสร็จสิ้นแล้ว</div></div>' +
       "</div>";
 
-    h += dealTable("ค้างที่ฉัน", mine, true);
-    h += dealTable("รอคนอื่น — ไม่ต้องถามในไลน์ ดูตรงนี้", waiting, false);
-
-    if (role === "GM") {
-      h += '<div class="panel"><h3>ตัวอย่างการ์ดขออนุมัติที่ส่งเข้า Lark</h3>' +
-        '<div class="lark"><div class="h">Lark · MGS DocHub bot</div>' +
-        '<div class="bd"><div class="ti">ขออนุมัติ PO</div>' +
-        "<dl><dt>ดีล</dt><dd>D-26-0051 · ปลาหมึกกล้วย</dd>" +
-        "<dt>ซัพ</dt><dd>Thai Frozen Foods</dd>" +
-        "<dt>ยอด</dt><dd>฿78,000</dd>" +
-        "<dt>ผู้ขอ</dt><dd>คุณสมชาย (SR)</dd></dl></div>" +
-        '<div class="btns"><span>ดูเอกสาร</span><span>อนุมัติ</span><span>ไม่อนุมัติ</span></div></div></div>';
-    }
+    h += poTable("งานที่ค้างอยู่ที่ฉัน", mine, "ไม่มีงานค้างที่คุณ");
+    h += poTable("รอแผนกอื่น", act.filter(p => ownerOf(p) !== role), "—");
     return h;
   }
 
-  function dealTable(title, list, mine) {
-    let h = '<div class="panel"><h3>' + esc(title) + '<span class="c">' + list.length + " ดีล</span></h3>";
-    if (!list.length) {
-      h += '<div class="empty">ไม่มีรายการ</div></div>';
+  /* ================= PO list / search ================= */
+  function pagePo() {
+    const act  = POS.filter(p => p.status === "ACTIVE");
+    const done = POS.filter(p => p.status === "COMPLETED");
+    const canc = POS.filter(p => p.status === "CANCELLED");
+
+    let h = '<div class="ph"><h1>ใบสั่งซื้อ (PO)</h1><span class="d">1 PO = 1 รายการงาน ตั้งแต่เช็คราคาจนปิดบัญชี</span></div>';
+    h += '<div class="stabs">' +
+      tabBtn("ACTIVE","กำลังดำเนินการ",act.length) +
+      tabBtn("DONE","เสร็จสิ้น",done.length) +
+      tabBtn("CANCELLED","ยกเลิก",canc.length) +
+      tabBtn("SEARCH","ค้นหา","") + "</div>";
+
+    if (subtab === "SEARCH") return h + searchPanel();
+    const list = subtab === "DONE" ? done : subtab === "CANCELLED" ? canc : act;
+    const title = subtab === "DONE" ? "PO ที่ปิดแล้ว" : subtab === "CANCELLED" ? "PO ที่ยกเลิก" : "PO ที่ยังไม่ปิด";
+    return h + poTable(title, list, "ไม่มีรายการ");
+  }
+  function tabBtn(k, t, n) {
+    return '<button data-sub="' + k + '" aria-current="' + (subtab===k) + '">' + esc(t) +
+      (n !== "" ? '<span class="n">' + n + "</span>" : "") + "</button>";
+  }
+
+  function searchPanel() {
+    let h = '<div class="toolbar">' +
+      '<input type="search" id="q" placeholder="เลข PO · เลข SAP · ผู้ขาย · สินค้า · เลข Lot · เลขใบเคลม" value="' + esc(q) + '">' +
+      '<label>ค้างที่</label><select id="fdept"><option value="">ทุกแผนก</option>' +
+      Object.keys(ROLES).map(k => '<option value="' + k + '"' + (fDept===k?" selected":"") + ">" + esc(ROLES[k].name) + "</option>").join("") +
+      "</select>" +
+      '<button class="btn" data-clear="1">ล้าง</button></div>';
+
+    if (!q && !fDept) {
+      h += '<div class="note info"><span class="ic">▸</span><span>พิมพ์อย่างน้อย 2 ตัวอักษร — ค้นได้ทั้งเลข PO, เลข SAP, ชื่อผู้ขาย, ชื่อสินค้า, เลข Lot และเลขใบเคลม ' +
+        "และค้นได้ทั้ง PO ที่ปิดแล้ว</span></div>";
       return h;
     }
-    h += '<div class="tablewrap"><table><thead><tr><th>ดีล</th><th>สินค้า</th><th>ซัพพลายเออร์</th>' +
-      (seesMoney() ? "<th>ยอด</th>" : "") +
-      "<th>ขั้นตอน</th><th>ค้างที่</th><th>ค้างมา</th></tr></thead><tbody>";
-    list.forEach(d => {
-      const st = STAGES[d.stage];
-      const stageCell = st
-        ? '<span class="mono" style="font-size:12px">' + (d.stage + 1) + ".</span> " + esc(st.n)
-        : '<span class="pill ok">ปิดรายการแล้ว</span>';
-      h += '<tr class="click' + (mine ? " mine" : "") + '" data-deal="' + esc(d.id) + '">' +
-        '<td><span class="did">' + esc(d.id) + "</span></td>" +
-        "<td>" + esc(d.item) + '<br><span class="mono" style="font-size:11px;color:var(--ink-3)">' + esc(d.qty) + "</span></td>" +
-        "<td>" + esc(d.sup) + "</td>" +
-        (seesMoney() ? '<td class="num">' + baht(d.amt) + "</td>" : "") +
-        "<td>" + stageCell + "</td>" +
-        "<td>" + (st ? deptChip(ownerOf(d)) : "—") + "</td>" +
-        "<td>" + agePill(d) + "</td></tr>";
+    const needle = q.toLowerCase();
+    const claimPo = {};
+    CLAIMS.forEach(c => { if (c.po) claimPo[c.po] = c.id; });
+    const res = POS.filter(p => {
+      if (fDept && (!isActive(p) || ownerOf(p) !== fDept)) return false;
+      if (!needle) return true;
+      return [p.no, p.sap, p.sup, p.item, claimPo[p.no] || ""].join(" ").toLowerCase().indexOf(needle) >= 0;
     });
-    h += "</tbody></table></div></div>";
+    h += poTable("ผลการค้นหา", res, "ไม่พบรายการที่ตรงกับ “" + q + "”", true);
     return h;
   }
 
-  /* ---------------- หน้า: ทุกดีล ---------------- */
-  function viewBoard() {
-    let h = "<h2>ทุกดีล</h2><p class=\"sub\">" +
-      (seesMoney() ? "คุณเห็นข้อมูลราคาเพราะอยู่ในแผนก " + esc(ROLES[role].name)
-                   : "แผนก " + esc(ROLES[role].name) + " ไม่เห็นข้อมูลราคา — เป็นกฎแยกหน้าที่ ไม่ใช่ข้อจำกัดทางเทคนิค") +
-      "</p>";
-    h += dealTable("รายการทั้งหมด", DEALS, false);
-    return h;
-  }
-
-  /* ---------------- หน้า: รหัสสินค้า ---------------- */
-  function viewItemCodes() {
-    let h = "<h2>ขอเปิดรหัสสินค้าใหม่</h2>" +
-      '<p class="sub">เดิมเป็นใบขออนุมัติกระดาษ ให้ SR Head เซ็น แล้วเดินเอกสารไปให้ LS คีย์เข้า SAP — ' +
-      "ในระบบกลายเป็นแบบฟอร์มเดียวที่วิ่งเอง</p>";
-
-    h += '<div class="panel"><h3>ใบขอที่มีอยู่<span class="c">' + ITEMREQS.length + " ใบ</span></h3>" +
-      '<div class="tablewrap"><table><thead><tr><th>เลขที่</th><th>สินค้า</th><th>ซัพ</th>' +
-      "<th>ดีลที่เกี่ยวข้อง</th><th>สถานะ</th><th>รหัสใน SAP</th><th></th></tr></thead><tbody>";
-    ITEMREQS.forEach(r => {
-      const s = IC_STATUS[r.status];
-      h += "<tr>" +
-        '<td><span class="did">' + esc(r.id) + "</span></td>" +
-        "<td>" + esc(r.name) + '<br><span class="mono" style="font-size:11px;color:var(--ink-3)">' + esc(r.pack) + "</span></td>" +
-        "<td>" + esc(r.sup) + "</td>" +
-        '<td class="mono">' + (r.deal ? esc(r.deal) : "—") + "</td>" +
-        '<td><span class="pill ' + s.cls + '">' + esc(s.t) + "</span></td>" +
-        '<td class="mono">' + (r.sap ? esc(r.sap) : "—") + "</td>" +
-        "<td>" + icAction(r) + "</td></tr>";
+  function poTable(title, list, emptyText, showStatus) {
+    let h = '<div class="card"><h3>' + esc(title) + '<span class="c">' + list.length + " รายการ</span></h3>";
+    if (!list.length) return h + '<div class="empty">' + esc(emptyText) + "</div></div>";
+    h += '<div class="tw"><table><thead><tr><th>เลข PO</th><th>ผู้ขาย / สินค้า</th>' +
+      (money() ? '<th class="num">มูลค่า</th><th>การจ่าย</th>' : "") +
+      "<th>เฟส</th><th>ค้างที่</th><th>สถานะ</th></tr></thead><tbody>";
+    list.forEach(p => {
+      const s = st(p), ph = phaseOf(p);
+      const paid = p.payments.filter(x => x.status === "PAID").length;
+      h += '<tr class="click" data-po="' + esc(p.no) + '">' +
+        '<td><span class="pono">' + esc(p.no) + '</span><div class="sub mono">' + esc(p.sap || "รอเลข SAP") + "</div></td>" +
+        "<td>" + esc(p.sup) + '<div class="sub">' + esc(p.item) + " · " + esc(p.qty) + "</div></td>" +
+        (money() ? '<td class="num">' + baht(p.amt) + "</td>" +
+          "<td>" + (p.payments.length
+            ? '<span class="mono" style="font-size:12px">' + paid + "/" + p.payments.length + " งวด</span>" +
+              (p.payments.length > 1 ? '<div class="sub">' + esc(p.term) + "</div>" : "")
+            : "—") + "</td>" : "") +
+        '<td>' + esc(ph.name) + (isActive(p) && s ? '<div class="sub">' + esc(s.n) + "</div>" : "") + "</td>" +
+        "<td>" + (isActive(p) && s ? dept(s.o) + '<div class="sub">' + ageTxt(p.age) + "</div>" : "—") + "</td>" +
+        "<td>" + statusPill(p) + "</td></tr>";
     });
-    h += "</tbody></table></div></div>";
-
-    // ฟอร์มตัวอย่าง
-    const draft = ITEMREQS.filter(r => r.status === "WAIT_APPROVE")[0] || ITEMREQS[0];
-    h += '<div class="panel"><h3>แบบฟอร์มขอเปิดรหัสสินค้า<span class="c">' + esc(draft.id) + "</span></h3>";
-    [["ชื่อสินค้า", draft.name], ["แบรนด์", draft.brand], ["กลุ่มสินค้า", draft.group],
-     ["หน่วยนับ", draft.uom], ["ขนาดบรรจุ", draft.pack], ["ซัพพลายเออร์", draft.sup],
-     ["พิกัดศุลกากร (HS)", draft.hs], ["การเก็บรักษา", draft.storage],
-     ["อายุสินค้า (วัน)", draft.shelf], ["ดีลที่เกี่ยวข้อง", draft.deal || "—"],
-     ["ผู้ขอ", draft.by + " · " + draft.date], ["หมายเหตุ", draft.note || "—"]
-    ].forEach(f => {
-      h += '<div class="docrow"><span class="nm" style="flex:0 0 42%;color:var(--ink-3)">' + esc(f[0]) +
-        '</span><span class="nm"><b>' + esc(f[1]) + "</b></span></div>";
-    });
-    h += '<div class="note warn"><span class="ic">▸</span><span>' +
-      "ระบบล็อกไม่ให้ปิด PO ได้จนกว่าจะมีรหัสจริงจาก SAP — กันเคสที่ตอนนี้เปิด PO ไปก่อนแล้วรหัสยังไม่มา" +
-      "</span></div>";
-    h += '<div class="actions">' + icFormActions(draft) + "</div></div>";
-    return h;
+    return h + "</tbody></table></div></div>";
   }
 
-  function icAction(r) {
-    if (r.status === "WAIT_APPROVE" && role === "SR")
-      return '<button class="btn ok" data-ic="approve" data-id="' + esc(r.id) + '">อนุมัติ</button>';
-    if (r.status === "WAIT_LS" && role === "LS")
-      return '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">บันทึกรหัสจาก SAP</button>';
-    return "";
-  }
-  function icFormActions(r) {
-    if (r.status === "WAIT_APPROVE")
-      return role === "SR"
-        ? '<button class="btn ok" data-ic="approve" data-id="' + esc(r.id) + '">อนุมัติ (SR Head)</button>' +
-          '<button class="btn bad" data-ic="reject" data-id="' + esc(r.id) + '">ไม่อนุมัติ</button>'
-        : '<span class="hint">รอ SR Head อนุมัติ</span>';
-    if (r.status === "WAIT_LS")
-      return role === "LS"
-        ? '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">บันทึกรหัสจาก SAP</button>'
-        : '<span class="hint">รอ Logistics เปิดรหัสใน SAP</span>';
-    if (r.status === "DONE") return '<span class="hint">เปิดรหัสแล้ว: ' + esc(r.sap) + "</span>";
-    return '<span class="hint">—</span>';
-  }
+  /* ================= PO detail ================= */
+  function pageDetail() {
+    const p = POS.filter(x => x.no === openPo)[0];
+    if (!p) return "<p>ไม่พบ PO</p>";
+    const s = st(p), miss = missing(p);
 
-  /* ---------------- หน้า: เคลม / ร้องเรียน ---------------- */
-  function viewClaims() {
-    let h = "<h2>เคลม / ใบแจ้งการร้องเรียนและการคืนสินค้า</h2>" +
-      '<p class="sub">รวมสองเรื่องที่ตอนนี้แยกกัน — <b>ลูกค้าร้องเรียน</b> (ฟอร์ม QC-F006) ' +
-      "และ <b>ตรวจรับไม่ผ่าน</b> ที่ต้องเคลมกับซัพ ใช้ใบเดียวกันเพราะปลายทางเหมือนกันคือใบลดหนี้</p>";
+    let h = '<button class="back" data-back="1">← กลับไปรายการ PO</button>';
 
-    h += '<div class="panel"><h3>รายการเคลม<span class="c">' + CLAIMS.length + " ใบ</span></h3>" +
-      '<div class="tablewrap"><table><thead><tr><th>เลขที่</th><th>ที่มา</th><th>สินค้า / Lot</th>' +
-      "<th>อ้างอิง</th><th>จำนวน</th><th>ผล QC</th><th>ขั้นตอน</th></tr></thead><tbody>";
-    CLAIMS.forEach(c => {
-      h += '<tr class="click" data-claim="' + esc(c.id) + '">' +
-        '<td><span class="did">' + esc(c.id) + "</span></td>" +
-        "<td>" + (c.src === "CUSTOMER"
-          ? '<span class="pill" style="color:var(--ac)">ลูกค้าร้องเรียน</span>'
-          : '<span class="pill" style="color:var(--qc)">ตรวจรับไม่ผ่าน</span>') + "</td>" +
-        "<td>" + esc(c.item) + '<br><span class="mono" style="font-size:11px;color:var(--ink-3)">' + esc(c.lot) + "</span></td>" +
-        '<td class="mono" style="font-size:12px">' +
-          (c.src === "CUSTOMER" ? "PI " + esc(c.pi) + "<br>DN " + esc(c.dn)
-                                : "PO " + esc(c.supPo) + "<br>" + esc(c.deal)) + "</td>" +
-        '<td class="num">' + esc(c.qty) + " " + esc(c.uom) + "</td>" +
-        "<td>" + (c.qcResult === "FAIL"
-          ? '<span class="pill late">ไม่ผ่าน</span>' : '<span class="pill ok">ผ่าน</span>') + "</td>" +
-        '<td><span class="pill due">ส่วนที่ 3 — เคลมกับผู้ขาย</span></td></tr>';
-    });
-    h += "</tbody></table></div></div>";
+    h += '<div class="dh"><div class="top"><span class="n">' + esc(p.no) + "</span>" +
+      '<span class="t">' + esc(p.item) + "</span>" + statusPill(p) + "</div>" +
+      '<div class="fields">' +
+      fld("เลข PO ใน SAP", p.sap || "ยังไม่เปิด") + fld("ผู้ขาย", p.sup) +
+      fld("จำนวน", p.qty) + (money() ? fld("มูลค่า", baht(p.amt)) : fld("มูลค่า", "— ไม่มีสิทธิ์ดู")) +
+      fld("เงื่อนไขจ่าย", p.term) + fld("ผู้ดูแล", p.owner) + fld("วันที่เปิด", p.date) +
+      "</div></div>";
 
-    if (!openClaim) {
-      h += '<div class="note warn"><span class="ic">▸</span><span>กดที่แถวเพื่อดูใบเคลมเต็มรูปแบบ</span></div>';
-      return h;
-    }
-    return h + claimDetail(CLAIMS.filter(c => c.id === openClaim)[0]);
-  }
-
-  function claimDetail(c) {
-    if (!c) return "";
-    const F = (k, v) => '<div class="docrow"><span class="nm" style="flex:0 0 40%;color:var(--ink-3)">' +
-      esc(k) + '</span><span class="nm"><b>' + esc(v || "—") + "</b></span></div>";
-
-    let h = '<div class="panel"><h3>' + esc(c.id) +
-      ' — ตามแบบฟอร์ม QC-F006-V00<span class="c">' + (c.src === "CUSTOMER" ? "External" : "Incoming") + "</span></h3>";
-
-    h += '<div class="note good"><span class="ic">1</span><span><b>ส่วนที่ 1 — การร้องเรียน</b> ' +
-      (c.src === "CUSTOMER" ? "ผู้ดำเนินการ: Sales Coordinator" : "สร้างอัตโนมัติจากผลตรวจรับของ QC") + "</span></div>";
-    if (c.src === "CUSTOMER") {
-      h += F("ประเภทกลุ่มสินค้า", c.group) +
-        F("ชื่อผู้ขาย", c.seller + " · " + c.unit + " · " + c.pos) +
-        F("ชื่อลูกค้า", c.cust) + F("เลขที่ PI", c.pi) + F("เลขที่ DN", c.dn) +
-        F("วันที่ซื้อสินค้า", c.buyDate);
-    } else {
-      h += F("ที่มา", "ตรวจรับไม่ผ่าน — ดีล " + c.deal) + F("PO ซัพพลายเออร์", c.supPo) + F("ผู้ขาย", c.supplier);
-    }
-    h += F("ชื่อสินค้า / แบรนด์", c.item + " · " + c.brand) + F("Lot / Item", c.lot) +
-      F("คลัง / Packing", c.wh + " · " + c.pack) +
-      F("จำนวนที่พบปัญหา", c.qty + " " + c.uom + " · " + c.kg + " กก.") +
-      F("อธิบายลักษณะสินค้า", c.desc) + F("สถานที่ทำการตรวจสินค้า", c.place);
-
-    h += '<div class="note good"><span class="ic">2</span><span><b>ส่วนที่ 2 — ผลการตรวจสินค้า</b> ผู้ดำเนินการ: QC</span></div>';
-    h += F("ประเภทรถขนส่งสินค้าคืน", c.truck) +
-      F("ผลการตรวจสอบจาก QC", c.qcResult === "FAIL" ? "ไม่ผ่าน → ดำเนินการส่วนที่ 3" : "ผ่าน") +
-      F("หมายเหตุ", c.qcNote) + F("ลูกค้าขอเอกสารร้องเรียน", c.custWantsDoc) +
-      F("รูปหลักฐานแนบ", c.photos + " รูป");
-
-    h += '<div class="note ' + (c.qcResult === "FAIL" ? "bad" : "good") + '"><span class="ic">3</span><span>' +
-      "<b>ส่วนที่ 3 — การเคลมกับผู้ขาย</b> " +
-      (c.qcResult === "FAIL"
-        ? "ผู้ดำเนินการ: SR + Procurement Manager · ปลายทางคือ<b>ใบลดหนี้จากซัพ</b> ซึ่งจะปลดล็อกการจ่ายเงินให้เอง"
-        : "ไม่ต้องดำเนินการ") + "</span></div>";
-    h += F("ผู้ขายที่เคลม", c.supplier) +
-      F("สถานะการเคลม", "รอใบลดหนี้จากซัพ") +
-      F("ผลต่อการจ่ายเงิน", c.deal ? "ล็อกการจ่าย " + c.qty + " " + c.uom + " ในดีล " + c.deal : "ไม่กระทบ (ฝั่งขาย)");
-
-    h += '<div class="note warn"><span class="ic">!</span><span>' +
-      "<b>INSPECTION REPORT ไม่ต้องพิมพ์ใหม่</b> — ระบบสร้าง PDF ตามฟอร์มเดิม (Po Ref No., Supplier, " +
-      "Sampling plan, Inspection Location, Defect Details, ลงนาม QC + Procurement Manager) " +
-      "จากข้อมูลที่ QC กรอกไปแล้วในส่วนที่ 2</span></div>";
-
-    h += '<div class="actions">';
-    if (role === "QC") h += '<button class="btn pri" data-cl="report">สร้าง Inspection Report (PDF)</button>';
-    if (role === "SR") h += '<button class="btn pri" data-cl="tosup">ส่งใบเคลมให้ผู้ขาย</button>';
-    if (role === "AC") h += '<button class="btn ok" data-cl="cn">บันทึกใบลดหนี้ที่ได้รับ</button>';
-    h += '<span class="hint">ลายเซ็น 5 ตำแหน่งตามฟอร์มเดิมเก็บเป็นหลักฐานอิเล็กทรอนิกส์ในระบบ</span></div>';
-
-    h += '<div class="tl">';
-    c.tl.slice().reverse().forEach(e => {
-      h += '<div class="e"><time>' + esc(e[0]) + "</time><div><b>" + esc(e[1]) + "</b> " + esc(e[2]) + "</div></div>";
-    });
-    h += "</div></div>";
-    return h;
-  }
-
-  /* ---------------- หน้า: เอกสารเก็บที่ไหน ---------------- */
-  function viewFiles() {
-    let h = "<h2>เอกสารทั้งหมดเก็บไว้ที่ไหน</h2>" +
-      '<p class="sub">คำตอบสั้น: <b>ไฟล์อยู่ใน Google Drive · ทะเบียนอยู่ในระบบ</b> — ' +
-      "คนไม่ต้องเข้า Drive เอง เข้าผ่านหน้าดีล/ใบเคลมเท่านั้น</p>";
-
-    h += '<div class="panel"><h3>โครงโฟลเดอร์</h3><div class="tl" style="max-height:none">' +
-      '<pre style="margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.7;overflow-x:auto">' +
-esc(`/MGS-DocHub/            (Shared Drive ของบริษัท ไม่ใช่ My Drive ของใคร)
-├── 01_Deals/2026/07/D-26-0042_4500012345/
-│   ├── 01_PI/            PI จากซัพ
-│   ├── 02_PO/            PO ที่เซ็นครบแล้วเท่านั้น
-│   ├── 03_QC/            ผลตรวจรับ + รูป
-│   ├── 04_GR/            GR จาก SAP
-│   ├── 05_Invoice/       ใบแจ้งหนี้ + ใบลดหนี้
-│   └── 06_Payment/       สลิป Swift ใบเสร็จตัวจริง
-├── 02_Claims/2026/EX-2026001/
-│   ├── ใบร้องเรียน QC-F006 (ระบบสร้าง)
-│   ├── Inspection Report (ระบบสร้าง)
-│   ├── รูปหลักฐาน
-│   └── ใบลดหนี้จากซัพ
-├── 03_ItemCodes/2026/IC-26-0007/
-│   └── ใบขอเปิดรหัส (ระบบสร้าง)
-├── 04_Suppliers/{รหัสซัพ}/   สัญญา ใบรับรอง
-└── 05_Archive/2026/          ดีลที่ปิดเกิน 30 วัน ย้ายมาเอง`) +
-      "</pre></div></div>";
-
-    h += '<div class="panel"><h3>กฎการจัดเก็บ</h3>';
-    [["ไฟล์อยู่ที่เดียว", "ไม่มีการก๊อปไฟล์ข้ามโฟลเดอร์ ถ้าต้องอ้างถึงใช้ลิงก์ — ก๊อปแล้วสองใบจะไม่ตรงกัน"],
-     ["ระบบตั้งชื่อไฟล์ให้เอง", "PO_D-26-0042_4500012345_v1_20260730.pdf — ไม่ฝากไว้กับวินัยคน"],
-     ["อัพทับได้ เก็บทุก version", "ของเก่าไม่หาย แต่ที่แสดงคือฉบับล่าสุด"],
-     ["คนไม่ต้องเข้า Drive", "เข้าผ่านหน้าดีลหรือใบเคลม ระบบเปิดสิทธิ์ให้เฉพาะที่เกี่ยวข้อง"],
-     ["ทะเบียนคือความจริง ไม่ใช่โฟลเดอร์", "ระบบรู้ว่าใบไหนมี/ขาด จากทะเบียน ไม่ใช่จากการไล่ดูโฟลเดอร์"],
-     ["ไดรฟ์ M: เดิม", "ย้ายของเก่ามาเป็นล็อต แล้วตั้งเป็น read-only เพื่อไม่ให้เกิดสองแหล่งความจริง"]
-    ].forEach(x => {
-      h += '<div class="docrow"><span class="nm" style="flex:0 0 34%"><b>' + esc(x[0]) +
-        '</b></span><span class="nm" style="color:var(--ink-2)">' + esc(x[1]) + "</span></div>";
+    // เฟส
+    h += '<div class="card"><h3>ความคืบหน้า<span class="c">' +
+      (isActive(p) ? "ขั้นที่ " + (p.stage+1) + " จาก 17" : "จบแล้ว") + '</span></h3><div class="phases">';
+    PHASES.forEach(ph => {
+      const done = p.stage > ph.to || !isActive(p) && p.status === "COMPLETED";
+      const now = isActive(p) && p.stage >= ph.from && p.stage <= ph.to;
+      const total = ph.to - ph.from + 1;
+      const prog = done ? 100 : now ? Math.round(((p.stage - ph.from + 1) / total) * 100) : 0;
+      h += '<div class="pz ' + (done ? "done" : now ? "now" : "") + '">' +
+        '<div class="t"><span>' + esc(ph.name) + "</span><span>" + (done ? "✓" : now ? prog + "%" : "") + "</span></div>" +
+        '<div class="m">' + (now && s ? esc(s.n) : done ? "เสร็จแล้ว" : "ยังไม่ถึง") + "</div>" +
+        '<div class="tr"><div class="fl" style="width:' + prog + '%"></div></div></div>';
     });
     h += "</div>";
-
-    h += '<div class="note warn"><span class="ic">▸</span><span>' +
-      "<b>ใบร้องเรียนลูกค้าไม่ได้อยู่ใต้ PO</b> เพราะอ้าง PI/DN ฝั่งขาย จึงแยกเป็น <span class=\"mono\">02_Claims/</span> " +
-      "แล้วลิงก์ไปหาดีลฝั่งซื้อเฉพาะตอนที่เคลมกลับไปหาซัพ</span></div>";
-    return h;
-  }
-
-  /* ---------------- หน้า: คอขวด ---------------- */
-  function viewBottleneck() {
-    const agg = {};
-    DEALS.forEach(d => {
-      const st = STAGES[d.stage];
-      if (!st) return;
-      if (!agg[st.c]) agg[st.c] = { n: st.n, o: st.o, cnt: 0, sum: 0, late: 0, sla: st.sla };
-      agg[st.c].cnt++; agg[st.c].sum += d.age;
-      if (d.age > st.sla) agg[st.c].late++;
-    });
-    const rows = Object.keys(agg).map(k => {
-      const a = agg[k];
-      a.avg = Math.round(a.sum / a.cnt);
-      a.score = a.cnt * a.avg;
-      return a;
-    }).sort((x, y) => y.score - x.score);
-    const max = rows.length ? rows[0].score : 1;
-
-    let h = "<h2>งานค้างอยู่ที่ไหน</h2>" +
-      '<p class="sub">คำนวณจาก จำนวนงานค้าง × ชั่วโมงเฉลี่ยที่ค้าง — ข้อมูลนี้ตอนนี้ยังไม่มีใครรู้</p>' +
-      '<div class="panel"><h3>อันดับคอขวด<span class="c">ข้อมูลสมมติ</span></h3><div class="bars">';
-    rows.forEach(a => {
-      const pct = Math.round((a.score / max) * 100);
-      h += '<div class="bar' + (a.late ? " r" : "") + '">' +
-        "<div>" + esc(a.n) + " " + deptChip(a.o) + "</div>" +
-        '<div class="tr"><div class="fl" style="width:' + pct + '%"></div></div>' +
-        '<div class="v">' + a.cnt + " ดีล · " + a.avg + " ชม.</div></div>";
-    });
-    h += "</div>";
-    const worst = rows[0];
-    if (worst) {
-      h += '<div class="note ' + (worst.late ? "bad" : "warn") + '"><span class="ic">!</span><span>' +
-        "คอขวดอันดับ 1 คือ <b>" + esc(worst.n) + "</b> (" + esc(worst.o) + ") — " +
-        (worst.o === "SR" && worst.n.indexOf("ซัพ") >= 0
-          ? "ต้นเหตุอยู่นอกบริษัท ควรไปคุยเงื่อนไขกับซัพ ไม่ใช่กดดันทีมภายใน"
-          : "มี " + worst.cnt + " ดีลค้างเฉลี่ย " + worst.avg + " ชั่วโมง") +
-        "</span></div>";
-    }
-    h += "</div>";
-    return h;
-  }
-
-  /* ---------------- หน้า: รายละเอียดดีล ---------------- */
-  function viewDeal() {
-    const d = DEALS.filter(x => x.id === openDeal)[0];
-    if (!d) return "<p>ไม่พบดีล</p>";
-    const st = STAGES[d.stage];
-    const miss = missingDocs(d);
-
-    let h = '<button class="back" data-back="1">← กลับ</button>';
-    h += '<div class="dhead"><span class="did" style="font-size:19px">' + esc(d.id) + "</span>" +
-      '<span class="t">' + esc(d.item) + "</span></div>";
-    h += '<div class="dmeta">' +
-      "<span>ซัพ <b>" + esc(d.sup) + "</b></span>" +
-      "<span>PO <b class=\"mono\">" + esc(d.po || "— ยังไม่เปิด") + "</b></span>" +
-      "<span>จำนวน <b>" + esc(d.qty) + "</b></span>" +
-      (seesMoney() ? "<span>ยอด <b class=\"mono\">" + baht(d.amt) + "</b></span>"
-                   : '<span style="color:var(--ink-3)">ยอดเงิน — แผนกคุณไม่เห็นข้อมูลนี้</span>') +
-      "<span>ผู้ดูแล <b>" + esc(d.sr) + "</b></span>" +
-      "</div>";
-
-    if (d.claim) {
-      h += '<div class="panel"><div class="note bad"><span class="ic">!</span><span>' +
-        "<b>มีเรื่องเคลมค้าง</b> — QC ตรวจไม่ผ่าน 40 KG (อุณหภูมิเกินกำหนด) " +
-        "ระบบล็อกการจ่ายเงินเฉพาะยอดที่เคลมไว้แล้ว จนกว่าจะได้ใบลดหนี้จากซัพ" +
-        "</span></div></div>";
-    }
-
-    // แถบขั้นตอน
-    h += '<div class="panel"><h3>ความคืบหน้า<span class="c">ขั้น ' + (d.stage + 1) + " จาก 17</span></h3>" +
-      '<div class="railwrap" tabindex="0" role="group" aria-label="ลำดับขั้นตอน เลื่อนแนวนอนได้"><div class="rail">';
-    STAGES.forEach((s, i) => {
-      const skip = d.skip.indexOf(i) >= 0;
-      const cls = skip ? "skip" : i < d.stage ? "done" : i === d.stage ? "now" : "";
-      h += '<div class="st ' + cls + '"><div class="b"></div>' +
-        '<div class="n">' + (i + 1) + "</div>" +
-        '<div class="m">' + esc(s.n) + "</div></div>";
-    });
-    h += "</div></div>";
-    if (st) {
-      const isMine = st.o === role;
-      h += '<div class="note ' + (d.age > st.sla ? "bad" : "warn") + '"><span class="ic">▸</span><span>' +
-        "ตอนนี้ค้างที่ <b>" + esc(st.n) + "</b> — " + deptChip(st.o) +
-        " ค้างมา <b>" + ageTxt(d.age) + "</b> จาก SLA " + ageTxt(st.sla) +
-        (isMine ? " · <b>งานนี้อยู่ที่คุณ</b>" : "") + "</span></div>";
+    if (isActive(p) && s) {
+      h += '<div class="note ' + (p.age > s.sla ? "bad" : "warn") + '"><span class="ic">▸</span><span>ค้างที่ <b>' +
+        esc(s.n) + "</b> " + dept(s.o) + " · " + ageTxt(p.age) + " จาก SLA " + ageTxt(s.sla) +
+        (s.o === role ? " · <b>งานนี้อยู่ที่คุณ</b>" : "") + "</span></div>";
     }
     h += "</div>";
 
-    h += '<div class="grid2"><div>';
+    // การจ่ายเงิน
+    if (money()) h += paymentCard(p);
 
     // เอกสาร
-    h += '<div class="panel"><h3>เอกสาร<span class="c">' +
-      (miss.length ? "ขาด " + miss.length + " ใบ" : "ครบแล้ว") + "</span></h3>";
-    DOCS.forEach(doc => {
-      const s = docState(d, doc);
-      if (s === "na") return;
-      const isMine = doc.o === role;
-      let badge = "";
-      if (s === "ok") badge = '<span class="pill ok">มีแล้ว</span>';
-      else if (s === "wait") badge = '<span class="pill ' + (isMine ? "due" : "wait") + '">รออัพโหลด</span>';
-      else badge = '<span class="pill wait">ยังไม่ถึงคิว</span>';
-      h += '<div class="docrow' + (s === "wait" && doc.req ? " miss" : "") + '">' +
-        deptChip(doc.o) +
-        '<span class="nm">' + esc(doc.n) +
-        (doc.req ? "" : ' <span style="color:var(--ink-3);font-size:12px">(ไม่บังคับ)</span>') +
-        "<small>" + esc(doc.c) + " · ขั้น " + (doc.at + 1) + "</small></span>" +
-        badge +
-        (s === "wait" && isMine ? ' <button class="btn" data-up="' + esc(doc.c) + '">อัพโหลด</button>' : "") +
-        "</div>";
+    h += '<div class="card"><h3>เอกสาร<span class="c">' + (miss.length ? "ขาด " + miss.length + " ใบ" : "ครบ") + "</span></h3>";
+    DOCS.forEach(d => {
+      const stt = docState(p, d);
+      if (stt === "na") return;
+      const mine = d.o === role;
+      const badge = stt === "ok" ? '<span class="pill ok">มีแล้ว</span>'
+        : stt === "wait" ? '<span class="pill ' + (mine ? "due" : "wait") + '">รออัพโหลด</span>'
+        : '<span class="pill wait">ยังไม่ถึงคิว</span>';
+      h += '<div class="rowline' + (stt === "wait" && d.req ? " miss" : "") + '">' + dept(d.o) +
+        '<span class="nm">' + esc(d.n) + "</span>" + badge +
+        (stt === "wait" && mine && isActive(p) ? ' <button class="btn" data-up="' + esc(d.c) + '">อัพโหลด</button>' : "") + "</div>";
     });
-    h += "</div>";
+    h += '<div class="note info"><span class="ic">📁</span><span>ไฟล์ทั้งหมดเก็บใน Google Drive ที่ ' +
+      '<span class="mono">/MGS-DocHub/01_PO/2026/' + esc(p.no) + '/</span> — เข้าผ่านหน้านี้ ไม่ต้องเปิด Drive เอง</span></div></div>';
 
     // 3-way
-    const ready = !miss.length && !d.claim;
-    h += '<div class="panel"><h3>ตรวจ 3-way<span class="c">PO / ใบแจ้งหนี้ / GR</span></h3>' +
-      '<div class="note ' + (ready ? "good" : "warn") + '"><span class="ic">' + (ready ? "✓" : "…") + "</span><span>" +
-      (ready ? "<b>พร้อมบันทึกบัญชี</b> — เอกสารครบและไม่มีเคลมค้าง"
-             : "<b>ยังไม่พร้อม</b> — " + (d.claim ? "มีเรื่องเคลมค้าง" : "ขาด " + miss.map(x => x.n).join(", "))) +
-      "</span></div></div>";
-
-    h += "</div><div>";
-
-    // ปุ่มลงมือ
-    h += '<div class="panel"><h3>สิ่งที่ทำได้ตอนนี้</h3><div class="actions">';
-    if (!st) {
-      h += '<span class="hint">ดีลนี้ปิดแล้ว</span>';
-    } else if (st.o !== role) {
-      h += '<span class="hint">งานนี้อยู่ที่ ' + esc(ROLES[st.o].name) + " — บทบาทของคุณดูได้อย่างเดียว</span>";
-    } else if (st.c === "INTERNAL_APPROVAL") {
-      h += '<button class="btn ok" data-act="approve">อนุมัติ</button>' +
-           '<button class="btn bad" data-act="reject">ไม่อนุมัติ</button>' +
-           '<span class="hint">ผู้ขออนุมัติเองไม่ได้</span>';
-    } else if (st.c === "QC_INCOMING") {
-      h += '<button class="btn ok" data-act="qcpass">บันทึกผล — ผ่าน</button>' +
-           '<button class="btn bad" data-act="qcfail">ไม่ผ่าน → เปิดใบเคลม</button>';
-    } else if (st.c === "ITEM_CODE") {
-      h += '<button class="btn pri" data-act="goic">ไปหน้าขอเปิดรหัสสินค้า</button>' +
-           '<span class="hint">ดีลจะเดินต่อไม่ได้จนกว่ารหัสจริงจาก SAP จะกลับมา</span>';
-    } else {
-      h += '<button class="btn pri" data-act="done">ทำขั้นตอนนี้เสร็จ</button>' +
-           '<span class="hint">' + esc(st.n) + "</span>";
+    const ready = !miss.length && !p.claim && unpaid(p).length === 0;
+    if (money()) {
+      h += '<div class="card"><h3>ตรวจ 3 ทาง (PO / ใบแจ้งหนี้ / GR)</h3><div class="note ' +
+        (ready ? "good" : "warn") + '"><span class="ic">' + (ready ? "✓" : "…") + "</span><span>" +
+        (ready ? "<b>พร้อมบันทึกบัญชี</b>"
+               : "<b>ยังไม่พร้อม</b> — " + [p.claim ? "มีเคลมค้าง" : "",
+                   miss.length ? "ขาด " + miss.map(d=>d.n).join(", ") : "",
+                   unpaid(p).length ? "ยังจ่ายไม่ครบ " + unpaid(p).length + " งวด" : ""]
+                   .filter(Boolean).join(" · ")) + "</span></div></div>";
     }
-    h += "</div></div>";
 
-    // ไทม์ไลน์
-    h += '<div class="panel"><h3>ประวัติ<span class="c">ใครทำอะไรเมื่อไหร่</span></h3><div class="tl">';
-    d.tl.slice().reverse().forEach(e => {
-      h += '<div class="e"><time>' + esc(e[0]) + "</time><div><b>" + esc(e[1]) + "</b> " + esc(e[2]) + "</div></div>";
+    // ขั้นตอนย่อย
+    h += '<div class="card"><h3>17 ขั้นตอนโดยละเอียด<span class="c">เปิดดูเมื่อต้องการ</span></h3><div class="steps">';
+    STAGES.forEach((sg, i) => {
+      const cls = p.skip.indexOf(i) >= 0 ? "skip" : i < p.stage ? "done" : i === p.stage && isActive(p) ? "now" : "";
+      h += '<div class="step ' + cls + '"><span class="i">' + (i+1) + "</span>" +
+        '<span class="nm">' + esc(sg.n) + "</span>" + dept(sg.o) + "</div>";
     });
     h += "</div></div>";
 
+    // ปุ่ม
+    h += '<div class="card"><h3>สิ่งที่ทำได้ตอนนี้</h3><div class="actions">';
+    if (!isActive(p)) h += '<span class="hint">PO นี้' + (p.status === "COMPLETED" ? "ปิดแล้ว" : "ถูกยกเลิก") + " — ดูได้อย่างเดียว</span>";
+    else if (!s || s.o !== role) h += '<span class="hint">งานอยู่ที่ ' + esc(ROLES[ownerOf(p)] ? ROLES[ownerOf(p)].name : "-") + " — บทบาทของคุณดูได้อย่างเดียว</span>";
+    else if (s.c === "INTERNAL_APPROVAL") h += '<button class="btn ok" data-act="approve">อนุมัติ</button><button class="btn bad" data-act="reject">ไม่อนุมัติ</button>';
+    else if (s.c === "QC_INCOMING") h += '<button class="btn ok" data-act="qcpass">ตรวจรับผ่าน</button><button class="btn bad" data-act="qcfail">ไม่ผ่าน → เปิดใบเคลม</button>';
+    else if (s.c === "ITEM_CODE") h += '<button class="btn pri" data-act="goic">ไปหน้าขอเปิดรหัสสินค้า</button>';
+    else h += '<button class="btn pri" data-act="done">ทำ “' + esc(s.n) + '” เสร็จ</button>';
     h += "</div></div>";
+
+    h += '<div class="card"><h3>ประวัติ</h3><div class="tl">' +
+      p.tl.slice().reverse().map(e => '<div class="e"><time>' + esc(e[0]) + "</time><div><b>" +
+        esc(e[1]) + "</b> " + esc(e[2]) + "</div></div>").join("") + "</div></div>";
+    return h;
+  }
+  function fld(k,v){return '<div class="f"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + "</div></div>";}
+
+  function paymentCard(p) {
+    if (!p.payments.length) return "";
+    const paid = p.payments.filter(x => x.status === "PAID").reduce((s,x)=>s+x.amount,0);
+    let h = '<div class="card"><h3>การจ่ายเงิน<span class="c">' + esc(p.term) + " · จ่ายแล้ว " + baht(paid) + " จาก " + baht(p.amt) + "</span></h3>" +
+      '<div class="tw"><table><thead><tr><th>งวด</th><th>ประเภท</th><th class="num">%</th>' +
+      '<th class="num">จำนวนเงิน</th><th>ครบกำหนด</th><th>สลิป</th><th>สถานะ</th><th></th></tr></thead><tbody>';
+    p.payments.forEach(x => {
+      const badge = x.status === "PAID" ? '<span class="pill ok">จ่ายแล้ว</span>'
+        : x.status === "BLOCKED" ? '<span class="pill late">ล็อก (เคลม)</span>'
+        : '<span class="pill due">รอจ่าย</span>';
+      h += "<tr><td class=\"mono\">" + x.seq + "</td><td>" + esc(x.type) + "</td>" +
+        '<td class="num">' + x.pct + "%</td>" +
+        '<td class="num">' + baht(x.amount) + "</td>" +
+        '<td class="mono">' + esc(x.due) + "</td>" +
+        "<td>" + (x.slip ? '<span class="pill ok">มี</span>' : '<span class="pill wait">—</span>') + "</td>" +
+        "<td>" + badge + "</td>" +
+        "<td>" + (role === "AC" && x.status === "PENDING" && isActive(p)
+          ? '<button class="btn ok" data-pay="' + x.seq + '">บันทึกจ่าย + สลิป</button>' : "") + "</td></tr>";
+    });
+    h += "</tbody></table></div>";
+    if (p.payments.some(x => x.status === "BLOCKED"))
+      h += '<div class="note bad"><span class="ic">!</span><span>งวดนี้ถูกล็อกเพราะมีใบเคลมค้าง — บันทึกใบลดหนี้ในหน้าเคลมแล้วจะปลดล็อกเอง</span></div>';
+    else if (unpaid(p).length)
+      h += '<div class="note warn"><span class="ic">▸</span><span>ยังเหลือ ' + unpaid(p).length +
+        " งวด — ระบบจะเตือนบัญชีตามวันครบกำหนดของแต่ละงวด ไม่ต้องให้จัดซื้อมาตาม</span></div>";
+    return h + "</div>";
+  }
+
+  /* ================= เคลม ================= */
+  function pageClaims() {
+    let h = '<div class="ph"><h1>เคลม / ร้องเรียน</h1><span class="d">รวมลูกค้าร้องเรียน (ฟอร์ม QC-F006) และตรวจรับไม่ผ่าน — ปลายทางเดียวกันคือใบลดหนี้</span></div>';
+    h += '<div class="card"><h3>รายการ<span class="c">' + CLAIMS.length + " ใบ</span></h3>" +
+      '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ที่มา</th><th>สินค้า / Lot</th>' +
+      "<th>อ้างอิง</th><th>จำนวน</th><th>ใบลดหนี้</th></tr></thead><tbody>";
+    CLAIMS.forEach(c => {
+      h += '<tr class="click" data-claim="' + esc(c.id) + '">' +
+        '<td><span class="pono">' + esc(c.id) + "</span></td>" +
+        "<td>" + (c.src === "CUSTOMER" ? '<span class="pill" style="color:var(--ac)">ลูกค้าร้องเรียน</span>'
+                                       : '<span class="pill" style="color:var(--qc)">ตรวจรับไม่ผ่าน</span>') + "</td>" +
+        "<td>" + esc(c.item) + '<div class="sub mono">' + esc(c.lot) + "</div></td>" +
+        '<td class="mono" style="font-size:12px">' + esc(c.src === "CUSTOMER" ? "PI " + c.pi : c.po) + "</td>" +
+        "<td>" + esc(c.qty) + "</td>" +
+        "<td>" + (c.cn ? '<span class="pill ok">' + esc(c.cn) + "</span>" : '<span class="pill due">รอ</span>') + "</td></tr>";
+    });
+    h += "</tbody></table></div></div>";
+
+    const c = CLAIMS.filter(x => x.id === openClaim)[0];
+    if (!c) return h + '<div class="note info"><span class="ic">▸</span><span>กดที่แถวเพื่อดูใบเคลมตามฟอร์ม QC-F006</span></div>';
+
+    h += '<div class="card"><h3>' + esc(c.id) + ' — ตามฟอร์ม QC-F006-V00</h3>';
+    h += '<div class="note good"><span class="ic">1</span><span><b>ส่วนที่ 1 การร้องเรียน</b> — ' +
+      (c.src === "CUSTOMER" ? "Sales Coordinator กรอก" : "ระบบสร้างจากผลตรวจรับของ QC") + "</span></div>";
+    if (c.src === "CUSTOMER") {
+      h += row("ลูกค้า", c.cust) + row("เลขที่ PI / DN", c.pi + " / " + c.dn);
+    } else {
+      h += row("PO ที่เกี่ยวข้อง", c.po) + row("ผู้ขาย", c.supplier);
+    }
+    h += row("สินค้า / Lot", c.item + " · " + c.lot) + row("จำนวนที่พบปัญหา", c.qty) +
+      row("ลักษณะปัญหา", c.desc);
+    h += '<div class="note good"><span class="ic">2</span><span><b>ส่วนที่ 2 ผลการตรวจ</b> — QC กรอกครั้งเดียว ระบบสร้าง Inspection Report ให้</span></div>';
+    h += row("ผลการตรวจ", c.qcResult === "FAIL" ? "ไม่ผ่าน → ดำเนินการส่วนที่ 3" : "ผ่าน") +
+      row("รูปหลักฐาน", c.photos + " รูป");
+    h += '<div class="note bad"><span class="ic">3</span><span><b>ส่วนที่ 3 เคลมกับผู้ขาย</b> — ปลายทางคือใบลดหนี้ ซึ่งจะปลดล็อกการจ่ายเงินให้เอง</span></div>';
+    h += row("ผู้ขายที่เคลม", c.supplier) + row("ใบลดหนี้", c.cn || "ยังไม่ได้รับ") +
+      row("ผลต่อการจ่ายเงิน", c.po ? "ล็อกงวดจ่ายของ " + c.po : "ไม่กระทบฝั่งซื้อ");
+    h += '<div class="actions">';
+    if (role === "QC") h += '<button class="btn pri" data-cl="report">สร้าง Inspection Report</button>';
+    if (role === "SR") h += '<button class="btn pri" data-cl="send">ส่งใบเคลมให้ผู้ขาย</button>';
+    if (role === "AC" && !c.cn) h += '<button class="btn ok" data-cl="cn">บันทึกใบลดหนี้ที่ได้รับ</button>';
+    h += '<span class="hint">ลายเซ็น 5 ตำแหน่งตามฟอร์มเดิม เก็บเป็นหลักฐานในระบบ</span></div></div>';
+    return h;
+  }
+  function row(k,v){return '<div class="rowline"><span class="nm" style="flex:0 0 38%;color:var(--ink-3)">' +
+    esc(k) + '</span><span class="nm"><b>' + esc(v||"—") + "</b></span></div>";}
+
+  /* ================= รหัสสินค้า ================= */
+  function pageItems() {
+    let h = '<div class="ph"><h1>ขอเปิดรหัสสินค้าใหม่</h1><span class="d">เดิมเป็นใบกระดาษที่ต้องเดินไปให้ LS คีย์เข้า SAP</span></div>';
+    h += '<div class="card"><h3>ใบขอ<span class="c">' + ITEMREQS.length + " ใบ</span></h3>" +
+      '<div class="tw"><table><thead><tr><th>เลขที่</th><th>สินค้า</th><th>ผู้ขาย</th><th>PO</th>' +
+      "<th>สถานะ</th><th>รหัสใน SAP</th><th></th></tr></thead><tbody>";
+    ITEMREQS.forEach(r => {
+      const s = IC_ST[r.status];
+      h += "<tr><td><span class=\"pono\">" + esc(r.id) + "</span></td>" +
+        "<td>" + esc(r.name) + '<div class="sub">' + esc(r.pack) + "</div></td>" +
+        "<td>" + esc(r.sup) + "</td>" +
+        '<td class="mono">' + esc(r.po || "—") + "</td>" +
+        '<td><span class="pill ' + s.cls + '">' + esc(s.t) + "</span></td>" +
+        '<td class="mono">' + esc(r.sap || "—") + "</td>" +
+        "<td>" + (r.status === "WAIT_APPROVE" && role === "SR"
+            ? '<button class="btn ok" data-ic="approve" data-id="' + esc(r.id) + '">อนุมัติ</button>'
+            : r.status === "WAIT_LS" && role === "LS"
+            ? '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">บันทึกรหัสจาก SAP</button>' : "") +
+        "</td></tr>";
+    });
+    h += "</tbody></table></div>";
+    h += '<div class="note info"><span class="ic">▸</span><span>PO จะเดินต่อไม่ได้จนกว่ารหัสจริงจาก SAP จะกลับมา — ' +
+      "กันเคสที่เปิด PO ไปก่อนแล้วรหัสยังไม่มา</span></div></div>";
+
+    const d = ITEMREQS.filter(r => r.status !== "DONE")[0] || ITEMREQS[0];
+    h += '<div class="card"><h3>รายละเอียดใบขอ<span class="c">' + esc(d.id) + "</span></h3>" +
+      [["ชื่อสินค้า",d.name],["แบรนด์",d.brand],["กลุ่มสินค้า",d.group],["หน่วยนับ",d.uom],
+       ["ขนาดบรรจุ",d.pack],["ผู้ขาย",d.sup],["พิกัดศุลกากร",d.hs],["การเก็บรักษา",d.storage],
+       ["อายุสินค้า (วัน)",d.shelf],["PO ที่เกี่ยวข้อง",d.po],["ผู้ขอ",d.by + " · " + d.date]]
+      .map(f => row(f[0], f[1])).join("") + "</div>";
     return h;
   }
 
-  /* ---------------- การกระทำ ---------------- */
-  function advance(d, note) {
-    d.tl.push(["30 ก.ค. " + new Date().toTimeString().slice(0, 5), ROLES[role].person, note]);
-    let next = d.stage + 1;
-    while (next < STAGES.length && d.skip.indexOf(next) >= 0) next++;
-    d.stage = next;
-    d.age = 0;
-    if (d.stage >= STAGES.length) {
-      d.tl.push(["30 ก.ค.", "ระบบ", "ปิดรายการ — บันทึกบัญชีใน SAP เรียบร้อย"]);
-      toast("ดีล " + d.id + " ปิดรายการแล้ว");
+  /* ================= รายงาน ================= */
+  function pageReport() {
+    const act = POS.filter(isActive);
+    const agg = {};
+    act.forEach(p => {
+      const s = st(p); if (!s) return;
+      (agg[s.c] = agg[s.c] || {n:s.n, o:s.o, cnt:0, sum:0, late:0, sla:s.sla});
+      agg[s.c].cnt++; agg[s.c].sum += p.age;
+      if (p.age > s.sla) agg[s.c].late++;
+    });
+    const rows = Object.keys(agg).map(k => {
+      const a = agg[k]; a.avg = Math.round(a.sum / a.cnt); a.score = a.cnt * a.avg; return a;
+    }).sort((x,y) => y.score - x.score);
+    const max = rows.length ? rows[0].score : 1;
+
+    let h = '<div class="ph"><h1>รายงาน</h1><span class="d">งานค้างอยู่ที่ขั้นตอนไหน — ข้อมูลที่ตอนนี้ยังไม่มีใครรู้</span></div>';
+    h += '<div class="card"><h3>อันดับคอขวด</h3><div class="bars">';
+    rows.forEach(a => {
+      h += '<div class="bar' + (a.late ? " r" : "") + '"><div>' + esc(a.n) + " " + dept(a.o) + "</div>" +
+        '<div class="tr"><div class="fl" style="width:' + Math.round(a.score/max*100) + '%"></div></div>' +
+        '<div class="v">' + a.cnt + " PO · " + a.avg + " ชม.</div></div>";
+    });
+    h += "</div></div>";
+
+    const done = POS.filter(p => p.status === "COMPLETED");
+    h += '<div class="kpis">' +
+      '<div class="kpi b"><div class="n">' + act.length + '</div><div class="k">กำลังดำเนินการ</div></div>' +
+      '<div class="kpi g"><div class="n">' + done.length + '</div><div class="k">ปิดแล้ว</div></div>' +
+      '<div class="kpi r"><div class="n">' + CLAIMS.filter(c=>!c.cn).length + '</div><div class="k">เคลมค้าง</div></div>' +
+      (money() ? '<div class="kpi a"><div class="n">' + baht(act.reduce((s,p)=>s+p.amt,0)).replace("฿","") +
+        '</div><div class="k">มูลค่า PO ที่ยังไม่ปิด</div></div>' : "") + "</div>";
+    return h;
+  }
+
+  /* ================= การกระทำ ================= */
+  function advance(p, note) {
+    p.tl.push(["วันนี้", ROLES[role].person, note]);
+    let n = p.stage + 1;
+    while (n < STAGES.length && p.skip.indexOf(n) >= 0) n++;
+    p.stage = n; p.age = 0;
+    if (p.stage >= STAGES.length) {
+      p.stage = STAGES.length; p.status = "COMPLETED";
+      p.tl.push(["วันนี้","ระบบ","ปิดรายการ — ย้ายไปแท็บเสร็จสิ้น"]);
+      toast(p.no + " ปิดรายการแล้ว — ย้ายออกจากรายการที่กำลังดำเนินการ");
     } else {
-      toast("ส่งต่อให้ " + ROLES[STAGES[d.stage].o].name + " แล้ว — ระบบแจ้งเตือนให้อัตโนมัติ");
+      toast("ส่งต่อให้ " + ROLES[STAGES[p.stage].o].name + " แล้ว — ระบบแจ้งเตือนให้เอง");
     }
   }
 
   document.addEventListener("click", function (ev) {
-    const roleBtn = ev.target.closest("[data-role]");
-    if (roleBtn) { role = roleBtn.dataset.role; render(); return; }
+    const rb = ev.target.closest("[data-role]");
+    if (rb) { role = rb.dataset.role; render(); return; }
+    const nb = ev.target.closest("[data-page]");
+    if (nb) { page = nb.dataset.page; openPo = null; openClaim = null; subtab = "ACTIVE"; render(); return; }
+    const sb = ev.target.closest("[data-sub]");
+    if (sb) { subtab = sb.dataset.sub; render(); return; }
+    if (ev.target.closest("[data-back]")) { openPo = null; page = "po"; render(); return; }
+    if (ev.target.closest("[data-clear]")) { q = ""; fDept = ""; render(); return; }
 
-    const tab = ev.target.closest("#tabs button");
-    if (tab) { view = tab.dataset.view; openDeal = null; openClaim = null; render(); return; }
-
-    const clRow = ev.target.closest("[data-claim]");
-    if (clRow) { openClaim = clRow.dataset.claim; view = "claims"; render(); return; }
+    const pr = ev.target.closest("[data-po]");
+    if (pr) { openPo = pr.dataset.po; page = "detail"; render(); return; }
+    const cr = ev.target.closest("[data-claim]");
+    if (cr) { openClaim = cr.dataset.claim; page = "claims"; render(); return; }
 
     const ic = ev.target.closest("[data-ic]");
     if (ic) {
-      const r = ITEMREQS.filter(x => x.id === ic.dataset.id)[0];
-      if (!r) return;
-      if (ic.dataset.ic === "approve") {
-        r.status = "WAIT_LS";
-        toast("อนุมัติแล้ว — ส่งเข้าคิว Logistics ให้เปิดรหัสใน SAP โดยไม่ต้องเดินเอกสาร");
-      } else if (ic.dataset.ic === "reject") {
-        r.status = "REJECTED"; toast("ตีกลับให้ผู้ขอพร้อมเหตุผล");
-      } else if (ic.dataset.ic === "sap") {
-        r.status = "DONE";
-        r.sap = "FG-" + Math.floor(1000 + Math.random() * 8999);
-        toast("บันทึกรหัส " + r.sap + " แล้ว — ดีล " + (r.deal || "-") + " เดินต่อได้");
+      const r = ITEMREQS.filter(x => x.id === ic.dataset.id)[0]; if (!r) return;
+      if (ic.dataset.ic === "approve") { r.status = "WAIT_LS"; toast("อนุมัติแล้ว — เข้าคิว LS อัตโนมัติ ไม่ต้องเดินเอกสาร"); }
+      if (ic.dataset.ic === "sap") {
+        r.status = "DONE"; r.sap = "FG-" + Math.floor(1000 + Math.random()*8999);
+        const p = POS.filter(x => x.no === r.po)[0];
+        if (p && p.stage === 5) { p.stage = 6; p.tl.push(["วันนี้","ระบบ","ได้รหัส " + r.sap + " — PO เดินต่อได้"]); }
+        toast("บันทึกรหัส " + r.sap + " แล้ว — " + (r.po || "") + " เดินต่อได้");
       }
       render(); return;
     }
 
     const cl = ev.target.closest("[data-cl]");
     if (cl) {
-      const c = CLAIMS.filter(x => x.id === openClaim)[0];
-      const a = cl.dataset.cl;
-      if (a === "report") { c.tl.push(["วันนี้", ROLES[role].person, "สร้าง Inspection Report จากผลตรวจในระบบ"]); toast("สร้าง Inspection Report แล้ว — ไม่ต้องพิมพ์ซ้ำ"); }
-      if (a === "tosup") { c.tl.push(["วันนี้", ROLES[role].person, "ส่งใบเคลม + Inspection Report ให้ผู้ขาย"]); toast("ส่งให้ผู้ขายแล้ว พร้อมรูปหลักฐาน"); }
-      if (a === "cn") {
-        c.tl.push(["วันนี้", ROLES[role].person, "บันทึกใบลดหนี้จากผู้ขาย"]);
-        const d = DEALS.filter(x => x.id === c.deal)[0];
-        if (d) { d.claim = false; d.tl.push(["วันนี้", "ระบบ", "ได้รับใบลดหนี้ — ปลดล็อกการจ่ายเงิน"]); }
-        toast("ปลดล็อกการจ่ายเงินให้อัตโนมัติแล้ว");
+      const c = CLAIMS.filter(x => x.id === openClaim)[0]; if (!c) return;
+      if (cl.dataset.cl === "report") toast("สร้าง Inspection Report จากข้อมูลในระบบแล้ว — ไม่ต้องพิมพ์ซ้ำ");
+      if (cl.dataset.cl === "send") toast("ส่งใบเคลมพร้อมรูปหลักฐานให้ผู้ขายแล้ว");
+      if (cl.dataset.cl === "cn") {
+        c.cn = "CN-26-00" + (CLAIMS.indexOf(c) + 1);
+        const p = POS.filter(x => x.no === c.po)[0];
+        if (p) { p.claim = false; p.payments.forEach(x => { if (x.status === "BLOCKED") x.status = "PENDING"; });
+                 p.tl.push(["วันนี้","ระบบ","ได้รับใบลดหนี้ " + c.cn + " — ปลดล็อกงวดจ่าย"]); }
+        toast("บันทึกใบลดหนี้ " + c.cn + " — ปลดล็อกการจ่ายเงินอัตโนมัติ");
       }
       render(); return;
     }
 
-    if (ev.target.closest("[data-back]")) { view = "queue"; openDeal = null; render(); return; }
-
-    const row = ev.target.closest("[data-deal]");
-    if (row) { openDeal = row.dataset.deal; view = "deal"; render(); return; }
-
-    const d = DEALS.filter(x => x.id === openDeal)[0];
-    if (!d) return;
-
-    const up = ev.target.closest("[data-up]");
-    if (up) {
-      const doc = DOCS.filter(x => x.c === up.dataset.up)[0];
-      advance(d, "อัพโหลด " + doc.n);
-      render();
-      return;
-    }
-    const act = ev.target.closest("[data-act]");
-    if (!act) return;
-    const a = act.dataset.act;
-    if (a === "approve") advance(d, "อนุมัติ PO");
-    else if (a === "reject") { d.tl.push(["30 ก.ค.", ROLES[role].person, "ไม่อนุมัติ — ตีกลับให้ SR แก้"]); toast("ตีกลับให้ SR พร้อมเหตุผลแล้ว"); }
-    else if (a === "qcpass") advance(d, "บันทึกผลตรวจรับ — ผ่าน");
-    else if (a === "goic") { view = "itemcodes"; render(); return; }
-    else if (a === "qcfail") {
-      d.claim = true;
-      const cid = "CL-26-" + String(1000 + CLAIMS.length).slice(1);
-      d.tl.push(["30 ก.ค.", ROLES[role].person, "บันทึกผลตรวจรับ — ไม่ผ่าน"]);
-      d.tl.push(["30 ก.ค.", "ระบบ", "เปิดใบเคลม " + cid + " + ล็อกการจ่ายเงิน + แจ้ง SR และ AC"]);
-      CLAIMS.unshift({
-        id: cid, src: "INCOMING", date: "30/07/2026", group: "Food",
-        seller: "—", unit: "—", pos: "—", cust: "—", pi: "", dn: "", buyDate: "",
-        item: d.item, brand: "—", lot: "LOT-" + d.id.slice(-4), wh: "CHOD",
-        pack: "—", qty: "40", uom: "KG", kg: "40",
-        desc: "ตรวจรับไม่ผ่านที่ห้องเย็นต้นทาง", place: "ห้องเย็นต้นทาง", truck: "ควบคุมอุณหภูมิ",
-        qcResult: "FAIL", qcNote: "บันทึกจากหน้าตรวจรับ", custWantsDoc: "ไม่ใช่",
-        supPo: d.po, supplier: d.sup, stage: "SEC3", photos: 0, deal: d.id,
-        tl: [["30 ก.ค.", ROLES[role].person, "บันทึกผลตรวจรับ — ไม่ผ่าน"],
-             ["30 ก.ค.", "ระบบ", "เปิดใบเคลมอัตโนมัติจากผลตรวจ ไม่ต้องกรอกซ้ำ"]]
-      });
-      openClaim = cid; view = "claims";
-      toast("เปิดใบเคลม " + cid + " ให้อัตโนมัติแล้ว — ล็อกการจ่ายเงินและแจ้ง SR + AC");
+    const p = POS.filter(x => x.no === openPo)[0];
+    if (!p) return;
+    const pb = ev.target.closest("[data-pay]");
+    if (pb) {
+      const x = p.payments.filter(y => String(y.seq) === pb.dataset.pay)[0];
+      if (x) { x.status = "PAID"; x.slip = true; x.paidAt = "วันนี้";
+        p.tl.push(["วันนี้", ROLES[role].person, "จ่ายงวดที่ " + x.seq + " (" + x.type + ") + อัพโหลดสลิป"]);
+        toast(unpaid(p).length ? "บันทึกแล้ว — เหลืออีก " + unpaid(p).length + " งวด ระบบจะเตือนตามกำหนด"
+                               : "จ่ายครบทุกงวดแล้ว");
+      }
       render(); return;
-    } else if (a === "done") advance(d, "ทำ " + STAGES[d.stage].n + " เสร็จ");
+    }
+    const up = ev.target.closest("[data-up]");
+    if (up) { advance(p, "อัพโหลด " + (DOCS.filter(d=>d.c===up.dataset.up)[0]||{n:""}).n); render(); return; }
+
+    const ab = ev.target.closest("[data-act]");
+    if (!ab) return;
+    const a = ab.dataset.act;
+    if (a === "approve") advance(p, "อนุมัติภายใน");
+    else if (a === "reject") { p.tl.push(["วันนี้", ROLES[role].person, "ไม่อนุมัติ — ตีกลับพร้อมเหตุผล"]); toast("ตีกลับให้จัดซื้อแล้ว"); }
+    else if (a === "qcpass") advance(p, "ตรวจรับผ่าน");
+    else if (a === "goic") { page = "items"; render(); return; }
+    else if (a === "qcfail") {
+      p.claim = true;
+      p.payments.forEach(x => { if (x.status === "PENDING") x.status = "BLOCKED"; });
+      const cid = "CL-26-00" + (CLAIMS.length + 4);
+      CLAIMS.unshift({id:cid, src:"INCOMING", date:"วันนี้", cust:"—", pi:"", dn:"",
+        item:p.item, lot:"LOT-" + p.no.slice(-4), qty:"40 KG",
+        desc:"ตรวจรับไม่ผ่านที่ห้องเย็นต้นทาง", qcResult:"FAIL", supplier:p.sup, po:p.no, cn:"", photos:0});
+      p.tl.push(["วันนี้", ROLES[role].person, "ตรวจรับไม่ผ่าน"]);
+      p.tl.push(["วันนี้","ระบบ","เปิดใบเคลม " + cid + " + ล็อกงวดจ่าย + แจ้งจัดซื้อและบัญชี"]);
+      openClaim = cid; page = "claims";
+      toast("เปิดใบเคลม " + cid + " และล็อกการจ่ายเงินให้แล้ว");
+      render(); return;
+    }
+    else if (a === "done") advance(p, "ทำ " + STAGES[p.stage].n + " เสร็จ");
     render();
   });
 
-  function render() {
-    renderChrome();
-    const m = $("#main");
-    if (view === "deal") m.innerHTML = viewDeal();
-    else if (view === "board") m.innerHTML = viewBoard();
-    else if (view === "claims") m.innerHTML = viewClaims();
-    else if (view === "itemcodes") m.innerHTML = viewItemCodes();
-    else if (view === "files") m.innerHTML = viewFiles();
-    else if (view === "bottleneck") m.innerHTML = viewBottleneck();
-    else m.innerHTML = viewQueue();
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }
+  document.addEventListener("input", function (ev) {
+    if (ev.target.id === "q") { q = ev.target.value; const el = ev.target;
+      renderMain(); const nq = document.getElementById("q");
+      if (nq) { nq.focus(); nq.setSelectionRange(el.value.length, el.value.length); } }
+  });
+  document.addEventListener("change", function (ev) {
+    if (ev.target.id === "fdept") { fDept = ev.target.value; renderMain(); }
+  });
 
+  function renderMain() {
+    const m = $("#main");
+    if (page === "detail") m.innerHTML = pageDetail();
+    else if (page === "po") m.innerHTML = pagePo();
+    else if (page === "claims") m.innerHTML = pageClaims();
+    else if (page === "items") m.innerHTML = pageItems();
+    else if (page === "report") m.innerHTML = pageReport();
+    else m.innerHTML = pageHome();
+  }
+  function render() { chrome(); renderMain(); window.scrollTo({top:0, behavior:"instant"}); }
   render();
 })();
 </script>
