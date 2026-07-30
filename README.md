@@ -36,7 +36,15 @@ flowchart ให้เป็นระบบจริง — แต่ละแ�
 | 04 | [ระบบอัตโนมัติ แจ้งเตือน และการอนุมัติ](docs/04-automation-approval.md) | Lark/Email, SLA, การเซ็นอนุมัติในแอปและหลักฐานทางกฎหมาย |
 | 05 | [การต่อยอด Module อื่น](docs/05-module-extensibility.md) | เพิ่มงานนำเข้า / Solar / Mechanical ในอนาคต |
 
-**สำหรับนำเสนอ:** [`presentation/flow-summary.html`](presentation/flow-summary.html) — สรุปหน้าเดียว เปิดดูบนมือถือได้
+**สำหรับนำเสนอ:**
+
+| ไฟล์ | ใช้ทำอะไร |
+|---|---|
+| [`presentation/flow-summary.html`](presentation/flow-summary.html) | สรุป flow หน้าเดียว เปิดบนมือถือได้ |
+| [`presentation/prototype.html`](presentation/prototype.html) | **ตัวอย่างระบบกดเล่นได้** — สลับบทบาทดูหน้าจอของแต่ละแผนก ข้อมูลสมมติ ไม่ต่อ SAP จริง |
+
+> เปิด `prototype.html` ในที่ประชุมแล้วให้หัวหน้าแต่ละแผนกกดบทบาทของตัวเอง จะเห็นทันทีว่า
+> หน้าจอตัวเองมีอะไร ต้องกรอกอะไร และทำไม QC/LS/WH ถึงไม่เห็นช่องราคา
 
 **ของเดิม:** [`docs/reference/erp-full-p2p/`](docs/reference/erp-full-p2p/) — blueprint ERP P2P เต็มรูปแบบที่ทำไว้ก่อนทราบว่ามี SAP อยู่แล้ว
 เก็บไว้เพราะบางส่วนใช้ต่อได้ (สเปก QC, ตรรกะ 3-way matching, โครง Apps Script) แต่**ไม่ใช่แนวทางที่จะสร้าง**

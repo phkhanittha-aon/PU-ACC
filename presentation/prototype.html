@@ -1,0 +1,659 @@
+<title>MGS Document Hub — ตัวอย่างระบบ (Prototype)</title>
+
+<style>
+  :root {
+    --paper:#fff; --surface:#f1f4f6; --surface-2:#e6ebee;
+    --ink:#16202b; --ink-2:#47576a; --ink-3:#71818f;
+    --line:#d3dde3; --line-2:#b9c7d0;
+    --gold:#8f6d1c; --gold-bg:#f7f0dd; --cold:#24607d; --cold-bg:#e2eef4;
+    --go:#2c6e49; --go-bg:#e4f0e8; --warn:#a4501d; --warn-bg:#faeee3; --stop:#9c2a26; --stop-bg:#fbe9e8;
+    --sr:#8f6d1c; --qc:#1a6a5c; --ls:#43539c; --wh:#4e5f6c; --ac:#7d3660; --gm:#47576a;
+    --sans:"Leelawadee UI","Noto Sans Thai","Sarabun","IBM Plex Sans Thai","Thonburi",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#0e151c; --surface:#17212b; --surface-2:#1f2b37;
+      --ink:#e8eef3; --ink-2:#a9bac7; --ink-3:#7d8f9d;
+      --line:#2a3844; --line-2:#3a4b59;
+      --gold:#d7ae53; --gold-bg:#2a2213; --cold:#6cb3d4; --cold-bg:#122a36;
+      --go:#62b98a; --go-bg:#15291f; --warn:#e0925c; --warn-bg:#2e2015; --stop:#e8827d; --stop-bg:#301818;
+      --sr:#d7ae53; --qc:#46b39f; --ls:#909cdc; --wh:#93a6b4; --ac:#cd82ad; --gm:#a9bac7;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0e151c; --surface:#17212b; --surface-2:#1f2b37;
+    --ink:#e8eef3; --ink-2:#a9bac7; --ink-3:#7d8f9d; --line:#2a3844; --line-2:#3a4b59;
+    --gold:#d7ae53; --gold-bg:#2a2213; --cold:#6cb3d4; --cold-bg:#122a36;
+    --go:#62b98a; --go-bg:#15291f; --warn:#e0925c; --warn-bg:#2e2015; --stop:#e8827d; --stop-bg:#301818;
+    --sr:#d7ae53; --qc:#46b39f; --ls:#909cdc; --wh:#93a6b4; --ac:#cd82ad; --gm:#a9bac7;
+  }
+  :root[data-theme="light"]{
+    --paper:#fff; --surface:#f1f4f6; --surface-2:#e6ebee;
+    --ink:#16202b; --ink-2:#47576a; --ink-3:#71818f; --line:#d3dde3; --line-2:#b9c7d0;
+    --gold:#8f6d1c; --gold-bg:#f7f0dd; --cold:#24607d; --cold-bg:#e2eef4;
+    --go:#2c6e49; --go-bg:#e4f0e8; --warn:#a4501d; --warn-bg:#faeee3; --stop:#9c2a26; --stop-bg:#fbe9e8;
+    --sr:#8f6d1c; --qc:#1a6a5c; --ls:#43539c; --wh:#4e5f6c; --ac:#7d3660; --gm:#47576a;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55}
+  button{font:inherit;color:inherit;cursor:pointer}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  /* demo banner */
+  .demo{background:var(--gold-bg);border-bottom:1px solid var(--line);padding:8px 16px;font-size:13px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:center;text-align:center}
+  .demo b{color:var(--gold)}
+
+  /* app chrome */
+  .app{max-width:1180px;margin:0 auto;background:var(--paper);min-height:100vh;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  header.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:20}
+  .brand{font-weight:800;letter-spacing:-.01em;white-space:nowrap}
+  .brand small{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--ink-3);display:block;font-weight:500;text-transform:uppercase}
+  nav.tabs{display:flex;gap:2px;flex:1;flex-wrap:wrap}
+  nav.tabs button{background:none;border:0;padding:7px 12px;border-radius:0;color:var(--ink-2);border-bottom:2px solid transparent;font-size:14px}
+  nav.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--gold);font-weight:700}
+  nav.tabs button:hover{color:var(--ink)}
+  .who{display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
+  .who .av{width:26px;height:26px;background:var(--rc);color:#fff;display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:700}
+  :root[data-theme="dark"] .who .av{color:#0e151c}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .who .av{color:#0e151c}}
+
+  /* role switcher */
+  .roles{display:flex;flex-wrap:wrap;gap:6px;padding:10px 18px;background:var(--surface);border-bottom:1px solid var(--line);align-items:center}
+  .roles .lb{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-right:4px}
+  .roles button{background:var(--paper);border:1px solid var(--line-2);padding:5px 11px;font-size:13px;display:flex;align-items:center;gap:7px}
+  .roles button i{width:9px;height:9px;background:var(--rc);display:block}
+  .roles button[aria-pressed="true"]{border-color:var(--rc);color:var(--rc);font-weight:700;background:var(--paper);box-shadow:inset 0 0 0 1px var(--rc)}
+
+  main{padding:20px 18px 60px}
+  h2{margin:0 0 4px;font-size:19px;font-weight:750}
+  .sub{margin:0 0 18px;color:var(--ink-2);font-size:14px}
+
+  /* stat row */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:22px}
+  .kpi{background:var(--paper);padding:14px 16px}
+  .kpi .n{font-family:var(--mono);font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  .kpi .k{font-size:12.5px;color:var(--ink-2)}
+  .kpi.a .n{color:var(--gold)} .kpi.r .n{color:var(--stop)} .kpi.g .n{color:var(--go)}
+
+  /* lists / tables */
+  .panel{border:1px solid var(--line);margin-bottom:20px}
+  .panel > h3{margin:0;padding:11px 16px;font-size:13px;font-weight:700;background:var(--surface);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .panel > h3 .c{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-weight:500}
+  .tablewrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
+  th,td{text-align:left;padding:10px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+  thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:600;background:var(--paper);white-space:nowrap}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr.click{cursor:pointer}
+  tbody tr.click:hover{background:var(--surface)}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .did{font-family:var(--mono);font-weight:700;color:var(--cold);white-space:nowrap}
+
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 9px;border:1px solid currentColor;white-space:nowrap;font-family:var(--mono)}
+  .pill.ok{color:var(--go);background:var(--go-bg)}
+  .pill.wait{color:var(--ink-3)}
+  .pill.late{color:var(--stop);background:var(--stop-bg);font-weight:700}
+  .pill.due{color:var(--warn);background:var(--warn-bg)}
+  .pill.claim{color:var(--stop);background:var(--stop-bg);font-weight:700}
+  .dept{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 7px;border:1px solid currentColor;white-space:nowrap}
+
+  .empty{padding:26px 16px;color:var(--ink-3);font-size:14px;text-align:center}
+  .mine{box-shadow:inset 3px 0 0 var(--rc)}
+
+  /* buttons */
+  .btn{border:1px solid var(--line-2);background:var(--paper);padding:7px 14px;font-size:13.5px;font-weight:600}
+  .btn:hover{border-color:var(--ink-3)}
+  .btn.pri{background:var(--cold);border-color:var(--cold);color:#fff}
+  :root[data-theme="dark"] .btn.pri{color:#0e151c}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.pri{color:#0e151c}}
+  .btn.ok{background:var(--go);border-color:var(--go);color:#fff}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.ok{color:#0e151c}}
+  :root[data-theme="dark"] .btn.ok{color:#0e151c}
+  .btn.bad{color:var(--stop);border-color:var(--stop)}
+  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px;background:var(--surface);border-top:1px solid var(--line)}
+  .actions .hint{font-size:13px;color:var(--ink-3);align-self:center}
+
+  /* deal detail */
+  .back{background:none;border:0;padding:0;color:var(--cold);font-size:14px;margin-bottom:12px}
+  .dhead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:6px}
+  .dhead .t{font-size:21px;font-weight:750}
+  .dmeta{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px;color:var(--ink-2);margin-bottom:18px}
+  .dmeta b{color:var(--ink);font-weight:600}
+  .grid2{display:grid;grid-template-columns:1fr;gap:20px}
+  @media (min-width:900px){.grid2{grid-template-columns:1.35fr 1fr}}
+
+  .railwrap{overflow-x:auto;padding:14px 16px}
+  .rail{display:flex;min-width:820px}
+  .st{flex:1 1 0;min-width:60px;padding-right:6px;display:flex;flex-direction:column;gap:5px}
+  .st .b{height:5px;background:var(--line-2)}
+  .st.done .b{background:var(--go)}
+  .st.now .b{background:var(--cold)}
+  .st.skip .b{background:repeating-linear-gradient(90deg,var(--line-2) 0 3px,transparent 3px 6px)}
+  .st .n{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+  .st .m{font-size:11px;line-height:1.3;color:var(--ink-3)}
+  .st.done .m{color:var(--ink-2)}
+  .st.now .m{color:var(--cold);font-weight:700}
+
+  .docrow{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line);font-size:14px}
+  .docrow:last-of-type{border-bottom:0}
+  .docrow .nm{flex:1;min-width:0}
+  .docrow .nm small{display:block;font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+  .docrow.miss{background:var(--warn-bg)}
+
+  .tl{padding:10px 16px;display:flex;flex-direction:column;gap:0;max-height:340px;overflow-y:auto}
+  .tl .e{display:grid;grid-template-columns:74px 1fr;gap:10px;padding:7px 0;border-bottom:1px dotted var(--line);font-size:13px}
+  .tl .e:last-child{border-bottom:0}
+  .tl .e time{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  .tl .e b{font-weight:700}
+
+  .note{display:flex;gap:12px;padding:12px 16px;font-size:13.5px;border-top:1px solid var(--line)}
+  .note.warn{background:var(--warn-bg);color:var(--warn)}
+  .note.bad{background:var(--stop-bg);color:var(--stop)}
+  .note.good{background:var(--go-bg);color:var(--go)}
+  .note .ic{font-family:var(--mono);font-weight:700}
+
+  /* bottleneck bars */
+  .bars{padding:6px 16px 16px}
+  .bar{display:grid;grid-template-columns:150px 1fr 76px;gap:12px;align-items:center;padding:8px 0;font-size:13.5px}
+  @media (max-width:640px){.bar{grid-template-columns:110px 1fr 64px;gap:8px;font-size:12.5px}}
+  .bar .tr{height:16px;background:var(--surface-2)}
+  .bar .fl{height:16px;background:var(--cold)}
+  .bar.r .fl{background:var(--stop)}
+  .bar .v{font-family:var(--mono);font-size:12px;text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+  /* lark preview */
+  .lark{margin:0 16px 16px;border:1px solid var(--line);background:var(--surface);padding:0;max-width:420px}
+  .lark .h{padding:8px 12px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+  .lark .bd{padding:12px;font-size:13.5px}
+  .lark .bd .ti{font-weight:700;margin-bottom:6px}
+  .lark .bd dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px}
+  .lark .bd dt{color:var(--ink-3)} .lark .bd dd{margin:0}
+  .lark .btns{display:flex;gap:6px;padding:0 12px 12px}
+  .lark .btns span{font-size:12.5px;border:1px solid var(--line-2);padding:4px 12px;color:var(--ink-2)}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--paper);padding:11px 18px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:90vw;text-align:center}
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media (prefers-reduced-motion:reduce){#toast{transition:none}}
+  .hidden{display:none !important}
+</style>
+
+<div class="demo">
+  <span><b>ตัวอย่างระบบ (Prototype)</b> — ข้อมูลสมมติ กดเล่นได้ ยังไม่เชื่อมกับ SAP หรือ Google Sheet จริง</span>
+  <span>·  ลองกดเปลี่ยน <b>บทบาท</b> เพื่อดูหน้าจอของแผนกตัวเอง</span>
+</div>
+
+<div class="app">
+  <header class="bar">
+    <div class="brand">MGS DocHub<small>document hub</small></div>
+    <nav class="tabs" id="tabs">
+      <button data-view="queue" aria-current="page">คิวของฉัน</button>
+      <button data-view="board">ทุกดีล</button>
+      <button data-view="bottleneck">คอขวด</button>
+    </nav>
+    <div class="who" id="who"></div>
+  </header>
+
+  <div class="roles" id="roles"><span class="lb">บทบาท</span></div>
+
+  <main id="main"></main>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- ข้อมูลตัวอย่าง ---------------- */
+
+  const ROLES = {
+    SR: { name: "Sourcing", person: "คุณสมชาย", init: "สช", money: true,  v: "--sr" },
+    QC: { name: "QC",         person: "คุณสมหญิง", init: "สญ", money: false, v: "--qc" },
+    LS: { name: "Logistics",  person: "คุณอนุชา",  init: "อช", money: false, v: "--ls" },
+    WH: { name: "Warehouse",  person: "คุณประเสริฐ", init: "ปส", money: false, v: "--wh" },
+    AC: { name: "Accounting", person: "คุณวิภา",   init: "วภ", money: true,  v: "--ac" },
+    GM: { name: "GM",         person: "คุณผู้จัดการ", init: "GM", money: true,  v: "--gm" }
+  };
+
+  // 17 ขั้นตอน — owner คือแผนกที่ต้องลงมือ
+  const STAGES = [
+    { c: "PRICE_REQUEST",     n: "เช็คราคา",          o: "SR", sla: 24 },
+    { c: "SAMPLE_CHECK",      n: "ตรวจตัวอย่าง",      o: "QC", sla: 48, skippable: true },
+    { c: "GM_DECISION",       n: "GM ตัดสินใจ",       o: "GM", sla: 24, skippable: true },
+    { c: "ORDER_CONFIRM",     n: "คอนเฟิร์มออเดอร์",  o: "SR", sla: 24 },
+    { c: "PI_RECEIVED",       n: "รับ PI",            o: "SR", sla: 48 },
+    { c: "ITEM_CODE",         n: "เปิดรหัสสินค้า",     o: "LS", sla: 24, skippable: true },
+    { c: "PO_CREATED",        n: "เปิด PO ใน SAP",    o: "SR", sla: 24 },
+    { c: "INTERNAL_APPROVAL", n: "อนุมัติภายใน",       o: "GM", sla: 24 },
+    { c: "SUPPLIER_SIGN",     n: "ซัพเซ็น PO กลับ",   o: "SR", sla: 72 },
+    { c: "DELIVERY_BOOKING",  n: "จองรถรับของ",       o: "LS", sla: 24 },
+    { c: "QC_INCOMING",       n: "ตรวจรับห้องเย็น",   o: "QC", sla: 24 },
+    { c: "GR",                n: "รับเข้าคลัง + GR",  o: "WH", sla: 24 },
+    { c: "INVOICE_RECEIVED",  n: "รับใบแจ้งหนี้",     o: "AC", sla: 72 },
+    { c: "DOC_HANDOVER",      n: "ส่งมอบเอกสาร",      o: "SR", sla: 24 },
+    { c: "PAYMENT",           n: "ทำจ่าย",            o: "AC", sla: 48 },
+    { c: "RECEIPT_ORIGINAL",  n: "ใบเสร็จตัวจริง",    o: "AC", sla: 336 },
+    { c: "AC_CLOSE",          n: "3-way + ปิดรายการ", o: "AC", sla: 48 }
+  ];
+
+  // เอกสาร: ผูกกับขั้นตอน + แผนกเจ้าของ
+  const DOCS = [
+    { c: "SAMPLE_QC", n: "ผลตรวจตัวอย่าง",       o: "QC", at: 1,  req: false },
+    { c: "PI",        n: "PI (Proforma Invoice)", o: "SR", at: 4,  req: true },
+    { c: "CODE_REQ",  n: "ใบขออนุมัติเพิ่มรหัส",  o: "SR", at: 5,  req: false },
+    { c: "PO",        n: "PO",                    o: "SR", at: 6,  req: true },
+    { c: "PO_SIGNED", n: "PO ที่ซัพเซ็นกลับ",     o: "SR", at: 8,  req: true },
+    { c: "LABEL",     n: "Pattern label",         o: "SR", at: 8,  req: false, off: true },
+    { c: "QC_RC",     n: "ผลตรวจรับ / RC",        o: "QC", at: 10, req: true },
+    { c: "GR",        n: "GR",                    o: "WH", at: 11, req: true },
+    { c: "INVOICE",   n: "ใบแจ้งหนี้",            o: "AC", at: 12, req: true },
+    { c: "CREDIT",    n: "ใบลดหนี้",              o: "AC", at: 12, req: false, claimOnly: true },
+    { c: "SLIP",      n: "สลิป / Swift",          o: "AC", at: 14, req: true },
+    { c: "RECEIPT",   n: "ใบเสร็จรับเงินตัวจริง", o: "AC", at: 15, req: true }
+  ];
+
+  let DEALS = [
+    { id:"D-26-0042", po:"4500012345", sup:"ABC Foods", item:"กุ้งแช่แข็ง 16/20", qty:"500 KG",
+      amt:130000, stage:10, age:26, sr:"คุณสมชาย", skip:[5], claim:false,
+      tl:[["28 ก.ค. 09:12","คุณสมชาย","สร้างดีล"],["28 ก.ค. 14:40","คุณสมชาย","อัพโหลด PI"],
+          ["29 ก.ค. 10:05","คุณสมชาย","กรอกเลข PO 4500012345"],["29 ก.ค. 11:20","คุณผู้จัดการ","อนุมัติ PO"],
+          ["29 ก.ค. 16:02","คุณสมชาย","อัพโหลด PO ที่ซัพเซ็นกลับ"],["30 ก.ค. 08:30","คุณอนุชา","จองรถรับของ 31 ก.ค."]] },
+    { id:"D-26-0051", po:"", sup:"Thai Frozen Foods", item:"ปลาหมึกกล้วย", qty:"300 KG",
+      amt:78000, stage:6, age:4, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
+      tl:[["30 ก.ค. 08:05","คุณสมชาย","สร้างดีล"],["30 ก.ค. 09:30","คุณสมชาย","อัพโหลด PI"]] },
+    { id:"D-26-0038", po:"4500012301", sup:"Siam Marine", item:"กุ้งขาว 21/25", qty:"800 KG",
+      amt:196000, stage:11, age:7, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
+      tl:[["27 ก.ค. 10:00","คุณสมชาย","สร้างดีล"],["28 ก.ค. 09:15","คุณผู้จัดการ","อนุมัติ PO"],
+          ["30 ก.ค. 07:40","คุณสมหญิง","บันทึกผลตรวจรับ — ผ่าน"]] },
+    { id:"D-26-0029", po:"4500012288", sup:"Thai Frozen Foods", item:"หอยเชลล์", qty:"120 KG",
+      amt:45000, stage:12, age:52, sr:"คุณสมชาย", skip:[1,2,5], claim:true,
+      tl:[["25 ก.ค. 09:00","คุณสมชาย","สร้างดีล"],["27 ก.ค. 08:20","คุณผู้จัดการ","อนุมัติ PO"],
+          ["29 ก.ค. 07:10","คุณสมหญิง","บันทึกผลตรวจรับ — ไม่ผ่าน (อุณหภูมิเกิน)"],
+          ["29 ก.ค. 07:11","ระบบ","เปิดเรื่องเคลม + ล็อกการจ่าย 40 KG"],
+          ["29 ก.ค. 09:45","คุณสมชาย","แจ้งซัพเพื่อเคลม"]] },
+    { id:"D-26-0033", po:"4500012299", sup:"Ocean Best", item:"ปลาแซลมอนแล่", qty:"200 KG",
+      amt:310000, stage:14, age:20, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
+      tl:[["22 ก.ค. 11:00","คุณสมชาย","สร้างดีล"],["24 ก.ค. 10:00","คุณผู้จัดการ","อนุมัติ PO"],
+          ["28 ก.ค. 15:20","คุณประเสริฐ","อัพโหลด GR"],["29 ก.ค. 09:00","คุณวิภา","อัพโหลดใบแจ้งหนี้"]] },
+    { id:"D-26-0025", po:"4500012250", sup:"Ocean Best", item:"ปลาทูน่าท่อน", qty:"400 KG",
+      amt:268000, stage:15, age:126, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
+      tl:[["18 ก.ค. 09:00","คุณสมชาย","สร้างดีล"],["25 ก.ค. 14:00","คุณวิภา","ทำจ่าย + อัพโหลดสลิป"],
+          ["25 ก.ค. 14:01","ระบบ","ส่งสลิปให้ซัพทางอีเมล"],
+          ["26 ก.ค. 10:00","คุณวิภา","บันทึกเลข tracking EMS EX123456789"]] },
+    { id:"D-26-0031", po:"4500012260", sup:"Siam Marine", item:"กุ้งก้ามกราม", qty:"150 KG",
+      amt:84000, stage:16, age:9, sr:"คุณสมชาย", skip:[1,2,5], claim:false,
+      tl:[["20 ก.ค. 09:00","คุณสมชาย","สร้างดีล"],["27 ก.ค. 16:00","คุณวิภา","รับใบเสร็จตัวจริง"],
+          ["30 ก.ค. 06:00","ระบบ","3-way ผ่าน — พร้อมบันทึกบัญชี"]] }
+  ];
+
+  /* ---------------- สถานะ ---------------- */
+  let role = "SR";
+  let view = "queue";
+  let openDeal = null;
+
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const baht = n => "฿" + Number(n).toLocaleString("en-US");
+  const seesMoney = () => ROLES[role].money;
+
+  function ageTxt(h) {
+    if (h < 24) return h + " ชม.";
+    return Math.floor(h / 24) + " วัน";
+  }
+  function agePill(d) {
+    const st = STAGES[d.stage];
+    if (d.claim) return '<span class="pill claim">เคลมค้าง</span>';
+    if (!st) return '<span class="pill ok">ปิดแล้ว</span>';
+    if (d.age > st.sla) return '<span class="pill late">เลยกำหนด ' + ageTxt(d.age) + "</span>";
+    if (d.age > st.sla * 0.6) return '<span class="pill due">' + ageTxt(d.age) + "</span>";
+    return '<span class="pill wait">' + ageTxt(d.age) + "</span>";
+  }
+  function ownerOf(d) {
+    const st = STAGES[d.stage];
+    return st ? st.o : "—";
+  }
+  function deptChip(k) {
+    return '<span class="dept" style="color:var(' + ROLES[k].v + ')">' + k + "</span>";
+  }
+  // สถานะเอกสาร: อิงจากขั้นตอนที่ดีลไปถึงแล้ว
+  function docState(d, doc) {
+    if (doc.off) return "na";
+    if (doc.claimOnly && !d.claim) return "na";
+    if (!doc.req && d.skip.indexOf(doc.at) >= 0) return "na";
+    if (doc.c === "LABEL" || doc.c === "CODE_REQ" || doc.c === "SAMPLE_QC") {
+      if (d.skip.indexOf(doc.at) >= 0) return "na";
+    }
+    if (d.stage > doc.at) return "ok";
+    if (d.stage === doc.at) return "wait";
+    return "pend";
+  }
+  function missingDocs(d) {
+    return DOCS.filter(x => x.req && docState(d, x) !== "ok");
+  }
+
+  function toast(msg) {
+    const t = $("#toast");
+    t.textContent = msg;
+    t.classList.add("on");
+    clearTimeout(t._t);
+    t._t = setTimeout(() => t.classList.remove("on"), 2600);
+  }
+
+  /* ---------------- header ---------------- */
+  function renderChrome() {
+    const r = ROLES[role];
+    document.documentElement.style.setProperty("--rc", "var(" + r.v + ")");
+    $("#who").innerHTML =
+      '<span class="av" style="background:var(' + r.v + ')">' + esc(r.init) + "</span>" +
+      "<span>" + esc(r.person) + "<br><span class=\"mono\" style=\"font-size:11px;color:var(--ink-3)\">" +
+      esc(r.name) + "</span></span>";
+
+    const rs = $("#roles");
+    rs.querySelectorAll("button").forEach(b => b.remove());
+    Object.keys(ROLES).forEach(k => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.role = k;
+      b.setAttribute("aria-pressed", String(k === role));
+      b.style.setProperty("--rc", "var(" + ROLES[k].v + ")");
+      b.innerHTML = '<i></i>' + esc(k) + ' — ' + esc(ROLES[k].name);
+      rs.appendChild(b);
+    });
+    $("#tabs").querySelectorAll("button").forEach(b => {
+      if (view !== "deal" && b.dataset.view === view) b.setAttribute("aria-current", "page");
+      else b.removeAttribute("aria-current");
+    });
+  }
+
+  /* ---------------- หน้า: คิวของฉัน ---------------- */
+  function viewQueue() {
+    const mine = DEALS.filter(d => STAGES[d.stage] && ownerOf(d) === role);
+    const waiting = DEALS.filter(d => STAGES[d.stage] && ownerOf(d) !== role);
+    const late = mine.filter(d => d.age > STAGES[d.stage].sla);
+    const missing = DEALS.filter(d => missingDocs(d).some(x => x.o === role));
+
+    let h = "<h2>คิวของฉัน — " + esc(ROLES[role].name) + "</h2>" +
+      '<p class="sub">หน้านี้เปลี่ยนตามบทบาท ลองกดสลับบทบาทด้านบนเพื่อดูของแผนกอื่น</p>';
+
+    h += '<div class="kpis">' +
+      '<div class="kpi a"><div class="n">' + mine.length + '</div><div class="k">ค้างที่ฉัน</div></div>' +
+      '<div class="kpi r"><div class="n">' + late.length + '</div><div class="k">เลยกำหนด</div></div>' +
+      '<div class="kpi"><div class="n">' + waiting.length + '</div><div class="k">รอคนอื่น</div></div>' +
+      '<div class="kpi"><div class="n">' + missing.length + '</div><div class="k">เอกสารที่ฉันต้องส่ง</div></div>' +
+      "</div>";
+
+    h += dealTable("ค้างที่ฉัน", mine, true);
+    h += dealTable("รอคนอื่น — ไม่ต้องถามในไลน์ ดูตรงนี้", waiting, false);
+
+    if (role === "GM") {
+      h += '<div class="panel"><h3>ตัวอย่างการ์ดขออนุมัติที่ส่งเข้า Lark</h3>' +
+        '<div class="lark"><div class="h">Lark · MGS DocHub bot</div>' +
+        '<div class="bd"><div class="ti">ขออนุมัติ PO</div>' +
+        "<dl><dt>ดีล</dt><dd>D-26-0051 · ปลาหมึกกล้วย</dd>" +
+        "<dt>ซัพ</dt><dd>Thai Frozen Foods</dd>" +
+        "<dt>ยอด</dt><dd>฿78,000</dd>" +
+        "<dt>ผู้ขอ</dt><dd>คุณสมชาย (SR)</dd></dl></div>" +
+        '<div class="btns"><span>ดูเอกสาร</span><span>อนุมัติ</span><span>ไม่อนุมัติ</span></div></div></div>';
+    }
+    return h;
+  }
+
+  function dealTable(title, list, mine) {
+    let h = '<div class="panel"><h3>' + esc(title) + '<span class="c">' + list.length + " ดีล</span></h3>";
+    if (!list.length) {
+      h += '<div class="empty">ไม่มีรายการ</div></div>';
+      return h;
+    }
+    h += '<div class="tablewrap"><table><thead><tr><th>ดีล</th><th>สินค้า</th><th>ซัพพลายเออร์</th>' +
+      (seesMoney() ? "<th>ยอด</th>" : "") +
+      "<th>ขั้นตอน</th><th>ค้างที่</th><th>ค้างมา</th></tr></thead><tbody>";
+    list.forEach(d => {
+      const st = STAGES[d.stage];
+      const stageCell = st
+        ? '<span class="mono" style="font-size:12px">' + (d.stage + 1) + ".</span> " + esc(st.n)
+        : '<span class="pill ok">ปิดรายการแล้ว</span>';
+      h += '<tr class="click' + (mine ? " mine" : "") + '" data-deal="' + esc(d.id) + '">' +
+        '<td><span class="did">' + esc(d.id) + "</span></td>" +
+        "<td>" + esc(d.item) + '<br><span class="mono" style="font-size:11px;color:var(--ink-3)">' + esc(d.qty) + "</span></td>" +
+        "<td>" + esc(d.sup) + "</td>" +
+        (seesMoney() ? '<td class="num">' + baht(d.amt) + "</td>" : "") +
+        "<td>" + stageCell + "</td>" +
+        "<td>" + (st ? deptChip(ownerOf(d)) : "—") + "</td>" +
+        "<td>" + agePill(d) + "</td></tr>";
+    });
+    h += "</tbody></table></div></div>";
+    return h;
+  }
+
+  /* ---------------- หน้า: ทุกดีล ---------------- */
+  function viewBoard() {
+    let h = "<h2>ทุกดีล</h2><p class=\"sub\">" +
+      (seesMoney() ? "คุณเห็นข้อมูลราคาเพราะอยู่ในแผนก " + esc(ROLES[role].name)
+                   : "แผนก " + esc(ROLES[role].name) + " ไม่เห็นข้อมูลราคา — เป็นกฎแยกหน้าที่ ไม่ใช่ข้อจำกัดทางเทคนิค") +
+      "</p>";
+    h += dealTable("รายการทั้งหมด", DEALS, false);
+    return h;
+  }
+
+  /* ---------------- หน้า: คอขวด ---------------- */
+  function viewBottleneck() {
+    const agg = {};
+    DEALS.forEach(d => {
+      const st = STAGES[d.stage];
+      if (!st) return;
+      if (!agg[st.c]) agg[st.c] = { n: st.n, o: st.o, cnt: 0, sum: 0, late: 0, sla: st.sla };
+      agg[st.c].cnt++; agg[st.c].sum += d.age;
+      if (d.age > st.sla) agg[st.c].late++;
+    });
+    const rows = Object.keys(agg).map(k => {
+      const a = agg[k];
+      a.avg = Math.round(a.sum / a.cnt);
+      a.score = a.cnt * a.avg;
+      return a;
+    }).sort((x, y) => y.score - x.score);
+    const max = rows.length ? rows[0].score : 1;
+
+    let h = "<h2>งานค้างอยู่ที่ไหน</h2>" +
+      '<p class="sub">คำนวณจาก จำนวนงานค้าง × ชั่วโมงเฉลี่ยที่ค้าง — ข้อมูลนี้ตอนนี้ยังไม่มีใครรู้</p>' +
+      '<div class="panel"><h3>อันดับคอขวด<span class="c">ข้อมูลสมมติ</span></h3><div class="bars">';
+    rows.forEach(a => {
+      const pct = Math.round((a.score / max) * 100);
+      h += '<div class="bar' + (a.late ? " r" : "") + '">' +
+        "<div>" + esc(a.n) + " " + deptChip(a.o) + "</div>" +
+        '<div class="tr"><div class="fl" style="width:' + pct + '%"></div></div>' +
+        '<div class="v">' + a.cnt + " ดีล · " + a.avg + " ชม.</div></div>";
+    });
+    h += "</div>";
+    const worst = rows[0];
+    if (worst) {
+      h += '<div class="note ' + (worst.late ? "bad" : "warn") + '"><span class="ic">!</span><span>' +
+        "คอขวดอันดับ 1 คือ <b>" + esc(worst.n) + "</b> (" + esc(worst.o) + ") — " +
+        (worst.o === "SR" && worst.n.indexOf("ซัพ") >= 0
+          ? "ต้นเหตุอยู่นอกบริษัท ควรไปคุยเงื่อนไขกับซัพ ไม่ใช่กดดันทีมภายใน"
+          : "มี " + worst.cnt + " ดีลค้างเฉลี่ย " + worst.avg + " ชั่วโมง") +
+        "</span></div>";
+    }
+    h += "</div>";
+    return h;
+  }
+
+  /* ---------------- หน้า: รายละเอียดดีล ---------------- */
+  function viewDeal() {
+    const d = DEALS.filter(x => x.id === openDeal)[0];
+    if (!d) return "<p>ไม่พบดีล</p>";
+    const st = STAGES[d.stage];
+    const miss = missingDocs(d);
+
+    let h = '<button class="back" data-back="1">← กลับ</button>';
+    h += '<div class="dhead"><span class="did" style="font-size:19px">' + esc(d.id) + "</span>" +
+      '<span class="t">' + esc(d.item) + "</span></div>";
+    h += '<div class="dmeta">' +
+      "<span>ซัพ <b>" + esc(d.sup) + "</b></span>" +
+      "<span>PO <b class=\"mono\">" + esc(d.po || "— ยังไม่เปิด") + "</b></span>" +
+      "<span>จำนวน <b>" + esc(d.qty) + "</b></span>" +
+      (seesMoney() ? "<span>ยอด <b class=\"mono\">" + baht(d.amt) + "</b></span>"
+                   : '<span style="color:var(--ink-3)">ยอดเงิน — แผนกคุณไม่เห็นข้อมูลนี้</span>') +
+      "<span>ผู้ดูแล <b>" + esc(d.sr) + "</b></span>" +
+      "</div>";
+
+    if (d.claim) {
+      h += '<div class="panel"><div class="note bad"><span class="ic">!</span><span>' +
+        "<b>มีเรื่องเคลมค้าง</b> — QC ตรวจไม่ผ่าน 40 KG (อุณหภูมิเกินกำหนด) " +
+        "ระบบล็อกการจ่ายเงินเฉพาะยอดที่เคลมไว้แล้ว จนกว่าจะได้ใบลดหนี้จากซัพ" +
+        "</span></div></div>";
+    }
+
+    // แถบขั้นตอน
+    h += '<div class="panel"><h3>ความคืบหน้า<span class="c">ขั้น ' + (d.stage + 1) + " จาก 17</span></h3>" +
+      '<div class="railwrap" tabindex="0" role="group" aria-label="ลำดับขั้นตอน เลื่อนแนวนอนได้"><div class="rail">';
+    STAGES.forEach((s, i) => {
+      const skip = d.skip.indexOf(i) >= 0;
+      const cls = skip ? "skip" : i < d.stage ? "done" : i === d.stage ? "now" : "";
+      h += '<div class="st ' + cls + '"><div class="b"></div>' +
+        '<div class="n">' + (i + 1) + "</div>" +
+        '<div class="m">' + esc(s.n) + "</div></div>";
+    });
+    h += "</div></div>";
+    if (st) {
+      const isMine = st.o === role;
+      h += '<div class="note ' + (d.age > st.sla ? "bad" : "warn") + '"><span class="ic">▸</span><span>' +
+        "ตอนนี้ค้างที่ <b>" + esc(st.n) + "</b> — " + deptChip(st.o) +
+        " ค้างมา <b>" + ageTxt(d.age) + "</b> จาก SLA " + ageTxt(st.sla) +
+        (isMine ? " · <b>งานนี้อยู่ที่คุณ</b>" : "") + "</span></div>";
+    }
+    h += "</div>";
+
+    h += '<div class="grid2"><div>';
+
+    // เอกสาร
+    h += '<div class="panel"><h3>เอกสาร<span class="c">' +
+      (miss.length ? "ขาด " + miss.length + " ใบ" : "ครบแล้ว") + "</span></h3>";
+    DOCS.forEach(doc => {
+      const s = docState(d, doc);
+      if (s === "na") return;
+      const isMine = doc.o === role;
+      let badge = "";
+      if (s === "ok") badge = '<span class="pill ok">มีแล้ว</span>';
+      else if (s === "wait") badge = '<span class="pill ' + (isMine ? "due" : "wait") + '">รออัพโหลด</span>';
+      else badge = '<span class="pill wait">ยังไม่ถึงคิว</span>';
+      h += '<div class="docrow' + (s === "wait" && doc.req ? " miss" : "") + '">' +
+        deptChip(doc.o) +
+        '<span class="nm">' + esc(doc.n) +
+        (doc.req ? "" : ' <span style="color:var(--ink-3);font-size:12px">(ไม่บังคับ)</span>') +
+        "<small>" + esc(doc.c) + " · ขั้น " + (doc.at + 1) + "</small></span>" +
+        badge +
+        (s === "wait" && isMine ? ' <button class="btn" data-up="' + esc(doc.c) + '">อัพโหลด</button>' : "") +
+        "</div>";
+    });
+    h += "</div>";
+
+    // 3-way
+    const ready = !miss.length && !d.claim;
+    h += '<div class="panel"><h3>ตรวจ 3-way<span class="c">PO / ใบแจ้งหนี้ / GR</span></h3>' +
+      '<div class="note ' + (ready ? "good" : "warn") + '"><span class="ic">' + (ready ? "✓" : "…") + "</span><span>" +
+      (ready ? "<b>พร้อมบันทึกบัญชี</b> — เอกสารครบและไม่มีเคลมค้าง"
+             : "<b>ยังไม่พร้อม</b> — " + (d.claim ? "มีเรื่องเคลมค้าง" : "ขาด " + miss.map(x => x.n).join(", "))) +
+      "</span></div></div>";
+
+    h += "</div><div>";
+
+    // ปุ่มลงมือ
+    h += '<div class="panel"><h3>สิ่งที่ทำได้ตอนนี้</h3><div class="actions">';
+    if (!st) {
+      h += '<span class="hint">ดีลนี้ปิดแล้ว</span>';
+    } else if (st.o !== role) {
+      h += '<span class="hint">งานนี้อยู่ที่ ' + esc(ROLES[st.o].name) + " — บทบาทของคุณดูได้อย่างเดียว</span>";
+    } else if (st.c === "INTERNAL_APPROVAL") {
+      h += '<button class="btn ok" data-act="approve">อนุมัติ</button>' +
+           '<button class="btn bad" data-act="reject">ไม่อนุมัติ</button>' +
+           '<span class="hint">ผู้ขออนุมัติเองไม่ได้</span>';
+    } else if (st.c === "QC_INCOMING") {
+      h += '<button class="btn ok" data-act="qcpass">บันทึกผล — ผ่าน</button>' +
+           '<button class="btn bad" data-act="qcfail">ไม่ผ่าน (เปิดเคลม)</button>';
+    } else {
+      h += '<button class="btn pri" data-act="done">ทำขั้นตอนนี้เสร็จ</button>' +
+           '<span class="hint">' + esc(st.n) + "</span>";
+    }
+    h += "</div></div>";
+
+    // ไทม์ไลน์
+    h += '<div class="panel"><h3>ประวัติ<span class="c">ใครทำอะไรเมื่อไหร่</span></h3><div class="tl">';
+    d.tl.slice().reverse().forEach(e => {
+      h += '<div class="e"><time>' + esc(e[0]) + "</time><div><b>" + esc(e[1]) + "</b> " + esc(e[2]) + "</div></div>";
+    });
+    h += "</div></div>";
+
+    h += "</div></div>";
+    return h;
+  }
+
+  /* ---------------- การกระทำ ---------------- */
+  function advance(d, note) {
+    d.tl.push(["30 ก.ค. " + new Date().toTimeString().slice(0, 5), ROLES[role].person, note]);
+    let next = d.stage + 1;
+    while (next < STAGES.length && d.skip.indexOf(next) >= 0) next++;
+    d.stage = next;
+    d.age = 0;
+    if (d.stage >= STAGES.length) {
+      d.tl.push(["30 ก.ค.", "ระบบ", "ปิดรายการ — บันทึกบัญชีใน SAP เรียบร้อย"]);
+      toast("ดีล " + d.id + " ปิดรายการแล้ว");
+    } else {
+      toast("ส่งต่อให้ " + ROLES[STAGES[d.stage].o].name + " แล้ว — ระบบแจ้งเตือนให้อัตโนมัติ");
+    }
+  }
+
+  document.addEventListener("click", function (ev) {
+    const roleBtn = ev.target.closest("[data-role]");
+    if (roleBtn) { role = roleBtn.dataset.role; render(); return; }
+
+    const tab = ev.target.closest("#tabs button");
+    if (tab) { view = tab.dataset.view; openDeal = null; render(); return; }
+
+    if (ev.target.closest("[data-back]")) { view = "queue"; openDeal = null; render(); return; }
+
+    const row = ev.target.closest("[data-deal]");
+    if (row) { openDeal = row.dataset.deal; view = "deal"; render(); return; }
+
+    const d = DEALS.filter(x => x.id === openDeal)[0];
+    if (!d) return;
+
+    const up = ev.target.closest("[data-up]");
+    if (up) {
+      const doc = DOCS.filter(x => x.c === up.dataset.up)[0];
+      advance(d, "อัพโหลด " + doc.n);
+      render();
+      return;
+    }
+    const act = ev.target.closest("[data-act]");
+    if (!act) return;
+    const a = act.dataset.act;
+    if (a === "approve") advance(d, "อนุมัติ PO");
+    else if (a === "reject") { d.tl.push(["30 ก.ค.", ROLES[role].person, "ไม่อนุมัติ — ตีกลับให้ SR แก้"]); toast("ตีกลับให้ SR พร้อมเหตุผลแล้ว"); }
+    else if (a === "qcpass") advance(d, "บันทึกผลตรวจรับ — ผ่าน");
+    else if (a === "qcfail") {
+      d.claim = true;
+      d.tl.push(["30 ก.ค.", ROLES[role].person, "บันทึกผลตรวจรับ — ไม่ผ่าน"]);
+      d.tl.push(["30 ก.ค.", "ระบบ", "เปิดเรื่องเคลม + ล็อกการจ่ายเงิน + แจ้ง SR และ AC"]);
+      toast("เปิดเรื่องเคลมและล็อกการจ่ายเงินให้แล้ว — SR และ AC ได้รับแจ้งเตือน");
+    } else if (a === "done") advance(d, "ทำ " + STAGES[d.stage].n + " เสร็จ");
+    render();
+  });
+
+  function render() {
+    renderChrome();
+    const m = $("#main");
+    if (view === "deal") m.innerHTML = viewDeal();
+    else if (view === "board") m.innerHTML = viewBoard();
+    else if (view === "bottleneck") m.innerHTML = viewBottleneck();
+    else m.innerHTML = viewQueue();
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
+  render();
+})();
+</script>
