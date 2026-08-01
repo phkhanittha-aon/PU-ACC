@@ -412,7 +412,8 @@
      qcResult:"FAIL", supplier:"Thai Frozen Foods", po:"PO-26-0029", cn:"", photos:5}
   ];
 
-  // แจ้งเตือน — ชั้น 1 ในเว็บ / ชั้น 2 Lark-LINE เฉพาะที่ต้องลงมือ / ชั้น 3 อีเมลสรุป
+  // แจ้งเตือน — ชั้น 1 ในเว็บ / ชั้น 2 Lark เฉพาะที่ต้องลงมือ / ชั้น 3 อีเมลสรุป
+  // ตัดสินใจแล้ว: ภายในใช้ Lark อย่างเดียว ไม่ทำ LINE (LINE เหลือไว้คุยกับผู้ขายเท่านั้น)
   let NOTIFS = [
     {id:1, to:"QC", lv:"act",  ch:"Lark",  tm:"09:12", read:false, ref:"PO-26-0042",
      t:"งานเข้าคิวของคุณ", b:"PO-26-0042 กุ้งแช่แข็ง 16/20 — ตรวจรับที่ห้องเย็นต้นทาง · SLA 24 ชม."},
@@ -936,9 +937,12 @@
     h += '<div class="card"><h3>กติกาการส่ง<span class="c">ทำไมถึงไม่ถูกสแปม</span></h3>' +
       '<div class="tw"><table><thead><tr><th>ชั้น</th><th>ช่องทาง</th><th>ใช้กับ</th><th>เวลา</th></tr></thead><tbody>' +
       "<tr><td>1</td><td>ในเว็บ 🔔</td><td>ทุกเหตุการณ์ที่เกี่ยวกับฉัน</td><td>ทันที</td></tr>" +
-      "<tr><td>2</td><td>Lark / LINE</td><td><b>เฉพาะเรื่องที่ต้องลงมือ</b></td><td>ภายใน 1 นาที</td></tr>" +
+      "<tr><td>2</td><td><b>Lark</b> (bot/กลุ่ม)</td><td><b>เฉพาะเรื่องที่ต้องลงมือ</b></td><td>ภายใน 1 นาที</td></tr>" +
       "<tr><td>3</td><td>อีเมล</td><td>สรุปรายวัน + เรื่องที่ escalate ถึงหัวหน้า</td><td>08:30 / ทันทีถ้า escalate</td></tr>" +
       "</tbody></table></div>" +
+      '<div class="note good"><span class="ic">✓</span><span><b>แจ้งเตือนภายในใช้ Lark อย่างเดียว</b> — ' +
+      "ไม่ทำ LINE (LINE เหลือไว้คุยกับผู้ขายภายนอกเท่านั้น) · Lark ส่งไม่สำเร็จครบ 5 ครั้ง " +
+      "<b>ตกไปที่อีเมลอัตโนมัติ</b> และหน้าหลักยังบอกงานค้างได้เสมอ</span></div>" +
       '<div class="rowline">ไม่แจ้งการกระทำของตัวเอง<span class="pill ok">ตัดข้อความ ~40%</span></div>' +
       '<div class="rowline">เรื่องเดิมไม่เด้งซ้ำใน 24 ชม. (dedupe)<span class="pill ok">เปิด</span></div>' +
       '<div class="rowline">เกิน 3 เรื่องใน 10 นาที รวมเป็นข้อความเดียว<span class="pill ok">เปิด</span></div>' +
