@@ -189,6 +189,54 @@
   .bar .v{font-family:var(--mono);font-size:11.5px;text-align:right;color:var(--ink-2)}
 
   .empty{padding:28px 16px;color:var(--ink-3);text-align:center;font-size:13.5px}
+
+  /* topbar icon buttons */
+  .iconbtn{background:var(--paper);border:1px solid var(--line-2);padding:5px 10px;font-size:12.5px;
+    display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .iconbtn:hover{border-color:var(--ink-3)}
+  .iconbtn .bdg{font-family:var(--mono);font-size:10.5px;font-weight:700;background:var(--stop);color:#fff;padding:0 5px;border-radius:9px}
+  .iconbtn.on{border-color:var(--cold);color:var(--cold)}
+
+  /* notification list */
+  .nlist .n1{display:grid;grid-template-columns:26px 1fr auto;gap:10px;padding:11px 16px;
+    border-bottom:1px solid var(--line);align-items:start;font-size:13.5px;cursor:pointer}
+  .nlist .n1:last-child{border-bottom:0}
+  .nlist .n1:hover{background:var(--surface)}
+  .nlist .n1.unread{background:var(--cold-bg)}
+  .nlist .n1 .ic{font-family:var(--mono);font-weight:700;text-align:center}
+  .nlist .n1 .b{color:var(--ink-2);font-size:12.5px;margin-top:1px}
+  .nlist .n1 time{font-family:var(--mono);font-size:11px;color:var(--ink-3);white-space:nowrap}
+  .nlist .n1.act .ic{color:var(--gold)} .nlist .n1.warn .ic{color:var(--stop)} .nlist .n1.info .ic{color:var(--cold)}
+
+  /* validation checks */
+  .chk{display:grid;grid-template-columns:22px 1fr auto;gap:10px;padding:8px 16px;
+    border-bottom:1px dotted var(--line);font-size:13.5px;align-items:center}
+  .chk:last-child{border-bottom:0}
+  .chk .m{font-family:var(--mono);font-weight:700;text-align:center}
+  .chk.pass .m{color:var(--go)} .chk.warn .m{color:var(--warn)} .chk.block .m{color:var(--stop)}
+  .chk.block{background:var(--stop-bg)} .chk.warn{background:var(--warn-bg)}
+  .chk .who{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+
+  /* bug panel */
+  .bugwrap{position:fixed;inset:0;background:rgba(10,16,23,.4);z-index:55}
+  .bugpanel{position:fixed;right:14px;bottom:14px;width:min(400px,calc(100vw - 28px));max-height:calc(100vh - 28px);
+    overflow-y:auto;background:var(--paper);border:1px solid var(--line-2);box-shadow:0 10px 34px rgba(0,0,0,.24);z-index:56}
+  @media (max-width:520px){.bugpanel{left:14px;right:14px;width:auto}}
+  .bugpanel h3{margin:0;padding:11px 16px;font-size:13.5px;background:var(--surface);border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center}
+  .bugpanel h3 button{background:none;border:0;color:var(--ink-3);font-size:17px;line-height:1;padding:0 2px}
+  .bugbody{padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+  .ctxbox{background:var(--surface);border:1px solid var(--line);padding:9px 11px;font-size:11.5px;
+    font-family:var(--mono);color:var(--ink-2);line-height:1.7}
+  .ctxbox b{color:var(--ink)}
+  .sev{display:flex;flex-direction:column;gap:5px}
+  .sev label{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line-2);padding:7px 10px;font-size:13px;cursor:pointer}
+  .sev label:has(input:checked){border-color:var(--cold);background:var(--cold-bg)}
+  .sev label .s{font-size:11.5px;color:var(--ink-3);display:block}
+  .bugbody textarea{border:1px solid var(--line-2);background:var(--paper);padding:8px 10px;font:inherit;
+    font-size:13.5px;min-height:74px;resize:vertical;width:100%}
+  .bugbody .fl2{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+  .lbl{font-size:11.5px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3)}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(8px);background:var(--ink);
     color:var(--paper);padding:10px 18px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:92vw;text-align:center}
   #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -210,11 +258,13 @@
     <div class="topbar">
       <div class="rolepick" id="roles"><span class="lb">บทบาท</span></div>
       <span class="sp"></span>
+      <div id="tools" style="display:flex;gap:8px;align-items:center"></div>
       <div class="user" id="user"></div>
     </div>
     <main id="main"></main>
   </div>
 </div>
+<div id="bug"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -297,14 +347,14 @@
      tl:[["27 ก.ค. 10:00","คุณสมชาย","สร้าง PO"],["30 ก.ค. 07:40","คุณสมหญิง","ตรวจรับผ่าน"]]},
 
     {no:"PO-26-0029", sap:"4500012288", sup:"Thai Frozen Foods", item:"หอยเชลล์", qty:"120 KG",
-     amt:45000, cur:"THB", term:"เครดิต 30 วัน", stage:12, age:52, owner:"คุณสมชาย",
+     amt:45000, inv:47000, cur:"THB", term:"เครดิต 30 วัน", stage:12, age:52, owner:"คุณสมชาย",
      status:"ACTIVE", claim:true, skip:[1,2,5], date:"25/07/2026",
      payments:[pay(1,"ชำระเต็ม",100,45000,"25/08/2026","BLOCKED")],
      tl:[["25 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["29 ก.ค. 07:10","คุณสมหญิง","ตรวจรับไม่ผ่าน"],
          ["29 ก.ค. 07:11","ระบบ","เปิดใบเคลม CL-26-0004 + ล็อกการจ่าย 40 KG"]]},
 
     {no:"PO-26-0033", sap:"4500012299", sup:"Ocean Best", item:"ปลาแซลมอนแล่", qty:"200 KG",
-     amt:310000, cur:"THB", term:"มัดจำ 50% / ที่เหลือ 50%", stage:14, age:20, owner:"คุณสมชาย",
+     amt:310000, inv:310000, cur:"THB", term:"มัดจำ 50% / ที่เหลือ 50%", stage:14, age:20, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"22/07/2026",
      payments:[pay(1,"มัดจำ",50,155000,"25/07/2026","PAID","25/07/2026"),
                pay(2,"ส่วนที่เหลือ",50,155000,"20/08/2026","PENDING")],
@@ -312,14 +362,14 @@
          ["28 ก.ค. 15:20","คุณประเสริฐ","อัพโหลด GR"],["29 ก.ค. 09:00","คุณวิภา","อัพโหลดใบแจ้งหนี้"]]},
 
     {no:"PO-26-0031", sap:"4500012260", sup:"Siam Marine", item:"กุ้งก้ามกราม", qty:"150 KG",
-     amt:84000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
+     amt:84000, inv:84000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"20/07/2026",
      payments:[pay(1,"ชำระเต็ม",100,84000,"20/08/2026","PAID","18/08/2026")],
      tl:[["20 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["18 ส.ค.","คุณวิภา","จ่ายเงินครบ"],
          ["20 ส.ค.","คุณวิภา","ตรวจ 3 ทางผ่าน — ปิดรายการ"]]},
 
     {no:"PO-26-0025", sap:"4500012250", sup:"Ocean Best", item:"ปลาทูน่าท่อน", qty:"400 KG",
-     amt:268000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:17, age:0, owner:"คุณสมชาย",
+     amt:268000, inv:268000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"18/07/2026",
      payments:[pay(1,"มัดจำ",30,80400,"20/07/2026","PAID","20/07/2026"),
                pay(2,"ส่วนที่เหลือ",70,187600,"15/08/2026","PAID","14/08/2026")],
@@ -327,7 +377,7 @@
          ["16 ส.ค.","คุณวิภา","ปิดรายการ"]]},
 
     {no:"PO-26-0019", sap:"4500012210", sup:"ABC Foods", item:"ปลาหมึกยักษ์", qty:"250 KG",
-     amt:112000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
+     amt:112000, inv:112000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"10/07/2026",
      payments:[pay(1,"ชำระเต็ม",100,112000,"10/08/2026","PAID","09/08/2026")],
      tl:[["10 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["12 ส.ค.","คุณวิภา","ปิดรายการ"]]},
@@ -362,8 +412,48 @@
      qcResult:"FAIL", supplier:"Thai Frozen Foods", po:"PO-26-0029", cn:"", photos:5}
   ];
 
+  // แจ้งเตือน — ชั้น 1 ในเว็บ / ชั้น 2 Lark-LINE เฉพาะที่ต้องลงมือ / ชั้น 3 อีเมลสรุป
+  let NOTIFS = [
+    {id:1, to:"QC", lv:"act",  ch:"Lark",  tm:"09:12", read:false, ref:"PO-26-0042",
+     t:"งานเข้าคิวของคุณ", b:"PO-26-0042 กุ้งแช่แข็ง 16/20 — ตรวจรับที่ห้องเย็นต้นทาง · SLA 24 ชม."},
+    {id:2, to:"QC", lv:"warn", ch:"Lark",  tm:"08:40", read:false, ref:"PO-26-0042",
+     t:"เลยกำหนดแล้ว 2 ชม.", b:"ค้างที่ QC ตรวจรับ 26 ชม. จาก SLA 24 ชม. — เตือนหัวหน้าแผนกเมื่อครบ 36 ชม."},
+    {id:3, to:"LS", lv:"act",  ch:"Lark",  tm:"09:35", read:false, ref:"PO-26-0051",
+     t:"รอเปิดรหัสสินค้าใน SAP", b:"IC-26-0007 ปลาหมึกกล้วยแช่แข็ง — PO-26-0051 เดินต่อไม่ได้จนกว่าจะได้รหัส"},
+    {id:4, to:"AC", lv:"warn", ch:"Lark",  tm:"07:11", read:false, ref:"PO-26-0029",
+     t:"งวดจ่ายถูกล็อกจากเคลม", b:"CL-26-0004 หอยเชลล์ อุณหภูมิเกินกำหนด — ปลดล็อกเมื่อบันทึกใบลดหนี้"},
+    {id:5, to:"AC", lv:"act",  ch:"อีเมล", tm:"08:30", read:false, ref:"PO-26-0033",
+     t:"งวดจ่ายครบกำหนดใน 3 วัน", b:"PO-26-0033 ปลาแซลมอนแล่ งวดที่ 2 ฿155,000 ครบ 20/08/2026"},
+    {id:6, to:"AC", lv:"warn", ch:"ในเว็บ",tm:"เมื่อวาน", read:true, ref:"PO-26-0029",
+     t:"ยอดใบแจ้งหนี้ต่างจาก PO", b:"฿47,000 เทียบ ฿45,000 — ต่าง 4.4% เกินเกณฑ์เตือน 2% ต้องระบุเหตุผล"},
+    {id:7, to:"SR", lv:"act",  ch:"Lark",  tm:"09:36", read:false, ref:"PO-26-0051",
+     t:"ต้องตามเอกสารจากผู้ขาย", b:"Thai Frozen Foods — ยังไม่ส่ง PI ครบ 2 วันแล้ว"},
+    {id:8, to:"SR", lv:"info", ch:"ในเว็บ",tm:"เมื่อวาน", read:true, ref:"PO-26-0031",
+     t:"PO ปิดแล้ว", b:"PO-26-0031 กุ้งก้ามกราม — ตรวจ 3 ทางผ่าน บัญชีปิดรายการเรียบร้อย"},
+    {id:9, to:"GM", lv:"act",  ch:"Lark",  tm:"11:20", read:false, ref:"PO-26-0042",
+     t:"รออนุมัติ", b:"PO-26-0042 ABC Foods ฿130,000 — กดอนุมัติได้จากมือถือ"},
+    {id:10,to:"WH", lv:"info", ch:"ในเว็บ",tm:"08:00", read:false, ref:"PO-26-0038",
+     t:"ของเข้าใน 7 วันข้างหน้า", b:"PO-26-0038 กุ้งขาว 21/25 800 KG — เตรียมกำลังคนรับเข้าคลัง"}
+  ];
+
+  let ISSUES = [
+    {id:"BUG-26-0031", sev:"BLOCKER", t:"กดบันทึกสลิปแล้วหน้าค้าง", page:"หน้า PO → งวดจ่าย",
+     ref:"PO-26-0033", by:"คุณวิภา", role:"AC", tm:"30 ก.ค. 14:22", status:"FIXING", n:3,
+     note:"เกิดเมื่ออัพไฟล์เกิน 10 MB — กำลังเพิ่มการบีบอัดฝั่งเบราว์เซอร์"},
+    {id:"BUG-26-0030", sev:"WRONG", t:"ชื่อผู้ขายในใบเคลมสะกดไม่ตรงกับใน PO", page:"ใบคำร้อง → เคลม",
+     ref:"CL-26-0004", by:"คุณสมหญิง", role:"QC", tm:"29 ก.ค. 10:05", status:"FIXED", n:1,
+     note:"แก้ให้ดึงชื่อจากทะเบียนผู้ขายแทนการพิมพ์เอง — รอผู้แจ้งยืนยัน"},
+    {id:"BUG-26-0028", sev:"SUGGEST", t:"อยากให้กรองรายการตามผู้ขายได้", page:"ใบสั่งซื้อ (PO) → ค้นหา",
+     ref:"—", by:"คุณสมชาย", role:"SR", tm:"27 ก.ค. 16:40", status:"NEW", n:1, note:""}
+  ];
+  const SEV = {BLOCKER:{t:"ทำงานต่อไม่ได้",cls:"late",ic:"🔴"}, WRONG:{t:"ใช้ได้แต่ผลลัพธ์ผิด",cls:"due",ic:"🟡"},
+    SUGGEST:{t:"ข้อเสนอแนะ",cls:"wait",ic:"🟢"}};
+  const IS_ST = {NEW:{t:"รอ IT รับเรื่อง",cls:"due"}, ACK:{t:"รับเรื่องแล้ว",cls:"info"},
+    FIXING:{t:"กำลังแก้",cls:"info"}, FIXED:{t:"แก้แล้ว รอผู้แจ้งยืนยัน",cls:"ok"}, CLOSED:{t:"ปิดเรื่อง",cls:"wait"}};
+
   /* ================= สถานะหน้าจอ ================= */
   let role = "SR", page = "home", subtab = "ACTIVE", openPo = null, openClaim = null, q = "", fDept = "";
+  let bugOpen = false, bugSev = "WRONG";
 
   const $ = s => document.querySelector(s);
   const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
@@ -397,27 +487,39 @@
     clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),2600);}
 
   /* ================= โครง ================= */
+  // 5 เมนู — หน้าจอเฉพาะแผนกถูกยุบเข้า "หน้าหลัก" ทั้งหมด (กรองตามบทบาทให้เอง)
   const NAV = [
     {k:"home",   t:"หน้าหลัก"},
     {k:"po",     t:"ใบสั่งซื้อ (PO)"},
-    {k:"claims", t:"เคลม / ร้องเรียน"},
-    {k:"items",  t:"รหัสสินค้า"},
-    {k:"report", t:"รายงาน"}
+    {k:"req",    t:"ใบคำร้อง"},
+    {k:"report", t:"รายงาน"},
+    {k:"admin",  t:"ตั้งค่าระบบ"}
   ];
+  const SUB0 = {po:"ACTIVE", req:"CLAIM", admin:"ISSUES"};
+
+  const myNotifs = () => NOTIFS.filter(n => n.to === role);
+  const unread   = () => myNotifs().filter(n => !n.read).length;
+  const openIssues = () => ISSUES.filter(i => i.status !== "CLOSED").length;
 
   function chrome() {
     const r = ROLES[role];
     document.documentElement.style.setProperty("--rc", "var(" + r.v + ")");
     const myQueue = POS.filter(p => isActive(p) && ownerOf(p) === role).length;
+    const reqOpen = CLAIMS.filter(c=>!c.cn).length + ITEMREQS.filter(x=>x.status!=="DONE").length;
 
     $("#nav").innerHTML = NAV.map(n => {
       const cur = n.k === page ? ' aria-current="page"' : "";
       let badge = "";
       if (n.k === "po" && myQueue) badge = '<span class="cnt">' + myQueue + "</span>";
-      if (n.k === "claims" && CLAIMS.filter(c=>!c.cn).length) badge = '<span class="cnt">' + CLAIMS.filter(c=>!c.cn).length + "</span>";
-      if (n.k === "items" && ITEMREQS.filter(x=>x.status!=="DONE").length) badge = '<span class="cnt">' + ITEMREQS.filter(x=>x.status!=="DONE").length + "</span>";
+      if (n.k === "req" && reqOpen) badge = '<span class="cnt">' + reqOpen + "</span>";
+      if (n.k === "admin" && openIssues()) badge = '<span class="cnt">' + openIssues() + "</span>";
       return '<button data-page="' + n.k + '"' + cur + ">" + esc(n.t) + badge + "</button>";
     }).join("");
+
+    $("#tools").innerHTML =
+      '<button class="iconbtn' + (page==="inbox" ? " on" : "") + '" data-page="inbox">🔔 แจ้งเตือน' +
+        (unread() ? '<span class="bdg">' + unread() + "</span>" : "") + "</button>" +
+      '<button class="iconbtn" data-bug="open">⚑ แจ้งปัญหา</button>';
 
     $("#user").innerHTML = '<span class="av">' + esc(r.init) + "</span><span>" + esc(r.person) +
       '<br><span class="mono" style="font-size:10.5px;color:var(--ink-3)">' + esc(r.name) + "</span></span>";
@@ -578,17 +680,8 @@
     h += '<div class="note info"><span class="ic">📁</span><span>ไฟล์ทั้งหมดเก็บใน Google Drive ที่ ' +
       '<span class="mono">/MGS-DocHub/01_PO/2026/' + esc(p.no) + '/</span> — เข้าผ่านหน้านี้ ไม่ต้องเปิด Drive เอง</span></div></div>';
 
-    // 3-way
-    const ready = !miss.length && !p.claim && unpaid(p).length === 0;
-    if (money()) {
-      h += '<div class="card"><h3>ตรวจ 3 ทาง (PO / ใบแจ้งหนี้ / GR)</h3><div class="note ' +
-        (ready ? "good" : "warn") + '"><span class="ic">' + (ready ? "✓" : "…") + "</span><span>" +
-        (ready ? "<b>พร้อมบันทึกบัญชี</b>"
-               : "<b>ยังไม่พร้อม</b> — " + [p.claim ? "มีเคลมค้าง" : "",
-                   miss.length ? "ขาด " + miss.map(d=>d.n).join(", ") : "",
-                   unpaid(p).length ? "ยังจ่ายไม่ครบ " + unpaid(p).length + " งวด" : ""]
-                   .filter(Boolean).join(" · ")) + "</span></div></div>";
-    }
+    // ตรวจสอบก่อนบันทึก (รวมตรวจ 3 ทางไว้ในนี้)
+    h += checksCard(p);
 
     // ขั้นตอนย่อย
     h += '<div class="card"><h3>17 ขั้นตอนโดยละเอียด<span class="c">เปิดดูเมื่อต้องการ</span></h3><div class="steps">';
@@ -644,9 +737,20 @@
     return h + "</div>";
   }
 
+  /* ========= ใบคำร้อง — ยุบเมนู "เคลม" + "รหัสสินค้า" เข้าด้วยกัน ========= */
+  function pageReq() {
+    let h = '<div class="ph"><h1>ใบคำร้อง</h1><span class="d">' +
+      'ใบขอที่มีสายอนุมัติของตัวเอง ไม่ใช่ PO — เพิ่มประเภทใหม่ในอนาคตคือเพิ่มแท็บ ไม่ใช่เพิ่มเมนู</span></div>';
+    h += '<div class="stabs">' +
+      tabBtn("CLAIM", "เคลม / ร้องเรียน", CLAIMS.length) +
+      tabBtn("ITEM", "ขอเปิดรหัสสินค้า", ITEMREQS.length) + "</div>";
+    return h + (subtab === "ITEM" ? pageItems() : pageClaims());
+  }
+
   /* ================= เคลม ================= */
   function pageClaims() {
-    let h = '<div class="ph"><h1>เคลม / ร้องเรียน</h1><span class="d">รวมลูกค้าร้องเรียน (ฟอร์ม QC-F006) และตรวจรับไม่ผ่าน — ปลายทางเดียวกันคือใบลดหนี้</span></div>';
+    let h = '<div class="note info"><span class="ic">▸</span><span>รวมลูกค้าร้องเรียน (ฟอร์ม QC-F006) ' +
+      "และตรวจรับไม่ผ่าน — ปลายทางเดียวกันคือใบลดหนี้</span></div>";
     h += '<div class="card"><h3>รายการ<span class="c">' + CLAIMS.length + " ใบ</span></h3>" +
       '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ที่มา</th><th>สินค้า / Lot</th>' +
       "<th>อ้างอิง</th><th>จำนวน</th><th>ใบลดหนี้</th></tr></thead><tbody>";
@@ -693,7 +797,7 @@
 
   /* ================= รหัสสินค้า ================= */
   function pageItems() {
-    let h = '<div class="ph"><h1>ขอเปิดรหัสสินค้าใหม่</h1><span class="d">เดิมเป็นใบกระดาษที่ต้องเดินไปให้ LS คีย์เข้า SAP</span></div>';
+    let h = '<div class="note info"><span class="ic">▸</span><span>เดิมเป็นใบกระดาษที่ต้องเดินไปให้ LS คีย์เข้า SAP</span></div>';
     h += '<div class="card"><h3>ใบขอ<span class="c">' + ITEMREQS.length + " ใบ</span></h3>" +
       '<div class="tw"><table><thead><tr><th>เลขที่</th><th>สินค้า</th><th>ผู้ขาย</th><th>PO</th>' +
       "<th>สถานะ</th><th>รหัสใน SAP</th><th></th></tr></thead><tbody>";
@@ -758,6 +862,215 @@
     return h;
   }
 
+  /* ================= ตรวจสอบก่อนบันทึก ================= */
+  function checksOf(p) {
+    const miss = missing(p), out = [];
+    const add = (ok, lv, t, who) => out.push({ok:ok, lv:lv, t:t, who:who || ""});
+
+    add(!!p.sap, "block", p.sap ? "เลข PO ใน SAP ถูกรูปแบบ (" + p.sap + ")" : "ยังไม่ได้กรอกเลข PO จาก SAP", "SR");
+    add(!miss.length, "block",
+        miss.length ? "ขาดเอกสาร " + miss.length + " ใบ — " + miss.map(d => d.n).join(", ") : "เอกสารบังคับครบทุกใบ",
+        miss.length ? miss[0].o : "");
+    add(!p.claim, "block", p.claim ? "มีใบเคลมที่ยังไม่ได้รับใบลดหนี้" : "ไม่มีใบเคลมค้าง", "QC");
+
+    if (money()) {
+      const sum = p.payments.reduce((s, x) => s + x.amount, 0);
+      add(!p.payments.length || sum === p.amt, "block",
+          sum === p.amt ? "ผลรวมงวดจ่ายเท่ากับมูลค่า PO" : "งวดจ่ายรวม " + baht(sum) + " ไม่เท่ากับมูลค่า PO " + baht(p.amt), "AC");
+
+      if (p.inv != null) {
+        const diff = Math.abs(p.inv - p.amt), pct = p.amt ? diff / p.amt * 100 : 0;
+        if (pct > 5) add(false, "block", "ยอดใบแจ้งหนี้ต่างจาก PO " + baht(diff) + " (" + pct.toFixed(1) + "%) เกินเกณฑ์ 5%", "SR");
+        else if (pct > 2) add(false, "warn", "ยอดใบแจ้งหนี้ต่างจาก PO " + baht(diff) + " (" + pct.toFixed(1) + "%) — ต้องระบุเหตุผล", "AC");
+        else add(true, "block", "ยอดใบแจ้งหนี้ตรงกับ PO (" + baht(p.inv) + ")", "");
+      } else add(false, "warn", "ยังไม่ได้รับใบแจ้งหนี้", "AC");
+
+      add(unpaid(p).length === 0, "block",
+          unpaid(p).length ? "ยังจ่ายไม่ครบ " + unpaid(p).length + " งวด" : "จ่ายครบทุกงวดและมีสลิปครบ", "AC");
+    }
+    return out;
+  }
+  const blockedBy = p => checksOf(p).filter(c => !c.ok && c.lv === "block");
+
+  function checksCard(p) {
+    const cs = checksOf(p), bl = cs.filter(c => !c.ok && c.lv === "block"), wn = cs.filter(c => !c.ok && c.lv === "warn");
+    let h = '<div class="card"><h3>ตรวจสอบก่อนบันทึก<span class="c">' +
+      (bl.length ? "ติด " + bl.length + " ข้อ" : wn.length ? "ผ่าน · มีข้อควรระวัง " + wn.length : "ผ่านทั้งหมด") + "</span></h3>";
+    cs.forEach(c => {
+      h += '<div class="chk ' + (c.ok ? "pass" : c.lv) + '"><span class="m">' +
+        (c.ok ? "✓" : c.lv === "block" ? "✕" : "!") + "</span><span>" + esc(c.t) + "</span>" +
+        '<span class="who">' + (c.ok || !c.who ? "" : "แก้ที่ " + esc(ROLES[c.who] ? ROLES[c.who].name : c.who)) + "</span></div>";
+    });
+    h += '<div class="note ' + (bl.length ? "bad" : "good") + '"><span class="ic">' + (bl.length ? "!" : "✓") + "</span><span>" +
+      (bl.length ? "<b>ยังปิด PO ไม่ได้</b> — ระบบแสดงทุกข้อที่ติดพร้อมกัน ไม่ใช่ทีละข้อ และบอกเสมอว่าใครต้องเป็นคนแก้"
+                 : "<b>พร้อมบันทึกบัญชี</b> — ตรวจ 3 ทางเทียบกับ<b>จำนวนที่ QC รับ</b> ไม่ใช่จำนวนที่ส่งมา") +
+      "</span></div></div>";
+    return h;
+  }
+
+  /* ================= แจ้งเตือน ================= */
+  const NIC = {act:"▶", warn:"!", info:"i"};
+  function pageInbox() {
+    const list = myNotifs(), act = list.filter(n => n.lv === "act").length;
+    let h = '<div class="ph"><h1>แจ้งเตือน</h1><span class="d">ของ ' + esc(ROLES[role].name) +
+      " — ลองเปลี่ยนบทบาทเพื่อดูกล่องของแผนกอื่น</span></div>";
+    h += '<div class="kpis">' +
+      '<div class="kpi a"><div class="n">' + unread() + '</div><div class="k">ยังไม่ได้อ่าน</div></div>' +
+      '<div class="kpi b"><div class="n">' + act + '</div><div class="k">ต้องลงมือ</div></div>' +
+      '<div class="kpi"><div class="n">' + list.length + '</div><div class="k">ทั้งหมด</div></div></div>';
+
+    h += '<div class="card"><h3>กล่องข้อความ<span class="c">กดเพื่อไปที่เอกสาร</span></h3>';
+    if (!list.length) h += '<div class="empty">ไม่มีการแจ้งเตือน</div>';
+    else {
+      h += '<div class="nlist">';
+      list.forEach(n => {
+        h += '<div class="n1 ' + n.lv + (n.read ? "" : " unread") + '" data-notif="' + n.id + '">' +
+          '<span class="ic">' + NIC[n.lv] + "</span>" +
+          "<div><b>" + esc(n.t) + '</b><div class="b">' + esc(n.b) + "</div></div>" +
+          "<time>" + esc(n.ch) + "<br>" + esc(n.tm) + "</time></div>";
+      });
+      h += "</div>";
+    }
+    h += "</div>";
+
+    h += '<div class="card"><h3>กติกาการส่ง<span class="c">ทำไมถึงไม่ถูกสแปม</span></h3>' +
+      '<div class="tw"><table><thead><tr><th>ชั้น</th><th>ช่องทาง</th><th>ใช้กับ</th><th>เวลา</th></tr></thead><tbody>' +
+      "<tr><td>1</td><td>ในเว็บ 🔔</td><td>ทุกเหตุการณ์ที่เกี่ยวกับฉัน</td><td>ทันที</td></tr>" +
+      "<tr><td>2</td><td>Lark / LINE</td><td><b>เฉพาะเรื่องที่ต้องลงมือ</b></td><td>ภายใน 1 นาที</td></tr>" +
+      "<tr><td>3</td><td>อีเมล</td><td>สรุปรายวัน + เรื่องที่ escalate ถึงหัวหน้า</td><td>08:30 / ทันทีถ้า escalate</td></tr>" +
+      "</tbody></table></div>" +
+      '<div class="rowline">ไม่แจ้งการกระทำของตัวเอง<span class="pill ok">ตัดข้อความ ~40%</span></div>' +
+      '<div class="rowline">เรื่องเดิมไม่เด้งซ้ำใน 24 ชม. (dedupe)<span class="pill ok">เปิด</span></div>' +
+      '<div class="rowline">เกิน 3 เรื่องใน 10 นาที รวมเป็นข้อความเดียว<span class="pill ok">เปิด</span></div>' +
+      '<div class="rowline">เงียบ 20:00–07:00 ยกเว้นเรื่องด่วน<span class="pill ok">เปิด</span></div>' +
+      '<div class="rowline">ส่งไม่สำเร็จ ลองใหม่ 1 → 5 → 25 นาที (สูงสุด 5 ครั้ง)<span class="pill info">คิว</span></div>' +
+      '<div class="note info"><span class="ic">▸</span><span>ปิดการแจ้งเตือนรายประเภทได้เอง ' +
+      '<b>ยกเว้น “งานเข้าคิวของคุณ” ที่ปิดไม่ได้</b> — จะได้ไม่มีใครอ้างว่าไม่รู้</span></div></div>';
+    return h;
+  }
+
+  /* ================= ตั้งค่าระบบ (แอดมิน) ================= */
+  function pageAdmin() {
+    let h = '<div class="ph"><h1>ตั้งค่าระบบ</h1><span class="d">แอดมินจัดการผู้ใช้และ flow ได้ ' +
+      "แต่<b>ไม่อยู่ในสายอนุมัติ</b> — แอดมินที่อนุมัติเอกสารเองทำให้ระบบตรวจสอบเป็นแค่การตกแต่ง</span></div>";
+    h += '<div class="stabs">' +
+      tabBtn("ISSUES", "ปัญหาที่ผู้ใช้แจ้ง", ISSUES.length) +
+      tabBtn("STAGES", "ขั้นตอนและ SLA", STAGES.length) +
+      tabBtn("DOCS", "เอกสารที่ต้องมี", DOCS.length) +
+      tabBtn("USERS", "ผู้ใช้และสิทธิ์", Object.keys(ROLES).length) + "</div>";
+
+    if (subtab === "STAGES") {
+      h += '<div class="card"><h3>Stage_Templates<span class="c">module DOMESTIC_FOOD</span></h3>' +
+        '<div class="tw"><table><thead><tr><th>#</th><th>ขั้นตอน</th><th>เจ้าของ</th><th>เฟส</th>' +
+        '<th class="num">SLA (ชม.)</th></tr></thead><tbody>';
+      STAGES.forEach((s, i) => {
+        let ph = PHASES[3];
+        for (const x of PHASES) if (i <= x.to) { ph = x; break; }
+        h += '<tr><td class="mono">' + (i + 1) + "</td><td>" + esc(s.n) + "</td><td>" + dept(s.o) + "</td>" +
+          "<td>" + esc(ph.name) + '</td><td class="num">' + s.sla + "</td></tr>";
+      });
+      h += "</tbody></table></div>" +
+        '<div class="note info"><span class="ic">▸</span><span>Flow เป็น<b>ข้อมูล ไม่ใช่โค้ด</b> — ' +
+        "หัวหน้าแผนกแก้ SLA ของตัวเองได้เอง และเพิ่ม module ใหม่ (นำเข้า / Solar) = เพิ่มแถว ไม่ต้องแก้โปรแกรม</span></div></div>";
+      return h;
+    }
+    if (subtab === "DOCS") {
+      h += '<div class="card"><h3>Doc_Templates<span class="c">เอกสารที่ระบบจะทวงให้เอง</span></h3>' +
+        '<div class="tw"><table><thead><tr><th>เอกสาร</th><th>เจ้าของ</th><th>เกิดที่ขั้น</th><th>บังคับ</th>' +
+        "<th>เก็บที่</th></tr></thead><tbody>";
+      DOCS.forEach(d => {
+        h += "<tr><td>" + esc(d.n) + "</td><td>" + dept(d.o) + "</td><td>" + esc(STAGES[d.at].n) + "</td>" +
+          "<td>" + (d.req ? '<span class="pill late">บังคับ</span>' : '<span class="pill wait">ตามสินค้า</span>') + "</td>" +
+          '<td class="mono" style="font-size:11.5px">01_PO/…/' + esc(d.c) + "/</td></tr>";
+      });
+      h += '<tr><td>สลิป / Swift</td><td>' + dept("AC") + "</td><td>ทำจ่าย</td>" +
+        '<td><span class="pill late">บังคับทุกงวด</span></td><td class="mono" style="font-size:11.5px">…/06_Payment/</td></tr>';
+      h += "</tbody></table></div>" +
+        '<div class="note info"><span class="ic">📁</span><span>สลิปไม่อยู่ใน checklist ของ PO เพราะ ' +
+        "<b>1 PO จ่าย 2 งวด = 2 สลิป</b> — ผูกกับงวดจ่ายแทน</span></div></div>";
+      return h;
+    }
+    if (subtab === "USERS") {
+      h += '<div class="card"><h3>ผู้ใช้และสิทธิ์<span class="c">ตัวอย่าง 6 บทบาท</span></h3>' +
+        '<div class="tw"><table><thead><tr><th>ผู้ใช้</th><th>แผนก</th><th>เห็นยอดเงิน</th>' +
+        "<th>ขั้นที่รับผิดชอบ</th></tr></thead><tbody>";
+      Object.keys(ROLES).forEach(k => {
+        const owns = STAGES.filter(s => s.o === k).length;
+        h += "<tr><td>" + esc(ROLES[k].person) + "</td><td>" + dept(k) + " " + esc(ROLES[k].name) + "</td>" +
+          "<td>" + (ROLES[k].money ? '<span class="pill ok">เห็น</span>' : '<span class="pill wait">ไม่เห็น</span>') + "</td>" +
+          '<td class="num">' + owns + " ขั้น</td></tr>";
+      });
+      h += "</tbody></table></div>" +
+        '<div class="note info"><span class="ic">▸</span><span>QC / โลจิสติกส์ / คลัง <b>ไม่เห็นราคา</b> — ' +
+        "แยกการตัดสินใจเรื่องคุณภาพออกจากมูลค่าของล็อต</span></div></div>";
+      return h;
+    }
+
+    h += '<div class="card"><h3>ปัญหาที่ผู้ใช้แจ้ง<span class="c">' + openIssues() + " เรื่องยังไม่ปิด</span></h3>" +
+      '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ความรุนแรง</th><th>เรื่อง</th><th>หน้าจอ</th>' +
+      '<th>ผู้แจ้ง</th><th class="num">พบ</th><th>สถานะ</th></tr></thead><tbody>';
+    ISSUES.forEach(i => {
+      const sv = SEV[i.sev], stt = IS_ST[i.status] || IS_ST.NEW;
+      h += '<tr><td><span class="pono">' + esc(i.id) + "</span></td>" +
+        '<td><span class="pill ' + sv.cls + '">' + sv.ic + " " + esc(sv.t) + "</span></td>" +
+        "<td>" + esc(i.t) + (i.note ? '<div class="sub">' + esc(i.note) + "</div>" : "") + "</td>" +
+        '<td class="sub">' + esc(i.page) + '<div class="mono" style="font-size:11px">' + esc(i.ref) + "</div></td>" +
+        "<td>" + esc(i.by) + " " + dept(i.role) + "</td>" +
+        '<td class="num">' + i.n + " ครั้ง</td>" +
+        '<td><span class="pill ' + stt.cls + '">' + esc(stt.t) + "</span></td></tr>";
+    });
+    h += "</tbody></table></div>" +
+      '<div class="rowline">IT ต้องกดรับเรื่องภายใน 1 วันทำการ ไม่งั้นเตือนหัวหน้า IT<span class="pill info">กฎ</span></div>' +
+      '<div class="rowline"><b>ผู้แจ้งเป็นคนกดปิด ไม่ใช่ IT</b> — “แก้แล้ว” ต้องแปลว่าคนที่เจอปัญหาใช้ได้จริง<span class="pill info">กฎ</span></div>' +
+      '<div class="rowline">error เดียวกันหลายคนเจอ = 1 ใบ นับจำนวนครั้ง (จาก stack hash)<span class="pill info">กฎ</span></div>' +
+      '<div class="rowline">ไม่มีปุ่มลบ ปิดได้อย่างเดียว — สถิติปัญหาเป็นข้อมูลของบริษัท<span class="pill info">กฎ</span></div>' +
+      "</div>";
+    return h;
+  }
+
+  /* ================= แจ้งปัญหา (bug report) ================= */
+  const PAGENAME = {home:"หน้าหลัก", po:"ใบสั่งซื้อ (PO)", detail:"หน้า PO", req:"ใบคำร้อง",
+    report:"รายงาน", admin:"ตั้งค่าระบบ", inbox:"แจ้งเตือน"};
+  const SUBNAME = {ACTIVE:"กำลังดำเนินการ", DONE:"เสร็จสิ้น", CANCELLED:"ยกเลิก", SEARCH:"ค้นหา",
+    CLAIM:"เคลม / ร้องเรียน", ITEM:"ขอเปิดรหัสสินค้า", ISSUES:"ปัญหาที่ผู้ใช้แจ้ง",
+    STAGES:"ขั้นตอนและ SLA", DOCS:"เอกสารที่ต้องมี", USERS:"ผู้ใช้และสิทธิ์"};
+
+  function bugPanel() {
+    const el = $("#bug");
+    if (!bugOpen) { el.innerHTML = ""; return; }
+    const hasSub = page === "req" || page === "po" || page === "admin";
+    const where = PAGENAME[page] + (hasSub ? " → " + (SUBNAME[subtab] || subtab) : "");
+    const ref = page === "detail" ? openPo : (page === "req" && subtab === "CLAIM" && openClaim) ? openClaim : "—";
+
+    el.innerHTML = '<div class="bugwrap" data-bug="close"></div><div class="bugpanel" role="dialog" aria-label="แจ้งปัญหา">' +
+      "<h3>⚑ แจ้งปัญหาจากหน้านี้<button data-bug=\"close\" aria-label=\"ปิด\">✕</button></h3>" +
+      '<div class="bugbody">' +
+      '<div><span class="lbl">ระบบเก็บให้อัตโนมัติ</span>' +
+      '<div class="ctxbox">หน้าจอ: <b>' + esc(where) + "</b><br>" +
+        "เอกสารที่เปิดอยู่: <b>" + esc(ref) + "</b><br>" +
+        "ผู้แจ้ง: <b>" + esc(ROLES[role].person) + " (" + esc(ROLES[role].name) + ")</b><br>" +
+        "เบราว์เซอร์ / จอ: <b>" + esc((navigator.userAgent.split(") ")[0] || "").slice(0, 34)) + "…</b> · " +
+        window.innerWidth + "×" + window.innerHeight + "<br>" +
+        "เวลา: <b>" + new Date().toLocaleString("th-TH") + "</b><br>" +
+        "แนบให้ด้วย: 20 การกระทำล่าสุด · error ล่าสุดใน console</div></div>" +
+
+      '<div><span class="lbl">ความรุนแรง</span><div class="sev">' +
+      sevOpt("BLOCKER", "🔴 ทำงานต่อไม่ได้", "แจ้งกลุ่ม Lark ของ IT ทันที") +
+      sevOpt("WRONG", "🟡 ใช้ได้แต่ผลลัพธ์ผิด", "รวมในสรุป 2 ครั้ง/วัน") +
+      sevOpt("SUGGEST", "🟢 ข้อเสนอแนะ", "รวมในสรุปรายสัปดาห์") + "</div></div>" +
+
+      '<div><span class="lbl">เกิดอะไรขึ้น</span>' +
+      '<textarea id="bugtext" placeholder="เล่าสั้น ๆ พอ เช่น “กดบันทึกแล้วหน้าค้าง ต้องรีเฟรช”"></textarea></div>' +
+
+      '<div class="fl2"><span class="hint" style="flex:1;font-size:12px;color:var(--ink-3)">ติดตามสถานะได้ที่ ตั้งค่าระบบ</span>' +
+      '<button class="btn" data-bug="close">ยกเลิก</button>' +
+      '<button class="btn pri" data-bug="send">ส่ง</button></div></div></div>';
+  }
+  function sevOpt(v, t, s) {
+    return '<label><input type="radio" name="bugsev" value="' + v + '"' + (bugSev === v ? " checked" : "") +
+      "><span>" + esc(t) + '<span class="s">' + esc(s) + "</span></span></label>";
+  }
+
   /* ================= การกระทำ ================= */
   function advance(p, note) {
     p.tl.push(["วันนี้", ROLES[role].person, note]);
@@ -777,7 +1090,41 @@
     const rb = ev.target.closest("[data-role]");
     if (rb) { role = rb.dataset.role; render(); return; }
     const nb = ev.target.closest("[data-page]");
-    if (nb) { page = nb.dataset.page; openPo = null; openClaim = null; subtab = "ACTIVE"; render(); return; }
+    if (nb) { page = nb.dataset.page; openPo = null; openClaim = null; subtab = SUB0[page] || "ACTIVE"; render(); return; }
+
+    const bg = ev.target.closest("[data-bug]");
+    if (bg) {
+      const a = bg.dataset.bug;
+      if (a === "open")  { bugOpen = true;  bugPanel(); return; }
+      if (a === "close") { bugOpen = false; bugPanel(); return; }
+      if (a === "send") {
+        const ta = document.getElementById("bugtext");
+        const txt = ta ? ta.value.trim() : "";
+        if (!txt) { toast("กรุณาเล่าสั้น ๆ ว่าเกิดอะไรขึ้น"); if (ta) ta.focus(); return; }
+        const sv = document.querySelector('input[name="bugsev"]:checked');
+        bugSev = sv ? sv.value : "WRONG";
+        const id = "BUG-26-00" + (32 + ISSUES.length - 3);
+        ISSUES.unshift({id:id, sev:bugSev, t:txt.slice(0, 70),
+          page:PAGENAME[page] || page, ref:(page === "detail" ? openPo : openClaim) || "—",
+          by:ROLES[role].person, role:role, tm:"เมื่อสักครู่", status:"NEW", n:1, note:""});
+        bugOpen = false;
+        toast(bugSev === "BLOCKER" ? id + " ส่งแล้ว — แจ้งกลุ่ม Lark ของ IT ทันที"
+                                   : id + " ส่งแล้ว — ติดตามสถานะได้ที่ ตั้งค่าระบบ");
+        bugPanel(); render(); return;
+      }
+      return;
+    }
+
+    const nt = ev.target.closest("[data-notif]");
+    if (nt) {
+      const n = NOTIFS.filter(x => String(x.id) === nt.dataset.notif)[0];
+      if (n) {
+        n.read = true;
+        if (n.ref && POS.some(p => p.no === n.ref)) { openPo = n.ref; page = "detail"; }
+        else if (n.ref) { page = "req"; subtab = "CLAIM"; openClaim = n.ref; }
+      }
+      render(); return;
+    }
     const sb = ev.target.closest("[data-sub]");
     if (sb) { subtab = sb.dataset.sub; render(); return; }
     if (ev.target.closest("[data-back]")) { openPo = null; page = "po"; render(); return; }
@@ -786,7 +1133,7 @@
     const pr = ev.target.closest("[data-po]");
     if (pr) { openPo = pr.dataset.po; page = "detail"; render(); return; }
     const cr = ev.target.closest("[data-claim]");
-    if (cr) { openClaim = cr.dataset.claim; page = "claims"; render(); return; }
+    if (cr) { openClaim = cr.dataset.claim; page = "req"; subtab = "CLAIM"; render(); return; }
 
     const ic = ev.target.closest("[data-ic]");
     if (ic) {
@@ -837,7 +1184,7 @@
     if (a === "approve") advance(p, "อนุมัติภายใน");
     else if (a === "reject") { p.tl.push(["วันนี้", ROLES[role].person, "ไม่อนุมัติ — ตีกลับพร้อมเหตุผล"]); toast("ตีกลับให้จัดซื้อแล้ว"); }
     else if (a === "qcpass") advance(p, "ตรวจรับผ่าน");
-    else if (a === "goic") { page = "items"; render(); return; }
+    else if (a === "goic") { page = "req"; subtab = "ITEM"; render(); return; }
     else if (a === "qcfail") {
       p.claim = true;
       p.payments.forEach(x => { if (x.status === "PENDING") x.status = "BLOCKED"; });
@@ -847,11 +1194,16 @@
         desc:"ตรวจรับไม่ผ่านที่ห้องเย็นต้นทาง", qcResult:"FAIL", supplier:p.sup, po:p.no, cn:"", photos:0});
       p.tl.push(["วันนี้", ROLES[role].person, "ตรวจรับไม่ผ่าน"]);
       p.tl.push(["วันนี้","ระบบ","เปิดใบเคลม " + cid + " + ล็อกงวดจ่าย + แจ้งจัดซื้อและบัญชี"]);
-      openClaim = cid; page = "claims";
+      openClaim = cid; page = "req"; subtab = "CLAIM";
       toast("เปิดใบเคลม " + cid + " และล็อกการจ่ายเงินให้แล้ว");
       render(); return;
     }
-    else if (a === "done") advance(p, "ทำ " + STAGES[p.stage].n + " เสร็จ");
+    else if (a === "done") {
+      // ขั้นปิดบัญชีถูกกั้นด้วยกฎตรวจสอบ — บอกทุกข้อที่ติดพร้อมกัน ไม่ใช่ทีละข้อ
+      const bl = s.c === "AC_CLOSE" ? blockedBy(p) : [];
+      if (bl.length) { toast("ปิดไม่ได้ — ติด " + bl.length + " ข้อ: " + bl.map(c => c.t).join(" · ")); render(); return; }
+      advance(p, "ทำ " + STAGES[p.stage].n + " เสร็จ");
+    }
     render();
   });
 
@@ -868,12 +1220,13 @@
     const m = $("#main");
     if (page === "detail") m.innerHTML = pageDetail();
     else if (page === "po") m.innerHTML = pagePo();
-    else if (page === "claims") m.innerHTML = pageClaims();
-    else if (page === "items") m.innerHTML = pageItems();
+    else if (page === "req") m.innerHTML = pageReq();
+    else if (page === "inbox") m.innerHTML = pageInbox();
+    else if (page === "admin") m.innerHTML = pageAdmin();
     else if (page === "report") m.innerHTML = pageReport();
     else m.innerHTML = pageHome();
   }
-  function render() { chrome(); renderMain(); window.scrollTo({top:0, behavior:"instant"}); }
+  function render() { chrome(); renderMain(); bugPanel(); window.scrollTo({top:0, behavior:"instant"}); }
   render();
 })();
 </script>
