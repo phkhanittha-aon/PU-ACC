@@ -237,6 +237,24 @@
     font-size:13.5px;min-height:74px;resize:vertical;width:100%}
   .bugbody .fl2{display:flex;gap:8px;justify-content:flex-end;align-items:center}
   .lbl{font-size:11.5px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3)}
+
+  /* payment form */
+  .bugpanel.wide{width:min(560px,calc(100vw - 28px))}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:460px){.grid2{grid-template-columns:1fr}}
+  .fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .fld input,.fld select{border:1px solid var(--line-2);background:var(--paper);padding:7px 9px;font:inherit;font-size:13.5px;width:100%}
+  .fld input:focus-visible,.fld select:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+  .fld input[readonly]{background:var(--surface);color:var(--ink-2)}
+  .fld .req{color:var(--stop)}
+  .calcbox{background:var(--surface);border:1px solid var(--line);padding:10px 12px;font-size:13px}
+  .calcbox .cl{display:flex;justify-content:space-between;gap:12px;padding:2px 0;font-variant-numeric:tabular-nums}
+  .calcbox .cl.tot{border-top:1px solid var(--line-2);margin-top:5px;padding-top:6px;font-weight:700}
+  .calcbox .cl span:last-child{font-family:var(--mono)}
+  .errbox{font-size:12.5px;display:flex;flex-direction:column;gap:3px}
+  .errbox .e1{color:var(--stop);background:var(--stop-bg);border:1px solid var(--stop);padding:5px 9px}
+  .errbox .w1{color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn);padding:5px 9px}
+  .chkline{display:flex;gap:8px;align-items:center;font-size:13.5px}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(8px);background:var(--ink);
     color:var(--paper);padding:10px 18px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:92vw;text-align:center}
   #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -265,6 +283,7 @@
   </div>
 </div>
 <div id="bug"></div>
+<div id="modal"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -320,15 +339,34 @@
     {c:"RECEIPT",   n:"ใบเสร็จตัวจริง",     o:"AC", at:15, req:true}
   ];
 
-  const pay = (seq,type,pct,amt,due,st,paid) =>
-    ({seq:seq, type:type, pct:pct, amount:amt, due:due, status:st, paidAt:paid||"", slip:st==="PAID"});
+  // งวดจ่าย — PENDING → REQUESTED → APPROVED → PAID (ดู docs/08)
+  const pay = (seq, type, pct, amt, due, st, paid, ext) => Object.assign({
+    seq:seq, type:type, pct:pct, amount:amt, due:due, status:st,
+    paidAt:paid || "", valueDate:paid || "", method:"", bank:"", ref:"",
+    whtType:"GOODS", whtRate:0, wht:0, fee:0, feeBy:"OUR",
+    paidAmt:st === "PAID" ? amt : 0, lateDays:0, note:"", slip:st === "PAID",
+    paidBy:"", reqBy:"", apvBy:""
+  }, ext || {});
+  const BANKS = ["KBANK 123-4-56789-0 (บัญชีจ่าย)", "SCB 987-6-54321-0", "BBL 111-2-33333-4"];
+  const WHT = {GOODS:{t:"ซื้อสินค้า", r:0}, FREIGHT:{t:"ค่าขนส่ง", r:1},
+    SERVICE:{t:"ค่าบริการ / รับจ้างทำของ", r:3}, RENT:{t:"ค่าเช่า", r:5}, ADS:{t:"ค่าโฆษณา", r:2}};
+  const PAY_ST = {
+    PENDING:{t:"รอตั้งเรื่อง", cls:"wait"}, BLOCKED:{t:"ล็อก (เคลม)", cls:"late"},
+    REQUESTED:{t:"รออนุมัติจ่าย", cls:"due"}, APPROVED:{t:"อนุมัติแล้ว รอทำจ่าย", cls:"info"},
+    PAID:{t:"จ่ายแล้ว", cls:"ok"}, FAILED:{t:"ธนาคารตีกลับ", cls:"late"},
+    VOID:{t:"กลับรายการ", cls:"wait"}, CANCELLED:{t:"ยกเลิก", cls:"wait"}
+  };
+  const APV_LIMIT = 50000;   // เกินวงเงินนี้ต้องผู้บริหารอนุมัติ
 
   let POS = [
     {no:"PO-26-0042", sap:"4500012345", sup:"ABC Foods", item:"กุ้งแช่แข็ง 16/20", qty:"500 KG",
      amt:130000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:10, age:26, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"28/07/2026",
-     payments:[pay(1,"มัดจำ",30,39000,"05/08/2026","PAID","05/08/2026"),
-               pay(2,"ส่วนที่เหลือ",70,91000,"30/08/2026","PENDING")],
+     payments:[pay(1,"มัดจำ",30,39000,"05/08/2026","PAID","05/08/2026",
+                 {method:"TRANSFER", bank:BANKS[0], ref:"KB26080500123", fee:35, paidAmt:39035,
+                  paidBy:"คุณวิภา", apvBy:"คุณผู้จัดการ", reqBy:"คุณวิภา"}),
+               pay(2,"ส่วนที่เหลือ",70,91000,"30/08/2026","APPROVED","",
+                 {reqBy:"คุณวิภา", apvBy:"คุณผู้จัดการ"})],
      tl:[["28 ก.ค. 09:12","คุณสมชาย","สร้าง PO"],["29 ก.ค. 10:05","คุณสมชาย","กรอกเลข PO จาก SAP"],
          ["29 ก.ค. 11:20","คุณผู้จัดการ","อนุมัติภายใน"],["29 ก.ค. 16:02","คุณสมชาย","อัพโหลด PO ที่เซ็นครบ"],
          ["30 ก.ค. 08:30","คุณอนุชา","จองรถรับของ 31 ก.ค."],["05 ส.ค. 10:00","คุณวิภา","จ่ายมัดจำงวดที่ 1"]]},
@@ -356,7 +394,9 @@
     {no:"PO-26-0033", sap:"4500012299", sup:"Ocean Best", item:"ปลาแซลมอนแล่", qty:"200 KG",
      amt:310000, inv:310000, cur:"THB", term:"มัดจำ 50% / ที่เหลือ 50%", stage:14, age:20, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"22/07/2026",
-     payments:[pay(1,"มัดจำ",50,155000,"25/07/2026","PAID","25/07/2026"),
+     payments:[pay(1,"มัดจำ",50,155000,"25/07/2026","PAID","25/07/2026",
+                 {method:"TRANSFER", bank:BANKS[0], ref:"KB26072500088", fee:35, paidAmt:155035,
+                  paidBy:"คุณวิภา", apvBy:"คุณผู้จัดการ", reqBy:"คุณวิภา"}),
                pay(2,"ส่วนที่เหลือ",50,155000,"20/08/2026","PENDING")],
      tl:[["22 ก.ค. 11:00","คุณสมชาย","สร้าง PO"],["25 ก.ค. 09:00","คุณวิภา","จ่ายมัดจำ 50%"],
          ["28 ก.ค. 15:20","คุณประเสริฐ","อัพโหลด GR"],["29 ก.ค. 09:00","คุณวิภา","อัพโหลดใบแจ้งหนี้"]]},
@@ -364,22 +404,30 @@
     {no:"PO-26-0031", sap:"4500012260", sup:"Siam Marine", item:"กุ้งก้ามกราม", qty:"150 KG",
      amt:84000, inv:84000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"20/07/2026",
-     payments:[pay(1,"ชำระเต็ม",100,84000,"20/08/2026","PAID","18/08/2026")],
+     payments:[pay(1,"ชำระเต็ม",100,84000,"20/08/2026","PAID","18/08/2026",
+                 {method:"TRANSFER", bank:BANKS[0], ref:"KB26081800455", fee:35, paidAmt:84035,
+                  paidBy:"คุณวิภา", apvBy:"คุณผู้จัดการ", reqBy:"คุณวิภา", lateDays:-2})],
      tl:[["20 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["18 ส.ค.","คุณวิภา","จ่ายเงินครบ"],
          ["20 ส.ค.","คุณวิภา","ตรวจ 3 ทางผ่าน — ปิดรายการ"]]},
 
     {no:"PO-26-0025", sap:"4500012250", sup:"Ocean Best", item:"ปลาทูน่าท่อน", qty:"400 KG",
      amt:268000, inv:268000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"18/07/2026",
-     payments:[pay(1,"มัดจำ",30,80400,"20/07/2026","PAID","20/07/2026"),
-               pay(2,"ส่วนที่เหลือ",70,187600,"15/08/2026","PAID","14/08/2026")],
+     payments:[pay(1,"มัดจำ",30,80400,"20/07/2026","PAID","20/07/2026",
+                 {method:"SWIFT", bank:BANKS[1], ref:"SW26072000091", fee:850, feeBy:"SUPPLIER",
+                  paidAmt:80400, paidBy:"คุณวิภา", apvBy:"คุณผู้จัดการ", reqBy:"คุณวิภา"}),
+               pay(2,"ส่วนที่เหลือ",70,187600,"15/08/2026","PAID","14/08/2026",
+                 {method:"SWIFT", bank:BANKS[1], ref:"SW26081400102", fee:850, feeBy:"SUPPLIER",
+                  paidAmt:187600, paidBy:"คุณวิภา", apvBy:"คุณผู้จัดการ", reqBy:"คุณวิภา", lateDays:-1})],
      tl:[["18 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["14 ส.ค.","คุณวิภา","จ่ายงวดที่ 2 ครบ"],
          ["16 ส.ค.","คุณวิภา","ปิดรายการ"]]},
 
     {no:"PO-26-0019", sap:"4500012210", sup:"ABC Foods", item:"ปลาหมึกยักษ์", qty:"250 KG",
      amt:112000, inv:112000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"10/07/2026",
-     payments:[pay(1,"ชำระเต็ม",100,112000,"10/08/2026","PAID","09/08/2026")],
+     payments:[pay(1,"ชำระเต็ม",100,112000,"10/08/2026","PAID","09/08/2026",
+                 {method:"TRANSFER", bank:BANKS[0], ref:"KB26080900311", fee:35, paidAmt:112035,
+                  paidBy:"คุณวิภา", apvBy:"คุณผู้จัดการ", reqBy:"คุณวิภา", lateDays:-1})],
      tl:[["10 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["12 ส.ค.","คุณวิภา","ปิดรายการ"]]},
 
     {no:"PO-26-0012", sap:"", sup:"Ocean Best", item:"กุ้งแวนนาไม", qty:"600 KG",
@@ -455,6 +503,7 @@
   /* ================= สถานะหน้าจอ ================= */
   let role = "SR", page = "home", subtab = "ACTIVE", openPo = null, openClaim = null, q = "", fDept = "";
   let bugOpen = false, bugSev = "WRONG";
+  let payOpen = null, payTouched = {amt:false, wht:false};
 
   const $ = s => document.querySelector(s);
   const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
@@ -483,7 +532,8 @@
     return "pend";
   }
   const missing = p => DOCS.filter(d => d.req && docState(p,d) === "wait");
-  const unpaid = p => p.payments.filter(x => x.status !== "PAID");
+  const DONE_PAY = ["PAID", "CANCELLED", "VOID"];
+  const unpaid = p => p.payments.filter(x => DONE_PAY.indexOf(x.status) < 0);
   function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");
     clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),2600);}
 
@@ -535,7 +585,7 @@
     const act = POS.filter(isActive);
     const mine = act.filter(p => ownerOf(p) === role);
     const late = act.filter(p => st(p) && p.age > st(p).sla);
-    const duePay = act.reduce((n,p) => n + unpaid(p).filter(x=>x.status==="PENDING").length, 0);
+    const duePay = act.reduce((n,p) => n + unpaid(p).length, 0);
     const missDocs = act.filter(p => missing(p).some(d => d.o === role)).length;
 
     let h = '<div class="ph"><h1>หน้าหลัก</h1><span class="d">มุมมองของ ' + esc(ROLES[role].name) + "</span></div>";
@@ -710,31 +760,71 @@
   }
   function fld(k,v){return '<div class="f"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + "</div></div>";}
 
+  function payButtons(p, x) {
+    if (!isActive(p) && x.status !== "PAID") return "";
+    const b = (act, cls, t) => '<button class="btn ' + cls + '" data-payact="' + act + '" data-seq="' + x.seq + '">' + t + "</button>";
+    if (role === "AC") {
+      if (x.status === "PENDING")  return b("req", "pri", "ตั้งเรื่องขอจ่าย");
+      if (x.status === "APPROVED") return b("form", "ok", "บันทึกการจ่าย");
+      if (x.status === "FAILED")   return b("form", "ok", "ทำจ่ายใหม่");
+      if (x.status === "PAID")     return b("void", "bad", "กลับรายการ");
+    }
+    // ผู้อนุมัติต้องไม่ใช่ผู้ตั้งเรื่อง — ในตัวอย่างนี้บัญชีตั้งเรื่อง ผู้บริหารอนุมัติ
+    if (role === "GM" && x.status === "REQUESTED")
+      return b("apv", "ok", "อนุมัติจ่าย") + " " + b("rej", "bad", "ตีกลับ");
+    return "";
+  }
+
   function paymentCard(p) {
     if (!p.payments.length) return "";
-    const paid = p.payments.filter(x => x.status === "PAID").reduce((s,x)=>s+x.amount,0);
-    let h = '<div class="card"><h3>การจ่ายเงิน<span class="c">' + esc(p.term) + " · จ่ายแล้ว " + baht(paid) + " จาก " + baht(p.amt) + "</span></h3>" +
-      '<div class="tw"><table><thead><tr><th>งวด</th><th>ประเภท</th><th class="num">%</th>' +
-      '<th class="num">จำนวนเงิน</th><th>ครบกำหนด</th><th>สลิป</th><th>สถานะ</th><th></th></tr></thead><tbody>';
+    const paidRows = p.payments.filter(x => x.status === "PAID");
+    const paid = paidRows.reduce((s, x) => s + x.amount, 0);
+    const late = unpaid(p).filter(x => x.status !== "BLOCKED").length;
+
+    let h = '<div class="card"><h3>การจ่ายเงิน<span class="c">' + esc(p.term) +
+      " · จ่ายแล้ว " + baht(paid) + " จาก " + baht(p.amt) + "</span></h3>" +
+      '<div class="tw"><table><thead><tr><th>งวด</th><th>ประเภท</th>' +
+      '<th class="num">จำนวนเงิน</th><th>ครบกำหนด</th><th>วันที่จ่าย</th>' +
+      "<th>อ้างอิงธนาคาร</th><th>สถานะ</th><th></th></tr></thead><tbody>";
+
     p.payments.forEach(x => {
-      const badge = x.status === "PAID" ? '<span class="pill ok">จ่ายแล้ว</span>'
-        : x.status === "BLOCKED" ? '<span class="pill late">ล็อก (เคลม)</span>'
-        : '<span class="pill due">รอจ่าย</span>';
-      h += "<tr><td class=\"mono\">" + x.seq + "</td><td>" + esc(x.type) + "</td>" +
-        '<td class="num">' + x.pct + "%</td>" +
-        '<td class="num">' + baht(x.amount) + "</td>" +
-        '<td class="mono">' + esc(x.due) + "</td>" +
-        "<td>" + (x.slip ? '<span class="pill ok">มี</span>' : '<span class="pill wait">—</span>') + "</td>" +
-        "<td>" + badge + "</td>" +
-        "<td>" + (role === "AC" && x.status === "PENDING" && isActive(p)
-          ? '<button class="btn ok" data-pay="' + x.seq + '">บันทึกจ่าย + สลิป</button>' : "") + "</td></tr>";
+      const s = PAY_ST[x.status] || PAY_ST.PENDING;
+      const dueCell = '<span class="mono">' + esc(x.due) + "</span>" +
+        (x.lateDays > 0 ? '<div class="sub" style="color:var(--stop)">จ่ายช้า ' + x.lateDays + " วัน</div>" : "");
+      const payCell = x.paidAt
+        ? '<span class="mono">' + esc(x.paidAt) + "</span>" +
+          (x.valueDate && x.valueDate !== x.paidAt ? '<div class="sub">ตัดเงิน ' + esc(x.valueDate) + "</div>" : "")
+        : '<span class="sub">—</span>';
+      const refCell = x.ref
+        ? '<span class="mono" style="font-size:12px">' + esc(x.ref) + "</span>" +
+          '<div class="sub">' + esc(x.bank ? x.bank.split(" ")[0] : "") + (x.slip ? " · มีสลิป" : "") + "</div>"
+        : '<span class="sub">—</span>';
+
+      h += '<tr><td class="mono">' + x.seq + "</td>" +
+        "<td>" + esc(x.type) + '<div class="sub">' + x.pct + "%</div></td>" +
+        '<td class="num">' + baht(x.amount) +
+          (x.wht ? '<div class="sub">หัก ณ ที่จ่าย ' + baht(x.wht) + "</div>" : "") + "</td>" +
+        "<td>" + dueCell + "</td><td>" + payCell + "</td><td>" + refCell + "</td>" +
+        '<td><span class="pill ' + s.cls + '">' + esc(s.t) + "</span>" +
+          (x.status === "REQUESTED" && x.amount > APV_LIMIT
+            ? '<div class="sub">เกิน ' + baht(APV_LIMIT) + " · ผู้บริหาร</div>" : "") + "</td>" +
+        "<td>" + payButtons(p, x) + "</td></tr>";
     });
     h += "</tbody></table></div>";
+
     if (p.payments.some(x => x.status === "BLOCKED"))
-      h += '<div class="note bad"><span class="ic">!</span><span>งวดนี้ถูกล็อกเพราะมีใบเคลมค้าง — บันทึกใบลดหนี้ในหน้าเคลมแล้วจะปลดล็อกเอง</span></div>';
-    else if (unpaid(p).length)
-      h += '<div class="note warn"><span class="ic">▸</span><span>ยังเหลือ ' + unpaid(p).length +
-        " งวด — ระบบจะเตือนบัญชีตามวันครบกำหนดของแต่ละงวด ไม่ต้องให้จัดซื้อมาตาม</span></div>";
+      h += '<div class="note bad"><span class="ic">!</span><span>งวดนี้ถูกล็อกเพราะมีใบเคลมค้าง — ' +
+        "ตั้งเรื่องขอจ่ายไม่ได้จนกว่าจะบันทึกใบลดหนี้ในหน้าใบคำร้อง</span></div>";
+    else if (late)
+      h += '<div class="note warn"><span class="ic">▸</span><span>ยังเหลือ ' + late +
+        " งวด — ระบบเตือนบัญชีตามวันครบกำหนดของแต่ละงวด และแจ้งผู้ขายให้เองเมื่อจ่ายแล้ว " +
+        "ไม่ต้องให้จัดซื้อส่งสลิปต่อ</span></div>";
+    else
+      h += '<div class="note good"><span class="ic">✓</span><span>จ่ายครบทุกงวดแล้ว</span></div>';
+
+    h += '<div class="note info"><span class="ic">▸</span><span>ลำดับ: ' +
+      "<b>ตั้งเรื่องขอจ่าย → อนุมัติ → บันทึกการจ่าย</b> · " +
+      "ผู้ตั้งเรื่องกับผู้อนุมัติต้องเป็นคนละคน และไม่มีปุ่มลบ จ่ายผิดต้องกลับรายการ</span></div>";
     return h + "</div>";
   }
 
@@ -852,6 +942,30 @@
         '<div class="v">' + a.cnt + " PO · " + a.avg + " ชม.</div></div>";
     });
     h += "</div></div>";
+
+    if (money()) {
+      const all = [];
+      POS.forEach(p => p.payments.forEach(x => all.push({p:p, x:x})));
+      const paid = all.filter(r => r.x.status === "PAID");
+      const onTime = paid.filter(r => r.x.lateDays <= 0).length;
+      const owed = all.filter(r => DONE_PAY.indexOf(r.x.status) < 0 && isActive(r.p));
+      const owedSum = owed.reduce((s, r) => s + r.x.amount, 0);
+      const blocked = owed.filter(r => r.x.status === "BLOCKED");
+      const waitApv = owed.filter(r => r.x.status === "REQUESTED");
+
+      h += '<div class="card"><h3>การจ่ายเงิน<span class="c">ได้มาจากวันที่ที่บันทึกไว้ ไม่ต้องกรอกเพิ่ม</span></h3>' +
+        '<div class="kpis" style="margin:0;border:0">' +
+        '<div class="kpi g"><div class="n">' + (paid.length ? Math.round(onTime / paid.length * 100) : 0) +
+          '%</div><div class="k">จ่ายตรงเวลา (' + onTime + "/" + paid.length + " งวด)</div></div>" +
+        '<div class="kpi a"><div class="n">' + owed.length + '</div><div class="k">งวดที่ยังไม่จ่าย</div></div>' +
+        '<div class="kpi b"><div class="n">' + baht(owedSum).replace("฿","") + '</div><div class="k">ยอดค้างจ่าย</div></div>' +
+        '<div class="kpi r"><div class="n">' + blocked.length + '</div><div class="k">ถูกล็อกจากเคลม</div></div>' +
+        '<div class="kpi"><div class="n">' + waitApv.length + '</div><div class="k">รออนุมัติจ่าย</div></div></div>';
+      if (blocked.length)
+        h += '<div class="note bad"><span class="ic">!</span><span>ถูกล็อกจากเคลม ' +
+          baht(blocked.reduce((s, r) => s + r.x.amount, 0)) + " — ปิดเคลมที่กระทบเงินมากสุดก่อน</span></div>";
+      h += "</div>";
+    }
 
     const done = POS.filter(p => p.status === "COMPLETED");
     h += '<div class="kpis">' +
@@ -1075,6 +1189,137 @@
       "><span>" + esc(t) + '<span class="s">' + esc(s) + "</span></span></label>";
   }
 
+  /* ================= ฟอร์มบันทึกการจ่าย ================= */
+  const pad2 = n => (n < 10 ? "0" : "") + n;
+  function todayISO() { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate()); }
+  function isoToTH(s) { const a = String(s).split("-"); return a.length === 3 ? a[2] + "/" + a[1] + "/" + a[0] : s; }
+  function thToISO(s) { const a = String(s).split("/"); return a.length === 3 ? a[2] + "-" + a[1] + "-" + a[0] : ""; }
+  const dayDiff = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 86400000);
+  const numOf = id => { const e = document.getElementById(id); return e ? (parseFloat(e.value) || 0) : 0; };
+  const valOf = id => { const e = document.getElementById(id); return e ? e.value : ""; };
+
+  function payTarget() {
+    if (!payOpen) return null;
+    const p = POS.filter(x => x.no === payOpen.po)[0];
+    if (!p) return null;
+    const x = p.payments.filter(y => y.seq === payOpen.seq)[0];
+    return x ? {p:p, x:x} : null;
+  }
+
+  function payModal() {
+    const el = $("#modal");
+    const t = payTarget();
+    if (!t) { el.innerHTML = ""; return; }
+    const p = t.p, x = t.x, wr = WHT[x.whtType] || WHT.GOODS;
+
+    const f = (id, lb, inp, req) => '<div class="fld"><span class="lbl">' + esc(lb) +
+      (req ? ' <span class="req">*</span>' : "") + "</span>" + inp + "</div>";
+    const num = (id, v) => '<input type="number" step="0.01" id="' + id + '" value="' + v + '">';
+
+    el.innerHTML = '<div class="bugwrap" data-payact="close"></div>' +
+      '<div class="bugpanel wide" role="dialog" aria-label="บันทึกการจ่าย">' +
+      '<h3>บันทึกการจ่าย — ' + esc(p.no) + " งวดที่ " + x.seq +
+        '<button data-payact="close" aria-label="ปิด">✕</button></h3>' +
+      '<div class="bugbody">' +
+
+      '<div class="ctxbox">ผู้ขาย: <b>' + esc(p.sup) + "</b><br>" +
+        "งวด: <b>" + esc(x.type) + " (" + x.pct + "%)</b> · ยอดตามงวด <b>" + baht(x.amount) + "</b><br>" +
+        "ครบกำหนด: <b>" + esc(x.due) + "</b> · อนุมัติโดย <b>" + esc(x.apvBy || "—") + "</b></div>" +
+
+      '<div class="grid2">' +
+      f("py_date", "วันที่จ่าย", '<input type="date" id="py_date" value="' + todayISO() + '">', true) +
+      f("py_value", "วันที่ธนาคารตัดเงิน", '<input type="date" id="py_value" value="' + todayISO() + '">', true) +
+      f("py_method", "วิธีจ่าย", '<select id="py_method"><option value="TRANSFER">โอนเงิน</option>' +
+        '<option value="CHEQUE">เช็ค</option><option value="SWIFT">Swift (ต่างประเทศ)</option>' +
+        '<option value="CASH">เงินสด</option></select>', true) +
+      f("py_bank", "บัญชีที่จ่ายออก", '<select id="py_bank">' +
+        BANKS.map(b => '<option value="' + esc(b) + '">' + esc(b) + "</option>").join("") + "</select>", true) +
+      f("py_ref", "เลขอ้างอิงธนาคาร / เลขเช็ค", '<input type="text" id="py_ref" placeholder="เช่น KB26083000456">', true) +
+      f("py_whttype", "ประเภทรายจ่าย (ภาษีหัก ณ ที่จ่าย)", '<select id="py_whttype">' +
+        Object.keys(WHT).map(k => '<option value="' + k + '"' + (k === x.whtType ? " selected" : "") + ">" +
+          esc(WHT[k].t) + " — " + WHT[k].r + "%</option>").join("") + "</select>") +
+      f("py_wht", "ภาษีหัก ณ ที่จ่าย (บาท)", num("py_wht", (x.amount * wr.r / 100).toFixed(2))) +
+      f("py_fee", "ค่าธรรมเนียมโอน (บาท)", num("py_fee", "35")) +
+      f("py_feeby", "ใครรับภาระค่าธรรมเนียม", '<select id="py_feeby"><option value="OUR">บริษัท</option>' +
+        '<option value="SUPPLIER">ผู้ขาย</option></select>') +
+      f("py_amt", "ยอดที่ตัดจากบัญชีจริง", num("py_amt", (x.amount * (1 - wr.r/100) + 35).toFixed(2)), true) +
+      "</div>" +
+
+      '<div class="calcbox" id="py_calc"></div>' +
+      '<div class="fld"><span class="lbl">เหตุผล (เมื่อยอดไม่ตรงกับที่คำนวณ)</span>' +
+        '<input type="text" id="py_reason" placeholder="เช่น หักส่วนลดรับเร็ว / เศษปัดจากธนาคาร"></div>' +
+      '<label class="chkline"><input type="checkbox" id="py_slip"> แนบสลิป / Swift แล้ว <span class="req">*</span></label>' +
+      '<div class="fld"><span class="lbl">หมายเหตุ</span><input type="text" id="py_note"></div>' +
+      '<div class="errbox" id="py_err"></div>' +
+
+      '<div class="fl2"><button class="btn" data-payact="close">ยกเลิก</button>' +
+      '<button class="btn ok" data-payact="save">บันทึกการจ่าย</button></div></div></div>';
+
+    payTouched = {amt:false, wht:false};
+    payCalc();
+  }
+
+  function payCalc() {
+    const t = payTarget(); if (!t) return;
+    const x = t.x, p = t.p;
+    const wr = WHT[valOf("py_whttype")] || WHT.GOODS;
+
+    if (!payTouched.wht) {
+      const e = document.getElementById("py_wht");
+      if (e) e.value = (x.amount * wr.r / 100).toFixed(2);
+    }
+    const wht = numOf("py_wht"), fee = numOf("py_fee"), feeBy = valOf("py_feeby");
+    const expect = x.amount - wht + (feeBy === "OUR" ? fee : 0);
+    const net    = x.amount - wht - (feeBy === "SUPPLIER" ? fee : 0);
+    if (!payTouched.amt) {
+      const e = document.getElementById("py_amt");
+      if (e) e.value = expect.toFixed(2);
+    }
+    const amt = numOf("py_amt"), diff = amt - expect;
+
+    const cb = document.getElementById("py_calc");
+    if (cb) cb.innerHTML =
+      '<div class="cl"><span>ยอดตามงวด</span><span>' + baht(x.amount) + "</span></div>" +
+      '<div class="cl"><span>− ภาษีหัก ณ ที่จ่าย (' + wr.r + "%)</span><span>" + baht(wht) + "</span></div>" +
+      '<div class="cl"><span>' + (feeBy === "OUR" ? "+" : "−") + " ค่าธรรมเนียมโอน (" +
+        (feeBy === "OUR" ? "บริษัทรับภาระ" : "ผู้ขายรับภาระ") + ")</span><span>" + baht(fee) + "</span></div>" +
+      '<div class="cl tot"><span>ยอดที่ควรตัดจากบัญชี</span><span>' + baht(expect) + "</span></div>" +
+      '<div class="cl"><span>ผู้ขายได้รับ</span><span>' + baht(net) + "</span></div>";
+
+    // กฎตรวจสอบ P1–P11
+    const errs = [], warns = [];
+    const d = valOf("py_date"), vd = valOf("py_value"), ref = valOf("py_ref").trim();
+    const today = todayISO();
+
+    if (!d) errs.push("ต้องระบุวันที่จ่าย");
+    else if (dayDiff(d, today) > 0) errs.push("P1 · วันที่จ่ายเป็นวันข้างหน้า — บันทึกได้เมื่อจ่ายจริงแล้ว");
+    if (vd && d && dayDiff(vd, d) < 0) errs.push("P2 · วันที่ธนาคารตัดเงินต้องไม่ก่อนวันที่จ่าย");
+    if (amt <= 0) errs.push("P3 · จำนวนเงินต้องมากกว่า 0");
+    if (wr.r > 15) errs.push("P4 · อัตราหัก ณ ที่จ่ายผิดปกติ");
+    if (!document.getElementById("py_slip") || !document.getElementById("py_slip").checked)
+      errs.push("P5 · ต้องแนบสลิปหรือ Swift ก่อนบันทึก");
+    if (!ref) errs.push("P6 · ต้องใส่เลขอ้างอิงเพื่อกระทบยอดกับ statement");
+
+    if (Math.abs(diff) > 1) {
+      if (!valOf("py_reason").trim())
+        errs.push("P7 · ยอดต่างจากที่คำนวณ " + baht(Math.abs(diff)) + " — ต้องระบุเหตุผล");
+      else warns.push("P7 · ยอดต่าง " + baht(Math.abs(diff)) + " · เหตุผลถูกบันทึกและขึ้นในรายงานหัวหน้าบัญชี");
+    }
+    const already = p.payments.filter(y => y.status === "PAID" && y.seq !== x.seq)
+      .reduce((s, y) => s + y.amount, 0);
+    if (already + x.amount > p.amt + 1) errs.push("P8 · จ่ายรวมเกินมูลค่า PO");
+    if (d && dayDiff(today, d) > 7) warns.push("P9 · จ่ายย้อนหลัง " + dayDiff(today, d) + " วัน — ต้องให้หัวหน้าบัญชีอนุมัติเพิ่ม");
+    if (ref && POS.some(q => q.payments.some(y => y.ref === ref && !(q.no === p.no && y.seq === x.seq))))
+      errs.push("P11 · เลขอ้างอิงนี้ถูกใช้แล้วในรายการจ่ายอื่น — กันการจ่ายซ้ำ");
+    if (d && x.due && dayDiff(d, thToISO(x.due)) > 0)
+      warns.push("จ่ายช้ากว่ากำหนด " + dayDiff(d, thToISO(x.due)) + " วัน — บันทึกไว้ในตัวชี้วัดการจ่ายตรงเวลา");
+
+    const eb = document.getElementById("py_err");
+    if (eb) eb.innerHTML = errs.map(e => '<div class="e1">' + esc(e) + "</div>").join("") +
+      warns.map(w => '<div class="w1">' + esc(w) + "</div>").join("");
+    return errs;
+  }
+
   /* ================= การกระทำ ================= */
   function advance(p, note) {
     p.tl.push(["วันนี้", ROLES[role].person, note]);
@@ -1169,13 +1414,70 @@
 
     const p = POS.filter(x => x.no === openPo)[0];
     if (!p) return;
-    const pb = ev.target.closest("[data-pay]");
-    if (pb) {
-      const x = p.payments.filter(y => String(y.seq) === pb.dataset.pay)[0];
-      if (x) { x.status = "PAID"; x.slip = true; x.paidAt = "วันนี้";
-        p.tl.push(["วันนี้", ROLES[role].person, "จ่ายงวดที่ " + x.seq + " (" + x.type + ") + อัพโหลดสลิป"]);
-        toast(unpaid(p).length ? "บันทึกแล้ว — เหลืออีก " + unpaid(p).length + " งวด ระบบจะเตือนตามกำหนด"
-                               : "จ่ายครบทุกงวดแล้ว");
+
+    const pa = ev.target.closest("[data-payact]");
+    if (pa) {
+      const act = pa.dataset.payact;
+      if (act === "close") { payOpen = null; payModal(); return; }
+
+      if (act === "save") {
+        const t = payTarget(); if (!t) return;
+        if (payCalc().length) { toast("บันทึกไม่ได้ — แก้ข้อที่ติดก่อน"); return; }
+        const x = t.x, d = valOf("py_date");
+        x.status = "PAID";
+        x.paidAt = isoToTH(d);
+        x.valueDate = isoToTH(valOf("py_value") || d);
+        x.method = valOf("py_method");
+        x.bank = valOf("py_bank");
+        x.ref = valOf("py_ref").trim();
+        x.whtType = valOf("py_whttype");
+        x.whtRate = (WHT[x.whtType] || WHT.GOODS).r;
+        x.wht = numOf("py_wht");
+        x.fee = numOf("py_fee");
+        x.feeBy = valOf("py_feeby");
+        x.paidAmt = numOf("py_amt");
+        x.note = valOf("py_note");
+        x.slip = true;
+        x.paidBy = ROLES[role].person;
+        x.lateDays = x.due ? dayDiff(d, thToISO(x.due)) : 0;
+        t.p.tl.push(["วันนี้", ROLES[role].person,
+          "บันทึกจ่ายงวดที่ " + x.seq + " " + baht(x.paidAmt) + " · อ้างอิง " + x.ref]);
+        t.p.tl.push(["วันนี้", "ระบบ", "แจ้งผู้ขายพร้อมสลิปทางอีเมล และแจ้งจัดซื้อใน Lark"]);
+        payOpen = null; payModal();
+        toast(unpaid(t.p).length
+          ? "บันทึกแล้ว — เหลืออีก " + unpaid(t.p).length + " งวด · ส่งสลิปให้ผู้ขายอัตโนมัติ"
+          : "จ่ายครบทุกงวดแล้ว · ส่งสลิปให้ผู้ขายอัตโนมัติ");
+        render(); return;
+      }
+
+      const x = p.payments.filter(y => String(y.seq) === pa.dataset.seq)[0];
+      if (!x) return;
+      if (act === "form") { payOpen = {po:p.no, seq:x.seq}; payModal(); return; }
+      if (act === "req") {
+        x.status = "REQUESTED"; x.reqBy = ROLES[role].person;
+        p.tl.push(["วันนี้", ROLES[role].person, "ตั้งเรื่องขอจ่ายงวดที่ " + x.seq + " " + baht(x.amount)]);
+        toast(x.amount > APV_LIMIT ? "ส่งให้ผู้บริหารอนุมัติ (เกิน " + baht(APV_LIMIT) + ")"
+                                   : "ส่งให้หัวหน้าบัญชีอนุมัติแล้ว");
+      }
+      if (act === "apv") {
+        x.status = "APPROVED"; x.apvBy = ROLES[role].person;
+        p.tl.push(["วันนี้", ROLES[role].person, "อนุมัติจ่ายงวดที่ " + x.seq]);
+        toast("อนุมัติแล้ว — บัญชีบันทึกการจ่ายได้ (คนละคนกับผู้อนุมัติ)");
+      }
+      if (act === "rej") {
+        x.status = "PENDING"; x.reqBy = "";
+        p.tl.push(["วันนี้", ROLES[role].person, "ตีกลับคำขอจ่ายงวดที่ " + x.seq + " พร้อมเหตุผล"]);
+        toast("ตีกลับให้บัญชีแล้ว");
+      }
+      if (act === "void") {
+        // ไม่ลบ — ปิดรายการเดิมเป็น VOID แล้วเปิดงวดใหม่ให้ตั้งเรื่องอีกครั้ง
+        x.status = "VOID";
+        const seq = Math.max.apply(null, p.payments.map(y => y.seq)) + 1;
+        p.payments.push(pay(seq, x.type + " (ทำจ่ายใหม่)", x.pct, x.amount, x.due, "PENDING", "",
+          {note:"แทนงวดที่ " + x.seq + " ที่กลับรายการ"}));
+        p.tl.push(["วันนี้", ROLES[role].person,
+          "กลับรายการจ่ายงวดที่ " + x.seq + " — เปิดงวดที่ " + seq + " แทน (ของเดิมไม่ถูกลบ)"]);
+        toast("กลับรายการแล้ว — ของเดิมยังอยู่เป็นหลักฐาน และเปิดงวดใหม่ให้ตั้งเรื่องอีกครั้ง");
       }
       render(); return;
     }
@@ -1191,7 +1493,9 @@
     else if (a === "goic") { page = "req"; subtab = "ITEM"; render(); return; }
     else if (a === "qcfail") {
       p.claim = true;
-      p.payments.forEach(x => { if (x.status === "PENDING") x.status = "BLOCKED"; });
+      p.payments.forEach(x => {
+        if (["PENDING","REQUESTED","APPROVED"].indexOf(x.status) >= 0) x.status = "BLOCKED";
+      });
       const cid = "CL-26-00" + (CLAIMS.length + 4);
       CLAIMS.unshift({id:cid, src:"INCOMING", date:"วันนี้", cust:"—", pi:"", dn:"",
         item:p.item, lot:"LOT-" + p.no.slice(-4), qty:"40 KG",
@@ -1211,13 +1515,26 @@
     render();
   });
 
+  const PAYFIELDS = ["py_date","py_value","py_method","py_bank","py_ref","py_whttype",
+    "py_wht","py_fee","py_feeby","py_amt","py_slip","py_reason","py_note"];
+
   document.addEventListener("input", function (ev) {
     if (ev.target.id === "q") { q = ev.target.value; const el = ev.target;
       renderMain(); const nq = document.getElementById("q");
-      if (nq) { nq.focus(); nq.setSelectionRange(el.value.length, el.value.length); } }
+      if (nq) { nq.focus(); nq.setSelectionRange(el.value.length, el.value.length); }
+      return; }
+    if (PAYFIELDS.indexOf(ev.target.id) >= 0) {
+      if (ev.target.id === "py_amt") payTouched.amt = true;
+      if (ev.target.id === "py_wht") payTouched.wht = true;
+      payCalc();
+    }
   });
   document.addEventListener("change", function (ev) {
-    if (ev.target.id === "fdept") { fDept = ev.target.value; renderMain(); }
+    if (ev.target.id === "fdept") { fDept = ev.target.value; renderMain(); return; }
+    if (PAYFIELDS.indexOf(ev.target.id) >= 0) {
+      if (ev.target.id === "py_whttype") payTouched.wht = false;
+      payCalc();
+    }
   });
 
   function renderMain() {
@@ -1230,7 +1547,7 @@
     else if (page === "report") m.innerHTML = pageReport();
     else m.innerHTML = pageHome();
   }
-  function render() { chrome(); renderMain(); bugPanel(); window.scrollTo({top:0, behavior:"instant"}); }
+  function render() { chrome(); renderMain(); bugPanel(); payModal(); window.scrollTo({top:0, behavior:"instant"}); }
   render();
 })();
 </script>

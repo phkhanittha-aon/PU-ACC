@@ -241,8 +241,10 @@ Number of samples, Inspection Location, Summary of results, Defect Details, ช�
 ของจริงจ่าย 2 รอบ (มัดจำ + ส่วนที่เหลือ) แต่โครงเดิมมีสลิปใบเดียวต่อ PO ซึ่งผิด
 
 `payment_id` · `po_no` · `seq` · `payment_type` (`DEPOSIT / BALANCE / FULL`) · `percent` ·
-`amount` · `currency` · `due_date` · `status` (`PENDING / BLOCKED / PAID / CANCELLED`) ·
-`paid_at` · `slip_doc_id` · `bank_ref` · `paid_by` · `note`
+`amount` · `currency` · `due_date` · `status` · `paid_at` · `slip_doc_id` · `bank_ref` · `paid_by` · `note`
+
+> **ขยายแล้วใน [เอกสาร 08](08-payment-module.md)** — เพิ่มวันที่จ่าย/วันที่ธนาคารตัดเงิน
+> ภาษีหัก ณ ที่จ่าย ค่าธรรมเนียม สายอนุมัติ และการกลับรายการ · สถานะเพิ่มเป็น 8 ค่า
 
 ผลที่ตามมา:
 
