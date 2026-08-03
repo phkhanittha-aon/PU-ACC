@@ -255,6 +255,37 @@
   .errbox .e1{color:var(--stop);background:var(--stop-bg);border:1px solid var(--stop);padding:5px 9px}
   .errbox .w1{color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn);padding:5px 9px}
   .chkline{display:flex;gap:8px;align-items:center;font-size:13.5px}
+
+  /* กล่อง "ตอนนี้ต้องทำอะไร" — อยู่บนสุดเสมอ */
+  .todo{border:2px solid var(--cold);background:var(--paper);margin-bottom:16px}
+  .todo>h3{margin:0;padding:9px 16px;font-size:13px;font-weight:700;background:var(--cold);color:#fff;
+    display:flex;justify-content:space-between;gap:10px;align-items:center}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .todo>h3{color:#0f161d}}
+  :root[data-theme="dark"] .todo>h3{color:#0f161d}
+  .todo.calm{border-color:var(--line-2)}
+  .todo.calm>h3{background:var(--surface);color:var(--ink-2);border-bottom:1px solid var(--line)}
+  .todo .big{padding:13px 16px;font-size:15px;font-weight:600}
+  .todo .then{padding:0 16px 12px;font-size:12.5px;color:var(--ink-3)}
+
+  /* บล็อกที่พับเก็บได้ */
+  details.blk{border:1px solid var(--line);background:var(--paper);margin-bottom:16px}
+  details.blk>summary{padding:10px 16px;font-size:13px;font-weight:700;background:var(--surface);
+    cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;align-items:center}
+  details.blk>summary::-webkit-details-marker{display:none}
+  details.blk>summary::after{content:"▾";color:var(--ink-3);font-size:11px}
+  details.blk[open]>summary{border-bottom:1px solid var(--line)}
+  details.blk[open]>summary::after{content:"▴"}
+  details.blk>summary:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+  details.blk>summary .c{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);font-weight:500}
+
+  /* ที่มาของข้อมูล */
+  .src{font-family:var(--mono);font-size:9px;letter-spacing:.07em;border:1px solid currentColor;
+    padding:0 4px;color:var(--cold);margin-left:5px;vertical-align:middle;white-space:nowrap}
+  .src.man{color:var(--ink-3)}
+  .synced{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:9px 16px;
+    background:var(--cold-bg);border:1px solid var(--cold);color:var(--cold);font-size:12.5px;margin-bottom:16px}
+  .synced.stale{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+  .synced .sp2{flex:1}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(8px);background:var(--ink);
     color:var(--paper);padding:10px 18px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:92vw;text-align:center}
   #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -284,6 +315,7 @@
 </div>
 <div id="bug"></div>
 <div id="modal"></div>
+<div id="confirm"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -500,9 +532,21 @@
   const IS_ST = {NEW:{t:"รอ IT รับเรื่อง",cls:"due"}, ACK:{t:"รับเรื่องแล้ว",cls:"info"},
     FIXING:{t:"กำลังแก้",cls:"info"}, FIXED:{t:"แก้แล้ว รอผู้แจ้งยืนยัน",cls:"ok"}, CLOSED:{t:"ปิดเรื่อง",cls:"wait"}};
 
+  // การเชื่อมต่อ SAP — ดึงมาอย่างเดียว ไม่เขียนกลับ (ดู docs/09)
+  const SAP = {
+    at:"วันนี้ 08:30", ok:true, mode:"ไฟล์สรุปจาก SAP วางบน Drive (ตั้งเวลา)",
+    objs:[
+      {o:"ใบสั่งซื้อ (PO header/item)", src:"EKKO / EKPO", n:612, every:"ทุก 30 นาที", last:"08:30", st:"OK"},
+      {o:"ผู้ขาย", src:"LFA1", n:148, every:"ทุกคืน", last:"02:10", st:"OK"},
+      {o:"รหัสสินค้า", src:"MARA / MAKT", n:2140, every:"ทุกคืน", last:"02:12", st:"OK"},
+      {o:"การรับเข้า (GR)", src:"MKPF / MSEG", n:487, every:"ทุก 30 นาที", last:"08:30", st:"OK"},
+      {o:"ใบแจ้งหนี้ที่ตั้งหนี้แล้ว", src:"RBKP / RSEG", n:395, every:"ทุก 30 นาที", last:"07:30", st:"ช้า 1 รอบ"}
+    ]
+  };
+
   /* ================= สถานะหน้าจอ ================= */
   let role = "SR", page = "home", subtab = "ACTIVE", openPo = null, openClaim = null, q = "", fDept = "";
-  let bugOpen = false, bugSev = "WRONG";
+  let bugOpen = false, bugSev = "WRONG", openIC = null, pendingAct = null;
   let payOpen = null, payTouched = {amt:false, wht:false};
 
   const $ = s => document.querySelector(s);
@@ -581,26 +625,64 @@
   }
 
   /* ================= หน้าหลัก ================= */
+  // PO ที่กำลังจะถึงคิวของฉันใน 2 ขั้นถัดไป — ให้เตรียมตัวได้ ไม่ใช่รอให้เด้งมาแล้วค่อยรู้
+  function comingToMe(p) {
+    if (ownerOf(p) === role) return false;
+    let n = p.stage + 1, hop = 0;
+    while (n < STAGES.length && hop < 3) {
+      if (p.skip.indexOf(n) < 0) { hop++; if (STAGES[n].o === role) return true; }
+      n++;
+    }
+    return false;
+  }
+
   function pageHome() {
     const act = POS.filter(isActive);
     const mine = act.filter(p => ownerOf(p) === role);
-    const late = act.filter(p => st(p) && p.age > st(p).sla);
-    const duePay = act.reduce((n,p) => n + unpaid(p).length, 0);
-    const missDocs = act.filter(p => missing(p).some(d => d.o === role)).length;
+    const mineLate = mine.filter(p => st(p) && p.age > st(p).sla);
+    const soon = act.filter(comingToMe);
+    const others = act.filter(p => ownerOf(p) !== role && !comingToMe(p));
+    const duePay = act.reduce((n, p) => n + unpaid(p).length, 0);
 
-    let h = '<div class="ph"><h1>หน้าหลัก</h1><span class="d">มุมมองของ ' + esc(ROLES[role].name) + "</span></div>";
+    let h = '<div class="ph"><h1>สวัสดี ' + esc(ROLES[role].person) + '</h1><span class="d">' +
+      esc(ROLES[role].name) + " · " + (mine.length ? "มีงานรอคุณ " + mine.length + " รายการ" : "ไม่มีงานค้างที่คุณ") + "</span></div>";
+
+    // แถบสรุปข้อมูล SAP — บอกเสมอว่าเลขที่เห็นสดแค่ไหน
+    h += '<div class="synced' + (SAP.ok ? "" : " stale") + '"><span>🔄</span>' +
+      "<span>ข้อมูลจาก SAP ล่าสุด <b>" + esc(SAP.at) + "</b> — เลข PO ผู้ขาย จำนวน และ GR ดึงมาจาก SAP ไม่ได้พิมพ์เอง</span>" +
+      '<span class="sp2"></span><button class="btn" data-act="sapnow">ดึงข้อมูลใหม่ตอนนี้</button></div>';
+
     h += '<div class="kpis">' +
-      '<div class="kpi a"><div class="n">' + mine.length + '</div><div class="k">ค้างที่ฉัน</div></div>' +
-      '<div class="kpi r"><div class="n">' + late.length + '</div><div class="k">เลยกำหนด</div></div>' +
-      '<div class="kpi b"><div class="n">' + act.length + '</div><div class="k">PO กำลังดำเนินการ</div></div>' +
+      '<div class="kpi a"><div class="n">' + mine.length + '</div><div class="k">ต้องทำวันนี้</div></div>' +
+      '<div class="kpi r"><div class="n">' + mineLate.length + '</div><div class="k">เลยกำหนดของคุณ</div></div>' +
+      '<div class="kpi b"><div class="n">' + soon.length + '</div><div class="k">กำลังจะถึงคิวคุณ</div></div>' +
       (money() ? '<div class="kpi"><div class="n">' + duePay + '</div><div class="k">งวดที่ยังไม่จ่าย</div></div>' : "") +
-      '<div class="kpi"><div class="n">' + missDocs + '</div><div class="k">PO ที่รอเอกสารจากฉัน</div></div>' +
-      '<div class="kpi g"><div class="n">' + POS.filter(p=>p.status==="COMPLETED").length + '</div><div class="k">เสร็จสิ้นแล้ว</div></div>' +
+      '<div class="kpi g"><div class="n">' + POS.filter(p => p.status === "COMPLETED").length + '</div><div class="k">ปิดแล้วเดือนนี้</div></div>' +
       "</div>";
 
-    h += poTable("งานที่ค้างอยู่ที่ฉัน", mine, "ไม่มีงานค้างที่คุณ");
-    h += poTable("รอแผนกอื่น", act.filter(p => ownerOf(p) !== role), "—");
-    return h;
+    if (!mine.length)
+      h += '<div class="note good" style="border:1px solid var(--go);margin-bottom:16px">' +
+        '<span class="ic">✓</span><span><b>ตอนนี้ไม่มีอะไรที่คุณต้องทำ</b> — ' +
+        "ระบบจะแจ้งเตือนทาง Lark เมื่อถึงคิวคุณ ไม่ต้องเปิดมานั่งเช็คเอง</span></div>";
+
+    h += poTable("① ต้องทำวันนี้", mine, "ไม่มีงานค้างที่คุณ");
+    h += poTable("② กำลังจะถึงคิวคุณ — เตรียมตัวได้", soon, "ยังไม่มีงานที่กำลังจะเข้ามา");
+    h += '<details class="blk"><summary>③ งานของแผนกอื่น<span class="c">' + others.length +
+      ' รายการ · เปิดดูเมื่ออยากรู้ภาพรวม</span></summary>';
+    if (!others.length) h += '<div class="empty">—</div>';
+    else {
+      h += '<div class="tw"><table><thead><tr><th>เลข PO</th><th>ผู้ขาย / สินค้า</th><th>ค้างที่</th><th>สถานะ</th></tr></thead><tbody>';
+      others.forEach(p => {
+        const s = st(p);
+        h += '<tr class="click" data-po="' + esc(p.no) + '">' +
+          '<td><span class="pono">' + esc(p.no) + "</span></td>" +
+          "<td>" + esc(p.sup) + '<div class="sub">' + esc(p.item) + "</div></td>" +
+          "<td>" + (s ? dept(s.o) + " " + esc(person(s.o)) : "—") + "</td>" +
+          "<td>" + statusPill(p) + "</td></tr>";
+      });
+      h += "</tbody></table></div>";
+    }
+    return h + "</details>";
   }
 
   /* ================= PO list / search ================= */
@@ -676,22 +758,80 @@
   }
 
   /* ================= PO detail ================= */
+  // ขั้นถัดไปหลังจากขั้นปัจจุบัน (ข้ามขั้นที่ไม่ต้องทำ) — ใช้บอกล่วงหน้าว่างานจะไปหาใคร
+  function nextStage(p) {
+    let n = p.stage + 1;
+    while (n < STAGES.length && p.skip.indexOf(n) >= 0) n++;
+    return STAGES[n] || null;
+  }
+  const person = k => ROLES[k] ? ROLES[k].person : "";
+
+  // กล่องบนสุด: ตอบคำถามเดียว — "ตอนนี้ฉันต้องทำอะไร"
+  function todoCard(p) {
+    const s = st(p), nx = nextStage(p);
+    const mine = isActive(p) && s && s.o === role;
+    const then = nx ? '<div class="then">กดแล้วงานจะไปที่ <b>' + esc(ROLES[nx.o].name) + " (" + esc(person(nx.o)) +
+      ")</b> และระบบแจ้งเตือนให้เอง — ไม่ต้องบอกในไลน์</div>"
+      : '<div class="then">กดแล้ว PO นี้จะปิดและย้ายไปแท็บเสร็จสิ้น</div>';
+
+    if (!isActive(p))
+      return '<div class="todo calm"><h3>สถานะ</h3><div class="big">PO นี้' +
+        (p.status === "COMPLETED" ? "ปิดเรียบร้อยแล้ว" : "ถูกยกเลิก") + " — เปิดดูย้อนหลังได้อย่างเดียว</div></div>";
+
+    if (!mine) {
+      const o = ownerOf(p);
+      return '<div class="todo calm"><h3>ตอนนี้ไม่มีอะไรที่คุณต้องทำ</h3>' +
+        '<div class="big">รออยู่ที่ <b>' + esc(ROLES[o] ? ROLES[o].name : "-") + " (" + esc(person(o)) + ")</b> — " +
+        esc(s ? s.n : "") + " · ค้างมาแล้ว " + ageTxt(p.age) + "</div>" +
+        '<div class="actions"><button class="btn" data-act="nudge">เตือนให้ทำ</button>' +
+        '<span class="hint">ระบบเตือนอัตโนมัติอยู่แล้วเมื่อเลยกำหนด ปุ่มนี้ใช้เมื่อด่วนจริง</span></div></div>';
+    }
+
+    let btns = "";
+    if (s.c === "INTERNAL_APPROVAL")
+      btns = '<button class="btn ok" data-act="approve">อนุมัติ</button>' +
+             '<button class="btn bad" data-act="reject">ไม่อนุมัติ</button>';
+    else if (s.c === "QC_INCOMING")
+      btns = '<button class="btn ok" data-act="qcpass">ตรวจรับผ่าน</button>' +
+             '<button class="btn bad" data-act="qcfail">ไม่ผ่าน → เปิดใบเคลม</button>';
+    else if (s.c === "ITEM_CODE")
+      btns = '<button class="btn pri" data-act="goic">ไปที่ใบขอเปิดรหัสสินค้า</button>';
+    else if (s.c === "PO_CREATED")
+      btns = '<button class="btn pri" data-act="sappull">ดึงข้อมูล PO จาก SAP</button>';
+    else
+      btns = '<button class="btn pri" data-act="done">ทำ “' + esc(s.n) + '” เสร็จ</button>';
+
+    const over = p.age > s.sla;
+    return '<div class="todo"><h3>งานนี้อยู่ที่คุณ<span>' +
+      (over ? "เลยกำหนดแล้ว " + ageTxt(p.age - s.sla) : "เหลือเวลา " + ageTxt(Math.max(0, s.sla - p.age))) + "</span></h3>" +
+      '<div class="big">' + esc(s.n) + "</div>" +
+      '<div class="actions">' + btns + "</div>" + then + "</div>";
+  }
+
   function pageDetail() {
     const p = POS.filter(x => x.no === openPo)[0];
     if (!p) return "<p>ไม่พบ PO</p>";
     const s = st(p), miss = missing(p);
+    const bl = blockedBy(p);
 
     let h = '<button class="back" data-back="1">← กลับไปรายการ PO</button>';
 
+    // 1) หัวเอกสาร — ซ่อนช่องเงินไปเลยสำหรับบทบาทที่ไม่มีสิทธิ์ (ดีกว่าโชว์ว่า "ดูไม่ได้")
     h += '<div class="dh"><div class="top"><span class="n">' + esc(p.no) + "</span>" +
       '<span class="t">' + esc(p.item) + "</span>" + statusPill(p) + "</div>" +
       '<div class="fields">' +
-      fld("เลข PO ใน SAP", p.sap || "ยังไม่เปิด") + fld("ผู้ขาย", p.sup) +
-      fld("จำนวน", p.qty) + (money() ? fld("มูลค่า", baht(p.amt)) : fld("มูลค่า", "— ไม่มีสิทธิ์ดู")) +
-      fld("เงื่อนไขจ่าย", p.term) + fld("ผู้ดูแล", p.owner) + fld("วันที่เปิด", p.date) +
+      fld("เลข PO ใน SAP", p.sap || "ยังไม่ได้ดึงจาก SAP", p.sap ? "SAP" : "") +
+      fld("ผู้ขาย", p.sup, p.sap ? "SAP" : "") +
+      fld("จำนวน", p.qty, p.sap ? "SAP" : "") +
+      (money() ? fld("มูลค่า", baht(p.amt), p.sap ? "SAP" : "") : "") +
+      fld("เงื่อนไขจ่าย", p.term, p.sap ? "SAP" : "") +
+      fld("ผู้ดูแล", p.owner) + fld("วันที่เปิด", p.date) +
       "</div></div>";
 
-    // เฟส
+    // 2) ตอนนี้ต้องทำอะไร — อยู่บนสุดเสมอ ไม่ต้องเลื่อนหา
+    h += todoCard(p);
+
+    // 3) ความคืบหน้า
     h += '<div class="card"><h3>ความคืบหน้า<span class="c">' +
       (isActive(p) ? "ขั้นที่ " + (p.stage+1) + " จาก 17" : "จบแล้ว") + '</span></h3><div class="phases">';
     PHASES.forEach(ph => {
@@ -704,61 +844,54 @@
         '<div class="m">' + (now && s ? esc(s.n) : done ? "เสร็จแล้ว" : "ยังไม่ถึง") + "</div>" +
         '<div class="tr"><div class="fl" style="width:' + prog + '%"></div></div></div>';
     });
-    h += "</div>";
-    if (isActive(p) && s) {
-      h += '<div class="note ' + (p.age > s.sla ? "bad" : "warn") + '"><span class="ic">▸</span><span>ค้างที่ <b>' +
-        esc(s.n) + "</b> " + dept(s.o) + " · " + ageTxt(p.age) + " จาก SLA " + ageTxt(s.sla) +
-        (s.o === role ? " · <b>งานนี้อยู่ที่คุณ</b>" : "") + "</span></div>";
-    }
-    h += "</div>";
+    h += "</div></div>";
 
-    // การจ่ายเงิน
-    if (money()) h += paymentCard(p);
-
-    // เอกสาร
+    // 4) เอกสาร
     h += '<div class="card"><h3>เอกสาร<span class="c">' + (miss.length ? "ขาด " + miss.length + " ใบ" : "ครบ") + "</span></h3>";
     DOCS.forEach(d => {
       const stt = docState(p, d);
       if (stt === "na") return;
       const mine = d.o === role;
       const badge = stt === "ok" ? '<span class="pill ok">มีแล้ว</span>'
-        : stt === "wait" ? '<span class="pill ' + (mine ? "due" : "wait") + '">รออัพโหลด</span>'
+        : stt === "wait" ? '<span class="pill ' + (mine ? "due" : "wait") + '">' +
+            (mine ? "รอคุณอัพโหลด" : "รอ " + esc(ROLES[d.o] ? ROLES[d.o].name : d.o)) + "</span>"
         : '<span class="pill wait">ยังไม่ถึงคิว</span>';
-      h += '<div class="rowline' + (stt === "wait" && d.req ? " miss" : "") + '">' + dept(d.o) +
+      h += '<div class="rowline' + (stt === "wait" && d.req && mine ? " miss" : "") + '">' + dept(d.o) +
         '<span class="nm">' + esc(d.n) + "</span>" + badge +
         (stt === "wait" && mine && isActive(p) ? ' <button class="btn" data-up="' + esc(d.c) + '">อัพโหลด</button>' : "") + "</div>";
     });
-    h += '<div class="note info"><span class="ic">📁</span><span>ไฟล์ทั้งหมดเก็บใน Google Drive ที่ ' +
-      '<span class="mono">/MGS-DocHub/01_PO/2026/' + esc(p.no) + '/</span> — เข้าผ่านหน้านี้ ไม่ต้องเปิด Drive เอง</span></div></div>';
+    h += '<div class="note info"><span class="ic">📁</span><span>ไฟล์เก็บใน Google Drive ให้เอง — ' +
+      "อัพจากหน้านี้ ไม่ต้องเปิด Drive ไม่ต้องตั้งชื่อไฟล์เอง</span></div></div>";
 
-    // ตรวจสอบก่อนบันทึก (รวมตรวจ 3 ทางไว้ในนี้)
-    h += checksCard(p);
+    // 5) การจ่ายเงิน
+    if (money()) h += paymentCard(p);
 
-    // ขั้นตอนย่อย
-    h += '<div class="card"><h3>17 ขั้นตอนโดยละเอียด<span class="c">เปิดดูเมื่อต้องการ</span></h3><div class="steps">';
+    // 6) ตรวจสอบก่อนบันทึก — แสดงเต็มเฉพาะช่วงตั้งหนี้/จ่าย หรือเมื่อมีข้อติดจริง
+    const nearClose = p.stage >= PHASES[2].from || !isActive(p);
+    if (nearClose || bl.length) h += checksCard(p);
+    else h += '<div class="note info" style="border:1px solid var(--line);margin-bottom:16px">' +
+      '<span class="ic">▸</span><span>ยังอยู่ช่วง' + esc(phaseOf(p).name) +
+      " — ระบบจะตรวจครบทุกข้อให้อัตโนมัติเมื่อถึงขั้นตั้งหนี้ ตอนนี้ยังไม่ต้องสนใจ</span></div>";
+
+    // 7-8) รายละเอียดที่เปิดดูเมื่อต้องการ
+    h += '<details class="blk"><summary>17 ขั้นตอนโดยละเอียด<span class="c">เปิดเมื่ออยากดูทั้งกระบวนการ</span></summary><div class="steps">';
     STAGES.forEach((sg, i) => {
       const cls = p.skip.indexOf(i) >= 0 ? "skip" : i < p.stage ? "done" : i === p.stage && isActive(p) ? "now" : "";
       h += '<div class="step ' + cls + '"><span class="i">' + (i+1) + "</span>" +
         '<span class="nm">' + esc(sg.n) + "</span>" + dept(sg.o) + "</div>";
     });
-    h += "</div></div>";
+    h += "</div></details>";
 
-    // ปุ่ม
-    h += '<div class="card"><h3>สิ่งที่ทำได้ตอนนี้</h3><div class="actions">';
-    if (!isActive(p)) h += '<span class="hint">PO นี้' + (p.status === "COMPLETED" ? "ปิดแล้ว" : "ถูกยกเลิก") + " — ดูได้อย่างเดียว</span>";
-    else if (!s || s.o !== role) h += '<span class="hint">งานอยู่ที่ ' + esc(ROLES[ownerOf(p)] ? ROLES[ownerOf(p)].name : "-") + " — บทบาทของคุณดูได้อย่างเดียว</span>";
-    else if (s.c === "INTERNAL_APPROVAL") h += '<button class="btn ok" data-act="approve">อนุมัติ</button><button class="btn bad" data-act="reject">ไม่อนุมัติ</button>';
-    else if (s.c === "QC_INCOMING") h += '<button class="btn ok" data-act="qcpass">ตรวจรับผ่าน</button><button class="btn bad" data-act="qcfail">ไม่ผ่าน → เปิดใบเคลม</button>';
-    else if (s.c === "ITEM_CODE") h += '<button class="btn pri" data-act="goic">ไปหน้าขอเปิดรหัสสินค้า</button>';
-    else h += '<button class="btn pri" data-act="done">ทำ “' + esc(s.n) + '” เสร็จ</button>';
-    h += "</div></div>";
-
-    h += '<div class="card"><h3>ประวัติ</h3><div class="tl">' +
+    h += '<details class="blk"><summary>ประวัติ<span class="c">' + p.tl.length + ' รายการ</span></summary><div class="tl">' +
       p.tl.slice().reverse().map(e => '<div class="e"><time>' + esc(e[0]) + "</time><div><b>" +
-        esc(e[1]) + "</b> " + esc(e[2]) + "</div></div>").join("") + "</div></div>";
+        esc(e[1]) + "</b> " + esc(e[2]) + "</div></div>").join("") + "</div></details>";
     return h;
   }
-  function fld(k,v){return '<div class="f"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + "</div></div>";}
+  function fld(k, v, src) {
+    return '<div class="f"><div class="k">' + esc(k) +
+      (src ? '<span class="src">' + esc(src) + "</span>" : "") +
+      '</div><div class="v">' + esc(v) + "</div></div>";
+  }
 
   function payButtons(p, x) {
     if (!isActive(p) && x.status !== "PAID") return "";
@@ -840,8 +973,10 @@
 
   /* ================= เคลม ================= */
   function pageClaims() {
+    // เปิดรายละเอียดแล้วให้เต็มหน้า เหมือนหน้า PO — กันการพลาดว่ารายละเอียดอยู่ใต้ตาราง
+    if (openClaim && CLAIMS.some(c => c.id === openClaim)) return claimDetail();
     let h = '<div class="note info"><span class="ic">▸</span><span>รวมลูกค้าร้องเรียน (ฟอร์ม QC-F006) ' +
-      "และตรวจรับไม่ผ่าน — ปลายทางเดียวกันคือใบลดหนี้</span></div>";
+      "และตรวจรับไม่ผ่าน — ปลายทางเดียวกันคือใบลดหนี้ · <b>กดที่แถวเพื่อเปิดใบเคลม</b></span></div>";
     h += '<div class="card"><h3>รายการ<span class="c">' + CLAIMS.length + " ใบ</span></h3>" +
       '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ที่มา</th><th>สินค้า / Lot</th>' +
       "<th>อ้างอิง</th><th>จำนวน</th><th>ใบลดหนี้</th></tr></thead><tbody>";
@@ -857,9 +992,12 @@
     });
     h += "</tbody></table></div></div>";
 
-    const c = CLAIMS.filter(x => x.id === openClaim)[0];
-    if (!c) return h + '<div class="note info"><span class="ic">▸</span><span>กดที่แถวเพื่อดูใบเคลมตามฟอร์ม QC-F006</span></div>';
+    return h;
+  }
 
+  function claimDetail() {
+    const c = CLAIMS.filter(x => x.id === openClaim)[0];
+    let h = '<button class="back" data-back="req">← กลับไปรายการเคลม</button>';
     h += '<div class="card"><h3>' + esc(c.id) + ' — ตามฟอร์ม QC-F006-V00</h3>';
     h += '<div class="note good"><span class="ic">1</span><span><b>ส่วนที่ 1 การร้องเรียน</b> — ' +
       (c.src === "CUSTOMER" ? "Sales Coordinator กรอก" : "ระบบสร้างจากผลตรวจรับของ QC") + "</span></div>";
@@ -888,33 +1026,51 @@
 
   /* ================= รหัสสินค้า ================= */
   function pageItems() {
-    let h = '<div class="note info"><span class="ic">▸</span><span>เดิมเป็นใบกระดาษที่ต้องเดินไปให้ LS คีย์เข้า SAP</span></div>';
+    if (openIC && ITEMREQS.some(r => r.id === openIC)) return itemDetail();
+
+    let h = '<div class="note info"><span class="ic">▸</span><span>เดิมเป็นใบกระดาษที่ต้องเดินไปให้ LS คีย์เข้า SAP · ' +
+      "<b>กดที่แถวเพื่อเปิดใบขอ</b></span></div>";
     h += '<div class="card"><h3>ใบขอ<span class="c">' + ITEMREQS.length + " ใบ</span></h3>" +
       '<div class="tw"><table><thead><tr><th>เลขที่</th><th>สินค้า</th><th>ผู้ขาย</th><th>PO</th>' +
       "<th>สถานะ</th><th>รหัสใน SAP</th><th></th></tr></thead><tbody>";
     ITEMREQS.forEach(r => {
       const s = IC_ST[r.status];
-      h += "<tr><td><span class=\"pono\">" + esc(r.id) + "</span></td>" +
+      h += '<tr class="click" data-icopen="' + esc(r.id) + '">' +
+        '<td><span class="pono">' + esc(r.id) + "</span></td>" +
         "<td>" + esc(r.name) + '<div class="sub">' + esc(r.pack) + "</div></td>" +
         "<td>" + esc(r.sup) + "</td>" +
         '<td class="mono">' + esc(r.po || "—") + "</td>" +
         '<td><span class="pill ' + s.cls + '">' + esc(s.t) + "</span></td>" +
-        '<td class="mono">' + esc(r.sap || "—") + "</td>" +
-        "<td>" + (r.status === "WAIT_APPROVE" && role === "SR"
-            ? '<button class="btn ok" data-ic="approve" data-id="' + esc(r.id) + '">อนุมัติ</button>'
-            : r.status === "WAIT_LS" && role === "LS"
-            ? '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">บันทึกรหัสจาก SAP</button>' : "") +
-        "</td></tr>";
+        '<td class="mono">' + esc(r.sap || "—") + '<span class="src">SAP</span></td>' +
+        "<td>" + icButtons(r) + "</td></tr>";
     });
     h += "</tbody></table></div>";
     h += '<div class="note info"><span class="ic">▸</span><span>PO จะเดินต่อไม่ได้จนกว่ารหัสจริงจาก SAP จะกลับมา — ' +
       "กันเคสที่เปิด PO ไปก่อนแล้วรหัสยังไม่มา</span></div></div>";
-
-    const d = ITEMREQS.filter(r => r.status !== "DONE")[0] || ITEMREQS[0];
-    h += '<div class="card"><h3>รายละเอียดใบขอ<span class="c">' + esc(d.id) + "</span></h3>" +
+    return h;
+  }
+  function icButtons(r) {
+    if (r.status === "WAIT_APPROVE" && role === "SR")
+      return '<button class="btn ok" data-ic="approve" data-id="' + esc(r.id) + '">อนุมัติ</button>';
+    if (r.status === "WAIT_LS" && role === "LS")
+      return '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">ดึงรหัสจาก SAP</button>';
+    return "";
+  }
+  function itemDetail() {
+    const d = ITEMREQS.filter(r => r.id === openIC)[0], s = IC_ST[d.status];
+    let h = '<button class="back" data-back="req">← กลับไปรายการใบขอรหัส</button>';
+    h += '<div class="todo ' + (icButtons(d) ? "" : "calm") + '"><h3>' +
+      (icButtons(d) ? "งานนี้อยู่ที่คุณ" : "สถานะใบขอนี้") + "</h3>" +
+      '<div class="big">' + esc(s.t) + (d.sap ? " · รหัส " + esc(d.sap) : "") + "</div>" +
+      (icButtons(d) ? '<div class="actions">' + icButtons(d) + "</div>" +
+        '<div class="then">' + (d.status === "WAIT_APPROVE"
+          ? "อนุมัติแล้วจะเข้าคิว " + ROLES.LS.name + " (" + person("LS") + ") อัตโนมัติ ไม่ต้องเดินเอกสาร"
+          : "ดึงรหัสจาก SAP แล้ว " + esc(d.po || "PO ที่เกี่ยวข้อง") + " จะเดินต่อได้เอง") + "</div>" : "") +
+      "</div>";
+    h += '<div class="card"><h3>' + esc(d.id) + '<span class="c">ผู้ขอ ' + esc(d.by) + " · " + esc(d.date) + "</span></h3>" +
       [["ชื่อสินค้า",d.name],["แบรนด์",d.brand],["กลุ่มสินค้า",d.group],["หน่วยนับ",d.uom],
        ["ขนาดบรรจุ",d.pack],["ผู้ขาย",d.sup],["พิกัดศุลกากร",d.hs],["การเก็บรักษา",d.storage],
-       ["อายุสินค้า (วัน)",d.shelf],["PO ที่เกี่ยวข้อง",d.po],["ผู้ขอ",d.by + " · " + d.date]]
+       ["อายุสินค้า (วัน)",d.shelf],["PO ที่เกี่ยวข้อง",d.po],["เหตุผล",d.note]]
       .map(f => row(f[0], f[1])).join("") + "</div>";
     return h;
   }
@@ -1073,9 +1229,35 @@
       "แต่<b>ไม่อยู่ในสายอนุมัติ</b> — แอดมินที่อนุมัติเอกสารเองทำให้ระบบตรวจสอบเป็นแค่การตกแต่ง</span></div>";
     h += '<div class="stabs">' +
       tabBtn("ISSUES", "ปัญหาที่ผู้ใช้แจ้ง", ISSUES.length) +
+      tabBtn("SAP", "เชื่อมต่อ SAP", SAP.objs.length) +
       tabBtn("STAGES", "ขั้นตอนและ SLA", STAGES.length) +
       tabBtn("DOCS", "เอกสารที่ต้องมี", DOCS.length) +
       tabBtn("USERS", "ผู้ใช้และสิทธิ์", Object.keys(ROLES).length) + "</div>";
+
+    if (subtab === "SAP") {
+      h += '<div class="synced' + (SAP.ok ? "" : " stale") + '"><span>🔄</span>' +
+        "<span>วิธีดึง: <b>" + esc(SAP.mode) + "</b> · ล่าสุด <b>" + esc(SAP.at) + "</b></span>" +
+        '<span class="sp2"></span><button class="btn" data-act="sapnow">ดึงข้อมูลใหม่ตอนนี้</button></div>';
+      h += '<div class="card"><h3>ข้อมูลที่ดึงจาก SAP<span class="c">ดึงอย่างเดียว ไม่เขียนกลับ</span></h3>' +
+        '<div class="tw"><table><thead><tr><th>ข้อมูล</th><th>ที่มาใน SAP</th>' +
+        '<th class="num">จำนวน</th><th>ความถี่</th><th>ล่าสุด</th><th>สถานะ</th></tr></thead><tbody>';
+      SAP.objs.forEach(o => {
+        h += "<tr><td>" + esc(o.o) + '</td><td class="mono" style="font-size:12px">' + esc(o.src) + "</td>" +
+          '<td class="num">' + o.n.toLocaleString("en-US") + "</td><td>" + esc(o.every) + "</td>" +
+          '<td class="mono">' + esc(o.last) + "</td>" +
+          '<td><span class="pill ' + (o.st === "OK" ? "ok" : "due") + '">' + esc(o.st) + "</span></td></tr>";
+      });
+      h += "</tbody></table></div>" +
+        '<div class="note info"><span class="ic">▸</span><span><b>ทิศทางเดียว: SAP → ระบบนี้</b> — ' +
+        "ระบบนี้ไม่เขียนอะไรกลับเข้า SAP เลย จึงไม่มีทางทำข้อมูลใน SAP เสียหาย " +
+        "และไม่ต้องขออนุมัติสิทธิ์เขียนจากฝ่าย IT ของ SAP</span></div>" +
+        '<div class="rowline">จับคู่ด้วยเลขเอกสาร SAP — ดึงซ้ำกี่ครั้งก็ไม่เกิดข้อมูลซ้ำ<span class="pill ok">idempotent</span></div>' +
+        '<div class="rowline">ดึงเฉพาะที่เปลี่ยนตั้งแต่รอบก่อน ไม่ดึงทั้งฐาน<span class="pill ok">delta</span></div>' +
+        '<div class="rowline">SAP ล่ม = ระบบยังใช้ได้ ขึ้นป้ายบอกว่าข้อมูลเก่าแค่ไหน<span class="pill ok">ไม่บล็อกงาน</span></div>' +
+        '<div class="rowline">ตรวจนับรายวัน จำนวน PO ในระบบ = ใน SAP ไม่ตรงแจ้งแอดมิน<span class="pill ok">กระทบยอด</span></div>' +
+        "</div>";
+      return h;
+    }
 
     if (subtab === "STAGES") {
       h += '<div class="card"><h3>Stage_Templates<span class="c">module DOMESTIC_FOOD</span></h3>' +
@@ -1226,15 +1408,24 @@
         "งวด: <b>" + esc(x.type) + " (" + x.pct + "%)</b> · ยอดตามงวด <b>" + baht(x.amount) + "</b><br>" +
         "ครบกำหนด: <b>" + esc(x.due) + "</b> · อนุมัติโดย <b>" + esc(x.apvBy || "—") + "</b></div>" +
 
+      // กรอกปกติ 4 ช่อง — ที่เหลือซ่อนไว้ใต้ "ตัวเลือกเพิ่มเติม" เพราะใช้ไม่บ่อย
       '<div class="grid2">' +
       f("py_date", "วันที่จ่าย", '<input type="date" id="py_date" value="' + todayISO() + '">', true) +
-      f("py_value", "วันที่ธนาคารตัดเงิน", '<input type="date" id="py_value" value="' + todayISO() + '">', true) +
       f("py_method", "วิธีจ่าย", '<select id="py_method"><option value="TRANSFER">โอนเงิน</option>' +
         '<option value="CHEQUE">เช็ค</option><option value="SWIFT">Swift (ต่างประเทศ)</option>' +
         '<option value="CASH">เงินสด</option></select>', true) +
       f("py_bank", "บัญชีที่จ่ายออก", '<select id="py_bank">' +
         BANKS.map(b => '<option value="' + esc(b) + '">' + esc(b) + "</option>").join("") + "</select>", true) +
       f("py_ref", "เลขอ้างอิงธนาคาร / เลขเช็ค", '<input type="text" id="py_ref" placeholder="เช่น KB26083000456">', true) +
+      "</div>" +
+      '<label class="chkline"><input type="checkbox" id="py_slip"> แนบสลิป / Swift แล้ว <span class="req">*</span></label>' +
+
+      '<div class="calcbox" id="py_calc"></div>' +
+
+      '<details class="blk" style="margin:0"><summary>ตัวเลือกเพิ่มเติม' +
+        '<span class="c">ภาษีหัก ณ ที่จ่าย · ค่าธรรมเนียม · แก้ยอดเอง</span></summary>' +
+      '<div class="bugbody"><div class="grid2">' +
+      f("py_value", "วันที่ธนาคารตัดเงิน", '<input type="date" id="py_value" value="' + todayISO() + '">') +
       f("py_whttype", "ประเภทรายจ่าย (ภาษีหัก ณ ที่จ่าย)", '<select id="py_whttype">' +
         Object.keys(WHT).map(k => '<option value="' + k + '"' + (k === x.whtType ? " selected" : "") + ">" +
           esc(WHT[k].t) + " — " + WHT[k].r + "%</option>").join("") + "</select>") +
@@ -1242,14 +1433,13 @@
       f("py_fee", "ค่าธรรมเนียมโอน (บาท)", num("py_fee", "35")) +
       f("py_feeby", "ใครรับภาระค่าธรรมเนียม", '<select id="py_feeby"><option value="OUR">บริษัท</option>' +
         '<option value="SUPPLIER">ผู้ขาย</option></select>') +
-      f("py_amt", "ยอดที่ตัดจากบัญชีจริง", num("py_amt", (x.amount * (1 - wr.r/100) + 35).toFixed(2)), true) +
+      f("py_amt", "ยอดที่ตัดจากบัญชีจริง", num("py_amt", (x.amount * (1 - wr.r/100) + 35).toFixed(2))) +
       "</div>" +
-
-      '<div class="calcbox" id="py_calc"></div>' +
       '<div class="fld"><span class="lbl">เหตุผล (เมื่อยอดไม่ตรงกับที่คำนวณ)</span>' +
         '<input type="text" id="py_reason" placeholder="เช่น หักส่วนลดรับเร็ว / เศษปัดจากธนาคาร"></div>' +
-      '<label class="chkline"><input type="checkbox" id="py_slip"> แนบสลิป / Swift แล้ว <span class="req">*</span></label>' +
       '<div class="fld"><span class="lbl">หมายเหตุ</span><input type="text" id="py_note"></div>' +
+      "</div></details>" +
+
       '<div class="errbox" id="py_err"></div>' +
 
       '<div class="fl2"><button class="btn" data-payact="close">ยกเลิก</button>' +
@@ -1320,6 +1510,31 @@
     return errs;
   }
 
+  /* ========== กันพลาด: ยืนยันก่อนทำสิ่งที่ย้อนกลับยาก ========== */
+  const CONFIRM = {
+    qcfail: {t:"บันทึกว่าตรวจรับไม่ผ่าน",
+      d:"ระบบจะเปิดใบเคลมให้ทันที และ<b>ล็อกงวดจ่ายที่ยังไม่จ่ายทั้งหมด</b> จนกว่าจะได้ใบลดหนี้จากผู้ขาย · " +
+        "จัดซื้อ บัญชี และหัวหน้า QC จะได้รับแจ้งเตือนพร้อมกัน", ok:"ยืนยัน ตรวจไม่ผ่าน"},
+    reject: {t:"ไม่อนุมัติ PO นี้",
+      d:"งานจะถูกตีกลับไปที่จัดซื้อพร้อมเหตุผล และบันทึกไว้ในประวัติถาวร", ok:"ยืนยัน ไม่อนุมัติ"},
+    void:   {t:"กลับรายการจ่ายที่บันทึกไปแล้ว",
+      d:"รายการเดิม<b>ไม่ถูกลบ</b> — จะถูกปิดเป็น “กลับรายการ” และเปิดงวดใหม่ให้ตั้งเรื่องขอจ่ายอีกครั้ง · " +
+        "ใช้เมื่อจ่ายผิดจริงเท่านั้น เพราะขึ้นในรายงานของหัวหน้าบัญชี", ok:"ยืนยัน กลับรายการ"}
+  };
+
+  function confirmPanel() {
+    const el = $("#confirm");
+    if (!pendingAct) { el.innerHTML = ""; return; }
+    const c = CONFIRM[pendingAct.act];
+    el.innerHTML = '<div class="bugwrap" data-cf="no"></div>' +
+      '<div class="bugpanel" role="alertdialog" aria-label="ยืนยัน">' +
+      "<h3>ยืนยันก่อนทำ<button data-cf=\"no\" aria-label=\"ปิด\">✕</button></h3>" +
+      '<div class="bugbody"><div class="big" style="font-size:15px;font-weight:700">' + esc(c.t) + "</div>" +
+      '<div style="font-size:13.5px;color:var(--ink-2)">' + c.d + "</div>" +
+      '<div class="fl2"><button class="btn" data-cf="no">ยกเลิก</button>' +
+      '<button class="btn bad" data-cf="yes">' + esc(c.ok) + "</button></div></div></div>";
+  }
+
   /* ================= การกระทำ ================= */
   function advance(p, note) {
     p.tl.push(["วันนี้", ROLES[role].person, note]);
@@ -1335,11 +1550,24 @@
     }
   }
 
-  document.addEventListener("click", function (ev) {
+  let confirmedOnce = null;
+  function runAct(act, seq) {
+    confirmedOnce = act;
+    onClick({ target: { closest(sel) {
+      if (sel === "[data-payact]" && act === "void") return {dataset:{payact:"void", seq:seq}};
+      if (sel === "[data-act]" && act !== "void") return {dataset:{act:act}};
+      return null;
+    } } });
+    confirmedOnce = null;
+  }
+
+  document.addEventListener("click", onClick);
+  function onClick(ev) {
     const rb = ev.target.closest("[data-role]");
     if (rb) { role = rb.dataset.role; render(); return; }
     const nb = ev.target.closest("[data-page]");
-    if (nb) { page = nb.dataset.page; openPo = null; openClaim = null; subtab = SUB0[page] || "ACTIVE"; render(); return; }
+    if (nb) { page = nb.dataset.page; openPo = null; openClaim = null; openIC = null;
+      subtab = SUB0[page] || "ACTIVE"; render(); return; }
 
     const bg = ev.target.closest("[data-bug]");
     if (bg) {
@@ -1364,6 +1592,22 @@
       return;
     }
 
+    const cf = ev.target.closest("[data-cf]");
+    if (cf) {
+      if (cf.dataset.cf === "no") { pendingAct = null; confirmPanel(); return; }
+      const a = pendingAct; pendingAct = null; confirmPanel();
+      if (a) runAct(a.act, a.seq, true);
+      return;
+    }
+
+    const sn = ev.target.closest("[data-act]");
+    if (sn && sn.dataset.act === "sapnow") {
+      SAP.at = "เมื่อสักครู่"; SAP.ok = true;
+      SAP.objs.forEach(o => { o.st = "OK"; o.last = "เมื่อสักครู่"; });
+      toast("ดึงข้อมูลจาก SAP ใหม่แล้ว — ปกติทำอัตโนมัติทุก 30 นาที ไม่ต้องกดเอง");
+      render(); return;
+    }
+
     const nt = ev.target.closest("[data-notif]");
     if (nt) {
       const n = NOTIFS.filter(x => String(x.id) === nt.dataset.notif)[0];
@@ -1375,8 +1619,13 @@
       render(); return;
     }
     const sb = ev.target.closest("[data-sub]");
-    if (sb) { subtab = sb.dataset.sub; render(); return; }
-    if (ev.target.closest("[data-back]")) { openPo = null; page = "po"; render(); return; }
+    if (sb) { subtab = sb.dataset.sub; openClaim = null; openIC = null; render(); return; }
+    const bk = ev.target.closest("[data-back]");
+    if (bk) {
+      if (bk.dataset.back === "req") { openClaim = null; openIC = null; page = "req"; }
+      else { openPo = null; page = "po"; subtab = "ACTIVE"; }
+      render(); return;
+    }
     if (ev.target.closest("[data-clear]")) { q = ""; fDept = ""; render(); return; }
 
     const pr = ev.target.closest("[data-po]");
@@ -1396,6 +1645,10 @@
       }
       render(); return;
     }
+
+    // ต้องอยู่หลัง [data-ic] เพราะปุ่มอนุมัติอยู่ในแถวที่กดเปิดได้
+    const io = ev.target.closest("[data-icopen]");
+    if (io) { openIC = io.dataset.icopen; page = "req"; subtab = "ITEM"; render(); return; }
 
     const cl = ev.target.closest("[data-cl]");
     if (cl) {
@@ -1450,6 +1703,9 @@
         render(); return;
       }
 
+      if (act === "void" && confirmedOnce !== "void") {
+        pendingAct = {act:"void", seq:pa.dataset.seq}; confirmPanel(); return;
+      }
       const x = p.payments.filter(y => String(y.seq) === pa.dataset.seq)[0];
       if (!x) return;
       if (act === "form") { payOpen = {po:p.no, seq:x.seq}; payModal(); return; }
@@ -1487,7 +1743,18 @@
     const ab = ev.target.closest("[data-act]");
     if (!ab) return;
     const a = ab.dataset.act;
+    if (CONFIRM[a] && confirmedOnce !== a) { pendingAct = {act:a}; confirmPanel(); return; }
     if (a === "approve") advance(p, "อนุมัติภายใน");
+    else if (a === "nudge") {
+      p.tl.push(["วันนี้", ROLES[role].person, "เตือนงานไปที่ " + ROLES[ownerOf(p)].name]);
+      toast("ส่งเตือนถึง " + person(ownerOf(p)) + " ทาง Lark แล้ว — บันทึกไว้ในประวัติด้วย");
+    }
+    else if (a === "sappull") {
+      // ของจริงคือเรียกข้อมูล PO จาก SAP มาเติมให้ ไม่ให้คนพิมพ์เลขเอง
+      p.sap = "45000" + (12000 + Math.floor(Math.random() * 900));
+      p.tl.push(["วันนี้", "ระบบ", "ดึงข้อมูล PO " + p.sap + " จาก SAP — ผู้ขาย จำนวน มูลค่า เงื่อนไขจ่าย ตรงกับ SAP"]);
+      advance(p, "ผูกกับ PO ใน SAP");
+    }
     else if (a === "reject") { p.tl.push(["วันนี้", ROLES[role].person, "ไม่อนุมัติ — ตีกลับพร้อมเหตุผล"]); toast("ตีกลับให้จัดซื้อแล้ว"); }
     else if (a === "qcpass") advance(p, "ตรวจรับผ่าน");
     else if (a === "goic") { page = "req"; subtab = "ITEM"; render(); return; }
@@ -1513,7 +1780,7 @@
       advance(p, "ทำ " + STAGES[p.stage].n + " เสร็จ");
     }
     render();
-  });
+  }
 
   const PAYFIELDS = ["py_date","py_value","py_method","py_bank","py_ref","py_whttype",
     "py_wht","py_fee","py_feeby","py_amt","py_slip","py_reason","py_note"];
@@ -1547,7 +1814,10 @@
     else if (page === "report") m.innerHTML = pageReport();
     else m.innerHTML = pageHome();
   }
-  function render() { chrome(); renderMain(); bugPanel(); payModal(); window.scrollTo({top:0, behavior:"instant"}); }
+  function render() {
+    chrome(); renderMain(); bugPanel(); payModal(); confirmPanel();
+    window.scrollTo({top:0, behavior:"instant"});
+  }
   render();
 })();
 </script>
