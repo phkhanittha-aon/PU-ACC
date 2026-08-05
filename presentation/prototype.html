@@ -293,14 +293,14 @@
 </style>
 
 <div class="demo">
-  <b>ตัวอย่างระบบ</b> — ข้อมูลสมมติ กดเล่นได้ ยังไม่เชื่อม SAP จริง · ลองเปลี่ยน <b>บทบาท</b> เพื่อดูหน้าจอของแผนกตัวเอง
+  <b>ตัวอย่างระบบ</b> — ข้อมูลสมมติ กดเล่นได้ ยังไม่เชื่อม SAP B1 จริง · ลองเปลี่ยน <b>บทบาท</b> เพื่อดูหน้าจอของแผนกตัวเอง
 </div>
 
 <div class="shell">
   <aside>
     <div class="logo"><b>MGS DocHub</b><span>procure to pay</span></div>
     <nav class="side" id="nav"></nav>
-    <div class="sidefoot">SAP ยังเป็นระบบหลัก<br>ที่นี่คือเอกสารและสถานะ</div>
+    <div class="sidefoot">SAP B1 ยังเป็นระบบหลัก<br>ที่นี่คือเอกสารและสถานะ</div>
   </aside>
 
   <div class="mainwrap">
@@ -348,7 +348,7 @@
     {c:"ORDER_CONFIRM",    n:"คอนเฟิร์มออเดอร์",   o:"SR", sla:24},
     {c:"PI_RECEIVED",      n:"รับ PI จากผู้ขาย",   o:"SR", sla:48},
     {c:"ITEM_CODE",        n:"เปิดรหัสสินค้า",     o:"LS", sla:24},
-    {c:"PO_CREATED",       n:"เปิด PO ใน SAP",     o:"SR", sla:24},
+    {c:"PO_CREATED",       n:"ผูกกับ PO ใน B1",     o:"SR", sla:24},
     {c:"INTERNAL_APPROVAL",n:"อนุมัติภายใน",       o:"GM", sla:24},
     {c:"SUPPLIER_SIGN",    n:"ผู้ขายเซ็น PO กลับ", o:"SR", sla:72},
     {c:"DELIVERY_BOOKING", n:"จองรถรับของ",        o:"LS", sla:24},
@@ -366,7 +366,7 @@
     {c:"PI",        n:"PI จากผู้ขาย",       o:"SR", at:4,  req:true},
     {c:"PO_SIGNED", n:"PO ที่เซ็นครบแล้ว",  o:"SR", at:8,  req:true},
     {c:"QC_RC",     n:"ผลตรวจรับ / RC",     o:"QC", at:10, req:true},
-    {c:"GR",        n:"GR จาก SAP",         o:"WH", at:11, req:true},
+    {c:"GR",        n:"ใบรับสินค้า (GRPO)",         o:"WH", at:11, req:true},
     {c:"INVOICE",   n:"ใบแจ้งหนี้",         o:"AC", at:12, req:true},
     {c:"RECEIPT",   n:"ใบเสร็จตัวจริง",     o:"AC", at:15, req:true}
   ];
@@ -391,7 +391,7 @@
   const APV_LIMIT = 50000;   // เกินวงเงินนี้ต้องผู้บริหารอนุมัติ
 
   let POS = [
-    {no:"PO-26-0042", sap:"4500012345", sup:"ABC Foods", item:"กุ้งแช่แข็ง 16/20", qty:"500 KG",
+    {no:"PO-26-0042", sap:"10245", sup:"ABC Foods", item:"กุ้งแช่แข็ง 16/20", qty:"500 KG",
      amt:130000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:10, age:26, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"28/07/2026",
      payments:[pay(1,"มัดจำ",30,39000,"05/08/2026","PAID","05/08/2026",
@@ -399,7 +399,7 @@
                   paidBy:"คุณวิภา", apvBy:"คุณผู้จัดการ", reqBy:"คุณวิภา"}),
                pay(2,"ส่วนที่เหลือ",70,91000,"30/08/2026","APPROVED","",
                  {reqBy:"คุณวิภา", apvBy:"คุณผู้จัดการ"})],
-     tl:[["28 ก.ค. 09:12","คุณสมชาย","สร้าง PO"],["29 ก.ค. 10:05","คุณสมชาย","กรอกเลข PO จาก SAP"],
+     tl:[["28 ก.ค. 09:12","คุณสมชาย","สร้าง PO"],["29 ก.ค. 10:05","คุณสมชาย","ผูกกับ PO ใน B1 เลข 10245"],
          ["29 ก.ค. 11:20","คุณผู้จัดการ","อนุมัติภายใน"],["29 ก.ค. 16:02","คุณสมชาย","อัพโหลด PO ที่เซ็นครบ"],
          ["30 ก.ค. 08:30","คุณอนุชา","จองรถรับของ 31 ก.ค."],["05 ส.ค. 10:00","คุณวิภา","จ่ายมัดจำงวดที่ 1"]]},
 
@@ -408,22 +408,22 @@
      status:"ACTIVE", claim:false, skip:[1,2], date:"30/07/2026",
      payments:[pay(1,"ชำระเต็ม",100,78000,"—","PENDING")],
      tl:[["30 ก.ค. 08:05","คุณสมชาย","สร้าง PO"],["30 ก.ค. 09:30","คุณสมชาย","อัพโหลด PI"],
-         ["30 ก.ค. 09:35","ระบบ","ไม่มีรหัสสินค้าใน SAP — เปิดใบขอ IC-26-0007"]]},
+         ["30 ก.ค. 09:35","ระบบ","ไม่มีรหัสสินค้าใน B1 — เปิดใบขอ IC-26-0007"]]},
 
-    {no:"PO-26-0038", sap:"4500012301", sup:"Siam Marine", item:"กุ้งขาว 21/25", qty:"800 KG",
+    {no:"PO-26-0038", sap:"10238", sup:"Siam Marine", item:"กุ้งขาว 21/25", qty:"800 KG",
      amt:196000, cur:"THB", term:"เครดิต 30 วัน", stage:11, age:7, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"27/07/2026",
      payments:[pay(1,"ชำระเต็ม",100,196000,"28/08/2026","PENDING")],
      tl:[["27 ก.ค. 10:00","คุณสมชาย","สร้าง PO"],["30 ก.ค. 07:40","คุณสมหญิง","ตรวจรับผ่าน"]]},
 
-    {no:"PO-26-0029", sap:"4500012288", sup:"Thai Frozen Foods", item:"หอยเชลล์", qty:"120 KG",
+    {no:"PO-26-0029", sap:"10229", sup:"Thai Frozen Foods", item:"หอยเชลล์", qty:"120 KG",
      amt:45000, inv:47000, cur:"THB", term:"เครดิต 30 วัน", stage:12, age:52, owner:"คุณสมชาย",
      status:"ACTIVE", claim:true, skip:[1,2,5], date:"25/07/2026",
      payments:[pay(1,"ชำระเต็ม",100,45000,"25/08/2026","BLOCKED")],
      tl:[["25 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["29 ก.ค. 07:10","คุณสมหญิง","ตรวจรับไม่ผ่าน"],
          ["29 ก.ค. 07:11","ระบบ","เปิดใบเคลม CL-26-0004 + ล็อกการจ่าย 40 KG"]]},
 
-    {no:"PO-26-0033", sap:"4500012299", sup:"Ocean Best", item:"ปลาแซลมอนแล่", qty:"200 KG",
+    {no:"PO-26-0033", sap:"10233", sup:"Ocean Best", item:"ปลาแซลมอนแล่", qty:"200 KG",
      amt:310000, inv:310000, cur:"THB", term:"มัดจำ 50% / ที่เหลือ 50%", stage:14, age:20, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"22/07/2026",
      payments:[pay(1,"มัดจำ",50,155000,"25/07/2026","PAID","25/07/2026",
@@ -433,7 +433,7 @@
      tl:[["22 ก.ค. 11:00","คุณสมชาย","สร้าง PO"],["25 ก.ค. 09:00","คุณวิภา","จ่ายมัดจำ 50%"],
          ["28 ก.ค. 15:20","คุณประเสริฐ","อัพโหลด GR"],["29 ก.ค. 09:00","คุณวิภา","อัพโหลดใบแจ้งหนี้"]]},
 
-    {no:"PO-26-0031", sap:"4500012260", sup:"Siam Marine", item:"กุ้งก้ามกราม", qty:"150 KG",
+    {no:"PO-26-0031", sap:"10231", sup:"Siam Marine", item:"กุ้งก้ามกราม", qty:"150 KG",
      amt:84000, inv:84000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"20/07/2026",
      payments:[pay(1,"ชำระเต็ม",100,84000,"20/08/2026","PAID","18/08/2026",
@@ -442,7 +442,7 @@
      tl:[["20 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["18 ส.ค.","คุณวิภา","จ่ายเงินครบ"],
          ["20 ส.ค.","คุณวิภา","ตรวจ 3 ทางผ่าน — ปิดรายการ"]]},
 
-    {no:"PO-26-0025", sap:"4500012250", sup:"Ocean Best", item:"ปลาทูน่าท่อน", qty:"400 KG",
+    {no:"PO-26-0025", sap:"10225", sup:"Ocean Best", item:"ปลาทูน่าท่อน", qty:"400 KG",
      amt:268000, inv:268000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"18/07/2026",
      payments:[pay(1,"มัดจำ",30,80400,"20/07/2026","PAID","20/07/2026",
@@ -454,7 +454,7 @@
      tl:[["18 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["14 ส.ค.","คุณวิภา","จ่ายงวดที่ 2 ครบ"],
          ["16 ส.ค.","คุณวิภา","ปิดรายการ"]]},
 
-    {no:"PO-26-0019", sap:"4500012210", sup:"ABC Foods", item:"ปลาหมึกยักษ์", qty:"250 KG",
+    {no:"PO-26-0019", sap:"10219", sup:"ABC Foods", item:"ปลาหมึกยักษ์", qty:"250 KG",
      amt:112000, inv:112000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"10/07/2026",
      payments:[pay(1,"ชำระเต็ม",100,112000,"10/08/2026","PAID","09/08/2026",
@@ -479,7 +479,7 @@
      shelf:"730", by:"คุณสมชาย", date:"27 ก.ค. 14:05", status:"DONE", sap:"FG-SHR-1620", note:""}
   ];
   const IC_ST = {DRAFT:{t:"ร่าง",cls:"wait"},WAIT_APPROVE:{t:"รอหัวหน้าอนุมัติ",cls:"due"},
-    WAIT_LS:{t:"รอเปิดใน SAP",cls:"due"},DONE:{t:"เปิดรหัสแล้ว",cls:"ok"},REJECTED:{t:"ไม่อนุมัติ",cls:"late"}};
+    WAIT_LS:{t:"รอเปิดใน B1",cls:"due"},DONE:{t:"เปิดรหัสแล้ว",cls:"ok"},REJECTED:{t:"ไม่อนุมัติ",cls:"late"}};
 
   let CLAIMS = [
     {id:"EX-2026001", src:"CUSTOMER", date:"01/07/2026", cust:"บริษัท พีพอร์ค โปรดักส์ จำกัด",
@@ -500,7 +500,7 @@
     {id:2, to:"QC", lv:"warn", ch:"Lark",  tm:"08:40", read:false, ref:"PO-26-0042",
      t:"เลยกำหนดแล้ว 2 ชม.", b:"ค้างที่ QC ตรวจรับ 26 ชม. จาก SLA 24 ชม. — เตือนหัวหน้าแผนกเมื่อครบ 36 ชม."},
     {id:3, to:"LS", lv:"act",  ch:"Lark",  tm:"09:35", read:false, ref:"PO-26-0051",
-     t:"รอเปิดรหัสสินค้าใน SAP", b:"IC-26-0007 ปลาหมึกกล้วยแช่แข็ง — PO-26-0051 เดินต่อไม่ได้จนกว่าจะได้รหัส"},
+     t:"รอเปิดรหัสสินค้าใน B1", b:"IC-26-0007 ปลาหมึกกล้วยแช่แข็ง — PO-26-0051 เดินต่อไม่ได้จนกว่าจะได้รหัส"},
     {id:4, to:"AC", lv:"warn", ch:"Lark",  tm:"07:11", read:false, ref:"PO-26-0029",
      t:"งวดจ่ายถูกล็อกจากเคลม", b:"CL-26-0004 หอยเชลล์ อุณหภูมิเกินกำหนด — ปลดล็อกเมื่อบันทึกใบลดหนี้"},
     {id:5, to:"AC", lv:"act",  ch:"อีเมล", tm:"08:30", read:false, ref:"PO-26-0033",
@@ -532,15 +532,18 @@
   const IS_ST = {NEW:{t:"รอ IT รับเรื่อง",cls:"due"}, ACK:{t:"รับเรื่องแล้ว",cls:"info"},
     FIXING:{t:"กำลังแก้",cls:"info"}, FIXED:{t:"แก้แล้ว รอผู้แจ้งยืนยัน",cls:"ok"}, CLOSED:{t:"ปิดเรื่อง",cls:"wait"}};
 
-  // การเชื่อมต่อ SAP — ดึงมาอย่างเดียว ไม่เขียนกลับ (ดู docs/09)
+  // เชื่อมกับ SAP Business One — อ่านอย่างเดียว ไม่เขียนกลับ (ดู docs/09 §3)
   const SAP = {
-    at:"วันนี้ 08:30", ok:true, mode:"ไฟล์สรุปจาก SAP วางบน Drive (ตั้งเวลา)",
+    at:"วันนี้ 08:30", ok:true,
+    mode:"ตัวส่งข้อมูลรันในออฟฟิศ อ่าน B1 แล้วส่งออกมา (ขาออกอย่างเดียว ไม่เปิดพอร์ตเข้า)",
     objs:[
-      {o:"ใบสั่งซื้อ (PO header/item)", src:"EKKO / EKPO", n:612, every:"ทุก 30 นาที", last:"08:30", st:"OK"},
-      {o:"ผู้ขาย", src:"LFA1", n:148, every:"ทุกคืน", last:"02:10", st:"OK"},
-      {o:"รหัสสินค้า", src:"MARA / MAKT", n:2140, every:"ทุกคืน", last:"02:12", st:"OK"},
-      {o:"การรับเข้า (GR)", src:"MKPF / MSEG", n:487, every:"ทุก 30 นาที", last:"08:30", st:"OK"},
-      {o:"ใบแจ้งหนี้ที่ตั้งหนี้แล้ว", src:"RBKP / RSEG", n:395, every:"ทุก 30 นาที", last:"07:30", st:"ช้า 1 รอบ"}
+      {o:"ใบสั่งซื้อ", src:"OPOR / POR1", n:612, every:"ทุก 30 นาที", last:"08:30", st:"OK"},
+      {o:"ผู้ขาย", src:"OCRD (CardType='S')", n:148, every:"ทุกคืน", last:"02:10", st:"OK"},
+      {o:"สินค้า", src:"OITM", n:2140, every:"ทุกคืน", last:"02:12", st:"OK"},
+      {o:"ใบรับสินค้า (GRPO)", src:"OPDN / PDN1", n:487, every:"ทุก 30 นาที", last:"08:30", st:"OK"},
+      {o:"ใบแจ้งหนี้ผู้ขาย", src:"OPCH / PCH1", n:395, every:"ทุก 30 นาที", last:"07:30", st:"ช้า 1 รอบ"},
+      {o:"การจ่ายเงินออก", src:"OVPM / VPM2", n:301, every:"ทุก 30 นาที", last:"08:30", st:"OK"},
+      {o:"เงื่อนไขชำระ", src:"OCTG", n:9, every:"ทุกคืน", last:"02:15", st:"OK"}
     ]
   };
 
@@ -647,9 +650,10 @@
     let h = '<div class="ph"><h1>สวัสดี ' + esc(ROLES[role].person) + '</h1><span class="d">' +
       esc(ROLES[role].name) + " · " + (mine.length ? "มีงานรอคุณ " + mine.length + " รายการ" : "ไม่มีงานค้างที่คุณ") + "</span></div>";
 
-    // แถบสรุปข้อมูล SAP — บอกเสมอว่าเลขที่เห็นสดแค่ไหน
+    // แถบสรุปข้อมูล B1 — บอกเสมอว่าเลขที่เห็นสดแค่ไหน
     h += '<div class="synced' + (SAP.ok ? "" : " stale") + '"><span>🔄</span>' +
-      "<span>ข้อมูลจาก SAP ล่าสุด <b>" + esc(SAP.at) + "</b> — เลข PO ผู้ขาย จำนวน และ GR ดึงมาจาก SAP ไม่ได้พิมพ์เอง</span>" +
+      "<span>ข้อมูลจาก SAP B1 ล่าสุด <b>" + esc(SAP.at) + "</b> — เลข PO ผู้ขาย จำนวน เงื่อนไขชำระ และการรับของ " +
+      "ดึงมาจาก B1 ไม่ได้พิมพ์เอง</span>" +
       '<span class="sp2"></span><button class="btn" data-act="sapnow">ดึงข้อมูลใหม่ตอนนี้</button></div>';
 
     h += '<div class="kpis">' +
@@ -710,14 +714,14 @@
 
   function searchPanel() {
     let h = '<div class="toolbar">' +
-      '<input type="search" id="q" placeholder="เลข PO · เลข SAP · ผู้ขาย · สินค้า · เลข Lot · เลขใบเคลม" value="' + esc(q) + '">' +
+      '<input type="search" id="q" placeholder="เลข PO · เลข B1 · ผู้ขาย · สินค้า · เลข Lot · เลขใบเคลม" value="' + esc(q) + '">' +
       '<label>ค้างที่</label><select id="fdept"><option value="">ทุกแผนก</option>' +
       Object.keys(ROLES).map(k => '<option value="' + k + '"' + (fDept===k?" selected":"") + ">" + esc(ROLES[k].name) + "</option>").join("") +
       "</select>" +
       '<button class="btn" data-clear="1">ล้าง</button></div>';
 
     if (!q && !fDept) {
-      h += '<div class="note info"><span class="ic">▸</span><span>พิมพ์อย่างน้อย 2 ตัวอักษร — ค้นได้ทั้งเลข PO, เลข SAP, ชื่อผู้ขาย, ชื่อสินค้า, เลข Lot และเลขใบเคลม ' +
+      h += '<div class="note info"><span class="ic">▸</span><span>พิมพ์อย่างน้อย 2 ตัวอักษร — ค้นได้ทั้งเลข PO, เลข B1, ชื่อผู้ขาย, ชื่อสินค้า, เลข Lot และเลขใบเคลม ' +
         "และค้นได้ทั้ง PO ที่ปิดแล้ว</span></div>";
       return h;
     }
@@ -743,7 +747,7 @@
       const s = st(p), ph = phaseOf(p);
       const paid = p.payments.filter(x => x.status === "PAID").length;
       h += '<tr class="click" data-po="' + esc(p.no) + '">' +
-        '<td><span class="pono">' + esc(p.no) + '</span><div class="sub mono">' + esc(p.sap || "รอเลข SAP") + "</div></td>" +
+        '<td><span class="pono">' + esc(p.no) + '</span><div class="sub mono">' + esc(p.sap || "รอผูกกับ B1") + "</div></td>" +
         "<td>" + esc(p.sup) + '<div class="sub">' + esc(p.item) + " · " + esc(p.qty) + "</div></td>" +
         (money() ? '<td class="num">' + baht(p.amt) + "</td>" +
           "<td>" + (p.payments.length
@@ -797,7 +801,7 @@
     else if (s.c === "ITEM_CODE")
       btns = '<button class="btn pri" data-act="goic">ไปที่ใบขอเปิดรหัสสินค้า</button>';
     else if (s.c === "PO_CREATED")
-      btns = '<button class="btn pri" data-act="sappull">ดึงข้อมูล PO จาก SAP</button>';
+      btns = '<button class="btn pri" data-act="sappull">ดึงข้อมูล PO จาก SAP B1</button>';
     else
       btns = '<button class="btn pri" data-act="done">ทำ “' + esc(s.n) + '” เสร็จ</button>';
 
@@ -820,11 +824,11 @@
     h += '<div class="dh"><div class="top"><span class="n">' + esc(p.no) + "</span>" +
       '<span class="t">' + esc(p.item) + "</span>" + statusPill(p) + "</div>" +
       '<div class="fields">' +
-      fld("เลข PO ใน SAP", p.sap || "ยังไม่ได้ดึงจาก SAP", p.sap ? "SAP" : "") +
-      fld("ผู้ขาย", p.sup, p.sap ? "SAP" : "") +
-      fld("จำนวน", p.qty, p.sap ? "SAP" : "") +
-      (money() ? fld("มูลค่า", baht(p.amt), p.sap ? "SAP" : "") : "") +
-      fld("เงื่อนไขจ่าย", p.term, p.sap ? "SAP" : "") +
+      fld("เลข PO ใน B1", p.sap || "ยังไม่ได้ดึงจาก B1", p.sap ? "B1" : "") +
+      fld("ผู้ขาย", p.sup, p.sap ? "B1" : "") +
+      fld("จำนวน", p.qty, p.sap ? "B1" : "") +
+      (money() ? fld("มูลค่า", baht(p.amt), p.sap ? "B1" : "") : "") +
+      fld("เงื่อนไขจ่าย", p.term, p.sap ? "B1" : "") +
       fld("ผู้ดูแล", p.owner) + fld("วันที่เปิด", p.date) +
       "</div></div>";
 
@@ -1028,11 +1032,11 @@
   function pageItems() {
     if (openIC && ITEMREQS.some(r => r.id === openIC)) return itemDetail();
 
-    let h = '<div class="note info"><span class="ic">▸</span><span>เดิมเป็นใบกระดาษที่ต้องเดินไปให้ LS คีย์เข้า SAP · ' +
+    let h = '<div class="note info"><span class="ic">▸</span><span>เดิมเป็นใบกระดาษที่ต้องเดินไปให้ LS คีย์เข้า B1 · ' +
       "<b>กดที่แถวเพื่อเปิดใบขอ</b></span></div>";
     h += '<div class="card"><h3>ใบขอ<span class="c">' + ITEMREQS.length + " ใบ</span></h3>" +
       '<div class="tw"><table><thead><tr><th>เลขที่</th><th>สินค้า</th><th>ผู้ขาย</th><th>PO</th>' +
-      "<th>สถานะ</th><th>รหัสใน SAP</th><th></th></tr></thead><tbody>";
+      "<th>สถานะ</th><th>รหัสใน B1</th><th></th></tr></thead><tbody>";
     ITEMREQS.forEach(r => {
       const s = IC_ST[r.status];
       h += '<tr class="click" data-icopen="' + esc(r.id) + '">' +
@@ -1041,11 +1045,11 @@
         "<td>" + esc(r.sup) + "</td>" +
         '<td class="mono">' + esc(r.po || "—") + "</td>" +
         '<td><span class="pill ' + s.cls + '">' + esc(s.t) + "</span></td>" +
-        '<td class="mono">' + esc(r.sap || "—") + '<span class="src">SAP</span></td>' +
+        '<td class="mono">' + esc(r.sap || "—") + '<span class="src">B1</span></td>' +
         "<td>" + icButtons(r) + "</td></tr>";
     });
     h += "</tbody></table></div>";
-    h += '<div class="note info"><span class="ic">▸</span><span>PO จะเดินต่อไม่ได้จนกว่ารหัสจริงจาก SAP จะกลับมา — ' +
+    h += '<div class="note info"><span class="ic">▸</span><span>PO จะเดินต่อไม่ได้จนกว่ารหัสจริงจาก B1 จะกลับมา — ' +
       "กันเคสที่เปิด PO ไปก่อนแล้วรหัสยังไม่มา</span></div></div>";
     return h;
   }
@@ -1053,7 +1057,7 @@
     if (r.status === "WAIT_APPROVE" && role === "SR")
       return '<button class="btn ok" data-ic="approve" data-id="' + esc(r.id) + '">อนุมัติ</button>';
     if (r.status === "WAIT_LS" && role === "LS")
-      return '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">ดึงรหัสจาก SAP</button>';
+      return '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">ดึงรหัสจาก B1</button>';
     return "";
   }
   function itemDetail() {
@@ -1065,7 +1069,7 @@
       (icButtons(d) ? '<div class="actions">' + icButtons(d) + "</div>" +
         '<div class="then">' + (d.status === "WAIT_APPROVE"
           ? "อนุมัติแล้วจะเข้าคิว " + ROLES.LS.name + " (" + person("LS") + ") อัตโนมัติ ไม่ต้องเดินเอกสาร"
-          : "ดึงรหัสจาก SAP แล้ว " + esc(d.po || "PO ที่เกี่ยวข้อง") + " จะเดินต่อได้เอง") + "</div>" : "") +
+          : "ดึงรหัสจาก B1 แล้ว " + esc(d.po || "PO ที่เกี่ยวข้อง") + " จะเดินต่อได้เอง") + "</div>" : "") +
       "</div>";
     h += '<div class="card"><h3>' + esc(d.id) + '<span class="c">ผู้ขอ ' + esc(d.by) + " · " + esc(d.date) + "</span></h3>" +
       [["ชื่อสินค้า",d.name],["แบรนด์",d.brand],["กลุ่มสินค้า",d.group],["หน่วยนับ",d.uom],
@@ -1138,7 +1142,8 @@
     const miss = missing(p), out = [];
     const add = (ok, lv, t, who) => out.push({ok:ok, lv:lv, t:t, who:who || ""});
 
-    add(!!p.sap, "block", p.sap ? "เลข PO ใน SAP ถูกรูปแบบ (" + p.sap + ")" : "ยังไม่ได้กรอกเลข PO จาก SAP", "SR");
+    add(!!p.sap, "block",
+        p.sap ? "ผูกกับ PO ใน B1 แล้ว (DocNum " + p.sap + ")" : "ยังไม่ได้ผูกกับ PO ใน B1", "SR");
     add(!miss.length, "block",
         miss.length ? "ขาดเอกสาร " + miss.length + " ใบ — " + miss.map(d => d.n).join(", ") : "เอกสารบังคับครบทุกใบ",
         miss.length ? miss[0].o : "");
@@ -1238,8 +1243,8 @@
       h += '<div class="synced' + (SAP.ok ? "" : " stale") + '"><span>🔄</span>' +
         "<span>วิธีดึง: <b>" + esc(SAP.mode) + "</b> · ล่าสุด <b>" + esc(SAP.at) + "</b></span>" +
         '<span class="sp2"></span><button class="btn" data-act="sapnow">ดึงข้อมูลใหม่ตอนนี้</button></div>';
-      h += '<div class="card"><h3>ข้อมูลที่ดึงจาก SAP<span class="c">ดึงอย่างเดียว ไม่เขียนกลับ</span></h3>' +
-        '<div class="tw"><table><thead><tr><th>ข้อมูล</th><th>ที่มาใน SAP</th>' +
+      h += '<div class="card"><h3>ข้อมูลที่ดึงจาก SAP Business One<span class="c">ดึงอย่างเดียว ไม่เขียนกลับ</span></h3>' +
+        '<div class="tw"><table><thead><tr><th>ข้อมูล</th><th>ตารางใน B1</th>' +
         '<th class="num">จำนวน</th><th>ความถี่</th><th>ล่าสุด</th><th>สถานะ</th></tr></thead><tbody>';
       SAP.objs.forEach(o => {
         h += "<tr><td>" + esc(o.o) + '</td><td class="mono" style="font-size:12px">' + esc(o.src) + "</td>" +
@@ -1248,13 +1253,15 @@
           '<td><span class="pill ' + (o.st === "OK" ? "ok" : "due") + '">' + esc(o.st) + "</span></td></tr>";
       });
       h += "</tbody></table></div>" +
-        '<div class="note info"><span class="ic">▸</span><span><b>ทิศทางเดียว: SAP → ระบบนี้</b> — ' +
-        "ระบบนี้ไม่เขียนอะไรกลับเข้า SAP เลย จึงไม่มีทางทำข้อมูลใน SAP เสียหาย " +
-        "และไม่ต้องขออนุมัติสิทธิ์เขียนจากฝ่าย IT ของ SAP</span></div>" +
-        '<div class="rowline">จับคู่ด้วยเลขเอกสาร SAP — ดึงซ้ำกี่ครั้งก็ไม่เกิดข้อมูลซ้ำ<span class="pill ok">idempotent</span></div>' +
-        '<div class="rowline">ดึงเฉพาะที่เปลี่ยนตั้งแต่รอบก่อน ไม่ดึงทั้งฐาน<span class="pill ok">delta</span></div>' +
-        '<div class="rowline">SAP ล่ม = ระบบยังใช้ได้ ขึ้นป้ายบอกว่าข้อมูลเก่าแค่ไหน<span class="pill ok">ไม่บล็อกงาน</span></div>' +
-        '<div class="rowline">ตรวจนับรายวัน จำนวน PO ในระบบ = ใน SAP ไม่ตรงแจ้งแอดมิน<span class="pill ok">กระทบยอด</span></div>' +
+        '<div class="note info"><span class="ic">▸</span><span><b>ทิศทางเดียว: B1 → ระบบนี้</b> — ' +
+        "ไม่เขียนอะไรกลับเข้า B1 เลย จึงไม่มีทางทำข้อมูลใน B1 เสียหาย " +
+        "และขอจากผู้ดูแลแค่<b>สิทธิ์อ่าน 7 ตาราง</b></span></div>" +
+        '<div class="rowline">ตัวส่งอยู่ในออฟฟิศ ส่งออกขาเดียว — <b>ไม่ต้องเปิดพอร์ตเข้า ไม่ต้องเปิด B1 ออกเน็ต</b><span class="pill ok">ไม่ต้องขอความมั่นคง</span></div>' +
+        '<div class="rowline">จับคู่ด้วย <span class="mono">DocEntry</span> ของ B1 — ดึงซ้ำกี่ครั้งก็ไม่เกิดข้อมูลซ้ำ<span class="pill ok">idempotent</span></div>' +
+        '<div class="rowline">ดึงเฉพาะที่ <span class="mono">UpdateDate</span> เปลี่ยน + ย้อนซ้ำ 1 วันกันตกหล่น<span class="pill ok">delta</span></div>' +
+        '<div class="rowline">งวดจ่ายสร้างจาก <span class="mono">OCTG</span> ของ B1 — ไม่มีทางไม่ตรงกับสัญญา<span class="pill ok">อัตโนมัติ</span></div>' +
+        '<div class="rowline">เทียบการจ่ายกับ <span class="mono">OVPM</span> — เจอทันทีถ้าบันทึกแล้วแต่ไม่ได้จ่ายจริง<span class="pill ok">กระทบยอด</span></div>' +
+        '<div class="rowline">B1 ล่ม = ระบบยังใช้ได้ ขึ้นป้ายบอกว่าข้อมูลเก่าแค่ไหน<span class="pill ok">ไม่บล็อกงาน</span></div>' +
         "</div>";
       return h;
     }
@@ -1604,7 +1611,7 @@
     if (sn && sn.dataset.act === "sapnow") {
       SAP.at = "เมื่อสักครู่"; SAP.ok = true;
       SAP.objs.forEach(o => { o.st = "OK"; o.last = "เมื่อสักครู่"; });
-      toast("ดึงข้อมูลจาก SAP ใหม่แล้ว — ปกติทำอัตโนมัติทุก 30 นาที ไม่ต้องกดเอง");
+      toast("ดึงข้อมูลจาก B1 ใหม่แล้ว — ปกติทำอัตโนมัติทุก 30 นาที ไม่ต้องกดเอง");
       render(); return;
     }
 
@@ -1750,10 +1757,11 @@
       toast("ส่งเตือนถึง " + person(ownerOf(p)) + " ทาง Lark แล้ว — บันทึกไว้ในประวัติด้วย");
     }
     else if (a === "sappull") {
-      // ของจริงคือเรียกข้อมูล PO จาก SAP มาเติมให้ ไม่ให้คนพิมพ์เลขเอง
-      p.sap = "45000" + (12000 + Math.floor(Math.random() * 900));
-      p.tl.push(["วันนี้", "ระบบ", "ดึงข้อมูล PO " + p.sap + " จาก SAP — ผู้ขาย จำนวน มูลค่า เงื่อนไขจ่าย ตรงกับ SAP"]);
-      advance(p, "ผูกกับ PO ใน SAP");
+      // ของจริงคือเรียกข้อมูล PO จาก B1 มาเติมให้ ไม่ให้คนพิมพ์เลขเอง
+      p.sap = String(10250 + Math.floor(Math.random() * 40));   // DocNum ของ B1
+      p.tl.push(["วันนี้", "ระบบ", "ดึง PO " + p.sap + " จาก B1 (OPOR/POR1) — ผู้ขาย จำนวน มูลค่า มาพร้อมกัน"]);
+      p.tl.push(["วันนี้", "ระบบ", "สร้างงวดจ่ายจากเงื่อนไขชำระ (OCTG) ของ B1 อัตโนมัติ"]);
+      advance(p, "ผูกกับ PO ใน B1");
     }
     else if (a === "reject") { p.tl.push(["วันนี้", ROLES[role].person, "ไม่อนุมัติ — ตีกลับพร้อมเหตุผล"]); toast("ตีกลับให้จัดซื้อแล้ว"); }
     else if (a === "qcpass") advance(p, "ตรวจรับผ่าน");

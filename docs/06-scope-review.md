@@ -234,7 +234,7 @@ Number of samples, Inspection Location, Summary of results, Defect Details, ช�
 |---|---|---|
 | ตาราง | `Deals` | `Purchase_Orders` |
 | เลขที่ | `D-26-0042` | `PO-26-0042` |
-| เลข SAP | `sap_po_no` | `sap_po_no` (เหมือนเดิม) |
+| เลข SAP | `sap_po_no` | `sap_doc_entry` + `sap_doc_num` — **`DocEntry` คือคีย์จริงของ B1** ส่วน `DocNum` คือเลขที่คนอ่าน ([09 §3.4](09-usability-and-sap.md)) |
 
 ### 8.2 หนึ่ง PO จ่ายได้หลายงวด — ตาราง `PO_Payments` ใหม่
 
