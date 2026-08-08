@@ -338,6 +338,30 @@
   .qrow.sel{background:var(--go-bg)}
   .qrow.sel td:first-child{box-shadow:inset 3px 0 0 var(--go)}
 
+  /* ป้ายประเภทรายการ — PO ปกติ vs เงินสด (ไม่มี PO) */
+  .etype{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:1.5px 6px;
+    border-radius:var(--r-sm);border:1px solid currentColor;white-space:nowrap;margin-left:6px}
+  .etype.cash{color:var(--gold);background:var(--gold-bg)}
+
+  /* ตัวอย่างข้อความที่จะพิมพ์ลงเอกสาร */
+  .prev{border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--paper);padding:0;overflow:hidden}
+  .prev .pt{background:var(--surface);border-bottom:1px solid var(--line);padding:6px 11px;font-size:11px;
+    font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);
+    display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .prev .sheet{padding:14px 16px;min-height:96px;font-size:13px;line-height:1.75;white-space:pre-wrap;
+    border:0;width:100%;resize:vertical;font-family:var(--sans);background:var(--paper);color:var(--ink)}
+  .prev .sheet:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+  .prev.off{opacity:.45}
+
+  /* กล่องชุดเอกสารรวม */
+  .bundle{border:1px solid var(--go);background:var(--go-bg);border-radius:var(--r-md);padding:12px 16px;
+    margin-bottom:16px;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;color:var(--go);font-size:13px}
+  .bundle .sp2{flex:1}
+  .bundle .fn{font-family:var(--mono);font-size:12px;font-weight:700}
+
+  .droot{font-family:var(--mono);font-size:11.5px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r-sm);padding:2px 7px;color:var(--ink-2);white-space:nowrap}
+
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);background:var(--ink);
     color:var(--paper);padding:10px 18px;font-size:13.5px;border-radius:var(--r-md);opacity:0;pointer-events:none;
     transition:opacity .2s,transform .2s;z-index:50;max-width:92vw;text-align:center;box-shadow:var(--sh-2)}
@@ -443,6 +467,18 @@
   };
   const APV_LIMIT = 50000;   // เกินวงเงินนี้ต้องผู้บริหารอนุมัติ
 
+  // ไดรฟ์กลางที่เดียวของทั้งบริษัท — ไม่มีใครสร้างโฟลเดอร์เอง ระบบตั้งชื่อและวางที่ให้
+  const DRIVE = {
+    root: "MGS-Documents (Shared drive)",
+    keepDays: 90,          // เก็บไฟล์ต้นฉบับหลังรวมเล่มกี่วันก่อนลบ (ตั้งค่าได้)
+    folderOf: p => "MGS-Documents / " + (p.entry === "CASH" ? "CASH-2026" : "PO-2026") + " / " + p.no,
+    ext: f => { const a = String(f || "").split("."); return a.length > 1 ? a.pop().toLowerCase() : "pdf"; },
+    fileName: (p, code, orig) => p.no + "_" + code + "." + DRIVE.ext(orig)
+  };
+
+  // รายการเงินสดไม่มีขั้นตอนจัดซื้อ (0–9) และข้าม QC ได้เมื่อระบุเหตุผล + ผู้อนุมัติ
+  const cashSkip = bypassQC => bypassQC ? [0,1,2,3,4,5,6,7,8,9,10] : [0,1,2,3,4,5,6,7,8,9];
+
   let POS = [
     {no:"PO-26-0042", sap:"10245", sup:"ABC Foods", item:"กุ้งแช่แข็ง 16/20", qty:"500 KG",
      amt:130000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:10, age:26, owner:"คุณสมชาย",
@@ -462,6 +498,20 @@
      payments:[pay(1,"ชำระเต็ม",100,78000,"—","PENDING")],
      tl:[["30 ก.ค. 08:05","คุณสมชาย","สร้าง PO"],["30 ก.ค. 09:30","คุณสมชาย","อัพโหลด PI"],
          ["30 ก.ค. 09:35","ระบบ","ไม่มีรหัสสินค้าใน B1 — เปิดใบขอ IC-26-0007"]]},
+
+    // รายการซื้อเงินสดหน้าตลาด — ไม่มี PO ใน B1 · ข้าม QC เพราะเป็นผักสดตรวจหน้างาน
+    {no:"CS-26-0007", sap:"", entry:"CASH", sup:"ตลาดไท — ร้านเจ๊หมวย", item:"ผักชี / ต้นหอม สดตลาด", qty:"60 KG",
+     amt:5400, cur:"THB", term:"เงินสด — จ่ายหน้างาน", stage:11, age:5, owner:"คุณสมชาย",
+     status:"ACTIVE", claim:false, skip:cashSkip(true), date:"07/08/2026",
+     cashWhy:"ร้านไม่รับเครดิตและไม่ออกใบกำกับล่วงหน้า ต้องจ่ายสดหน้างาน",
+     qcBypass:true, qcBypassBy:"คุณสมหญิง",
+     qcBypassWhy:"ผักสดซื้อหน้าตลาด ตรวจด้วยสายตาหน้างานแล้ว ไม่ผ่านห้องเย็นต้นทาง",
+     payments:[pay(1,"จ่ายสดหน้างาน",100,5400,"07/08/2026","PAID","07/08/2026",
+                 {method:"CASH", bank:"เงินสดย่อย (petty cash)", ref:"PC26080700012", fee:0,
+                  paidAmt:5400, paidBy:"คุณสมชาย", apvBy:"คุณผู้จัดการ", reqBy:"คุณสมชาย"})],
+     tl:[["07 ส.ค. 06:40","คุณสมชาย","เพิ่มรายการซื้อเงินสด — ไม่ได้เปิด PO"],
+         ["07 ส.ค. 06:41","ระบบ","ข้าม QC ตามที่ระบุ — บันทึกเหตุผลและผู้อนุมัติไว้ถาวร"],
+         ["07 ส.ค. 06:45","คุณสมชาย","แนบบิลเงินสดและรูปสินค้าหน้างาน"]]},
 
     {no:"PO-26-0038", sap:"10238", sup:"Siam Marine", item:"กุ้งขาว 21/25", qty:"800 KG",
      amt:196000, cur:"THB", term:"เครดิต 30 วัน", stage:11, age:7, owner:"คุณสมชาย",
@@ -485,6 +535,14 @@
                pay(2,"ส่วนที่เหลือ",50,155000,"20/08/2026","PENDING")],
      tl:[["22 ก.ค. 11:00","คุณสมชาย","สร้าง PO"],["25 ก.ค. 09:00","คุณวิภา","จ่ายมัดจำ 50%"],
          ["28 ก.ค. 15:20","คุณประเสริฐ","อัพโหลด GR"],["29 ก.ค. 09:00","คุณวิภา","อัพโหลดใบแจ้งหนี้"]]},
+
+    // ขั้นส่งมอบเอกสาร — SR รวบเอกสารครบชุดแล้วยิงคำขอทำจ่ายไปหาหัวหน้า
+    {no:"PO-26-0045", sap:"10245", sup:"ABC Foods", item:"ปลากะพงขาวทั้งตัว", qty:"350 KG",
+     amt:122500, inv:122500, cur:"THB", term:"เครดิต 30 วัน", stage:13, age:9, owner:"คุณสมชาย",
+     status:"ACTIVE", claim:false, skip:[1,2,5], date:"26/07/2026",
+     payments:[pay(1,"ชำระเต็ม",100,122500,"26/08/2026","PENDING")],
+     tl:[["26 ก.ค. 09:20","คุณสมชาย","สร้าง PO"],["01 ส.ค. 14:10","คุณประเสริฐ","อัพโหลดใบรับสินค้า (GRPO)"],
+         ["04 ส.ค. 09:45","คุณวิภา","อัพโหลดใบแจ้งหนี้จากผู้ขาย"]]},
 
     {no:"PO-26-0031", sap:"10231", sup:"Siam Marine", item:"กุ้งก้ามกราม", qty:"150 KG",
      amt:84000, inv:84000, cur:"THB", term:"เครดิต 30 วัน", stage:17, age:0, owner:"คุณสมชาย",
@@ -522,6 +580,13 @@
      tl:[["05 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["07 ก.ค.","คุณสมหญิง","ตรวจตัวอย่างไม่ผ่าน"],
          ["07 ก.ค.","คุณสมชาย","ยกเลิก — แจ้งผู้ขายและปฏิเสธการสั่งซื้อ"]]}
   ];
+
+  // ค่าเริ่มต้นของฟิลด์ที่เพิ่มรอบล่าสุด — ไม่ต้องไปเติมทีละแถวข้างบน
+  POS.forEach(p => {
+    if (!p.entry) p.entry = "PO";      // PO = เปิด PO ใน B1 · CASH = ซื้อเงินสด ไม่มี PO
+    if (!p.files) p.files = {};        // ไฟล์ + หมายเหตุที่แนบในแต่ละขั้น
+    if (!p.bundle) p.bundle = null;    // ชุดเอกสารรวมเล่ม (สร้างเมื่อปิดรายการ)
+  });
 
   // ใบขอราคา — จุดเริ่มของ P2P (ก่อนมี PO) ผูกกับใบเสนอราคาที่ SR เทียบจากซัพหลายราย
   // แก้ปัญหาที่แจ้งมา: "ใบขอราคาดึงไปทำใบเสนอราคาไม่ได้" — ตอนนี้ดึงได้ทั้งสองทอด
@@ -630,7 +695,8 @@
   /* ================= สถานะหน้าจอ ================= */
   let role = "SR", page = "home", subtab = "ACTIVE", openPo = null, openClaim = null, q = "", fDept = "";
   let bugOpen = false, bugSev = "WRONG", openIC = null, openPR = null, quoteOpen = null, pendingAct = null;
-  let payOpen = null, payTouched = {amt:false, wht:false};
+  let upOpen = null, cashOpen = false, payReqOpen = null;   // ป๊อปอัปอัพโหลด / รายการเงินสด / ขอทำจ่าย
+  let payOpen = null, payTouched = {amt:false, wht:false}, prTouched = false;
 
   const $ = s => document.querySelector(s);
   const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
@@ -659,6 +725,25 @@
     return "pend";
   }
   const missing = p => DOCS.filter(d => d.req && docState(p,d) === "wait");
+  // เอกสารที่ผูกกับขั้นตอนปัจจุบัน — ใช้ตัดสินว่าป๊อปอัปอัพโหลดต้องบังคับแนบไฟล์ไหม
+  const docAtStage = p => DOCS.filter(d => d.at === p.stage && docState(p, d) !== "na")[0] || null;
+
+  /* รวมเอกสารทั้งชุดเป็นไฟล์เดียวเมื่อปิดรายการ — ไม่ต้องไล่เปิดทีละใบตอนตรวจสอบย้อนหลัง */
+  function mergeDocs(p) {
+    const parts = [];
+    DOCS.forEach(d => { if (docState(p, d) !== "na") parts.push(d.n); });
+    Object.keys(p.files || {}).forEach(k => {
+      if (k.indexOf("STEP_") === 0) {
+        const sg = STAGES.filter(x => x.c === k.slice(5))[0];
+        parts.push("บันทึกขั้น " + (sg ? sg.n : k.slice(5)));
+      }
+    });
+    p.payments.filter(x => x.status === "PAID").forEach(x => parts.push("สลิปงวดที่ " + x.seq));
+    if (p.qcBypass) parts.push("ใบอนุมัติข้าม QC");
+    return {name:p.no + "_ชุดเอกสารครบ.pdf", parts:parts, pages:parts.length * 2,
+      mb:(parts.length * 0.32).toFixed(1), at:"วันนี้"};
+  }
+  POS.forEach(p => { if (p.status === "COMPLETED" && !p.bundle) p.bundle = mergeDocs(p); });
   const DONE_PAY = ["PAID", "CANCELLED", "VOID"];
   const unpaid = p => p.payments.filter(x => DONE_PAY.indexOf(x.status) < 0);
   function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");
@@ -783,13 +868,22 @@
     return h + "</details>";
   }
 
+  // ป้ายบอกว่ารายการนี้มาจาก PO ปกติหรือเป็นการซื้อเงินสด
+  const entryTag = p => p.entry === "CASH" ? '<span class="etype cash">CASH</span>' : "";
+
   /* ================= PO list / search ================= */
   function pagePo() {
     const act  = POS.filter(p => p.status === "ACTIVE");
     const done = POS.filter(p => p.status === "COMPLETED");
     const canc = POS.filter(p => p.status === "CANCELLED");
 
-    let h = '<div class="ph"><h1>ใบสั่งซื้อ (PO)</h1><span class="d">1 PO = 1 รายการงาน ตั้งแต่เช็คราคาจนปิดบัญชี</span></div>';
+    let h = '<div class="ph"><h1>ใบสั่งซื้อ (PO)</h1><span class="d">1 PO = 1 รายการงาน ตั้งแต่เช็คราคาจนปิดบัญชี · ' +
+      "รายการซื้อเงินสดที่ไม่ได้เปิด PO อยู่ในรายการเดียวกันนี้ ติดป้าย <b>CASH</b></span></div>";
+    if (role === "SR" || role === "AC")
+      h += '<div class="note info" style="border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:14px">' +
+        '<span class="ic">＋</span><span><b>ซื้อของเงินสดโดยไม่ได้เปิด PO?</b> ' +
+        "บันทึกเข้าระบบได้ ไม่ต้องเก็บบิลไว้ในลิ้นชัก — ระบบออกเลข CS-26-xxxx และเก็บไฟล์ในไดรฟ์กลางที่เดียวกัน " +
+        '<button class="btn pri" data-cash="open">เพิ่มรายการซื้อเงินสด</button></span></div>';
     h += '<div class="stabs">' +
       tabBtn("ACTIVE","กำลังดำเนินการ",act.length) +
       tabBtn("DONE","เสร็จสิ้น",done.length) +
@@ -841,7 +935,8 @@
       const s = st(p), ph = phaseOf(p);
       const paid = p.payments.filter(x => x.status === "PAID").length;
       h += '<tr class="click" data-po="' + esc(p.no) + '">' +
-        '<td><span class="pono">' + esc(p.no) + '</span><div class="sub mono">' + esc(p.sap || "รอผูกกับ B1") + "</div></td>" +
+        '<td><span class="pono">' + esc(p.no) + "</span>" + entryTag(p) +
+          '<div class="sub mono">' + esc(p.entry === "CASH" ? "ไม่มี PO ใน B1" : (p.sap || "รอผูกกับ B1")) + "</div></td>" +
         "<td>" + esc(p.sup) + '<div class="sub">' + esc(p.item) + " · " + esc(p.qty) + "</div></td>" +
         (money() ? '<td class="num">' + baht(p.amt) + "</td>" +
           "<td>" + (p.payments.length
@@ -896,6 +991,8 @@
       btns = '<button class="btn pri" data-act="goic">ไปที่ใบขอเปิดรหัสสินค้า</button>';
     else if (s.c === "PO_CREATED")
       btns = '<button class="btn pri" data-act="sappull">ดึงข้อมูล PO จาก SAP B1</button>';
+    else if (s.c === "DOC_HANDOVER")
+      btns = '<button class="btn pri" data-act="payreq">ส่งเอกสาร + ขออนุมัติทำจ่าย</button>';
     else
       btns = '<button class="btn pri" data-act="done">ทำ “' + esc(s.n) + '” เสร็จ</button>';
 
@@ -915,16 +1012,39 @@
     let h = '<button class="back" data-back="1">← กลับไปรายการ PO</button>';
 
     // 1) หัวเอกสาร — ซ่อนช่องเงินไปเลยสำหรับบทบาทที่ไม่มีสิทธิ์ (ดีกว่าโชว์ว่า "ดูไม่ได้")
-    h += '<div class="dh"><div class="top"><span class="n">' + esc(p.no) + "</span>" +
+    h += '<div class="dh"><div class="top"><span class="n">' + esc(p.no) + "</span>" + entryTag(p) +
       '<span class="t">' + esc(p.item) + "</span>" + statusPill(p) + "</div>" +
       '<div class="fields">' +
-      fld("เลข PO ใน B1", p.sap || "ยังไม่ได้ดึงจาก B1", p.sap ? "B1" : "") +
+      (p.entry === "CASH"
+        ? fld("ประเภทรายการ", "ซื้อเงินสด — ไม่ได้เปิด PO ใน B1")
+        : fld("เลข PO ใน B1", p.sap || "ยังไม่ได้ดึงจาก B1", p.sap ? "B1" : "")) +
       fld("ผู้ขาย", p.sup, p.sap ? "B1" : "") +
       fld("จำนวน", p.qty, p.sap ? "B1" : "") +
       (money() ? fld("มูลค่า", baht(p.amt), p.sap ? "B1" : "") : "") +
       fld("เงื่อนไขจ่าย", p.term, p.sap ? "B1" : "") +
       fld("ผู้ดูแล", p.owner) + fld("วันที่เปิด", p.date) +
       "</div></div>";
+
+    // รายการเงินสด — ต้องเห็นทันทีว่าทำไมถึงไม่มี PO และใครอนุมัติให้ข้าม QC
+    if (p.entry === "CASH")
+      h += '<div class="note warn" style="border:1px solid var(--gold);border-radius:var(--r-md);margin-bottom:16px">' +
+        '<span class="ic">฿</span><span><b>รายการซื้อเงินสด ไม่มี PO ใน B1</b> — ' +
+        esc(p.cashWhy || "ไม่ได้ระบุเหตุผล") +
+        (p.qcBypass
+          ? "<br><b>ข้าม QC:</b> " + esc(p.qcBypassWhy || "—") + " · อนุมัติโดย <b>" +
+            esc(p.qcBypassBy || "—") + "</b> — บันทึกถาวรและขึ้นในรายงานให้หัวหน้า QC เห็นทุกใบ"
+          : "<br>ล็อตนี้ยัง<b>ต้องผ่าน QC ตามปกติ</b>") + "</span></div>";
+
+    // ชุดเอกสารรวมเล่ม — สร้างอัตโนมัติเมื่อปิดรายการ
+    if (p.bundle)
+      h += '<div class="bundle"><span>📕</span><div class="sp2"><b>ชุดเอกสารรวมเล่มพร้อมแล้ว</b> — ' +
+        "รวม " + p.bundle.parts.length + " ใบเป็นไฟล์เดียว " + p.bundle.pages + " หน้า (~" +
+        esc(p.bundle.mb) + " MB) เรียงตามลำดับขั้นตอน" +
+        '<div class="fn">' + esc(DRIVE.folderOf(p)) + " / " + esc(p.bundle.name) + "</div>" +
+        '<div class="sub">' + esc(p.bundle.parts.join(" · ")) + "</div>" +
+        '<div class="sub">ต้นฉบับแต่ละใบยังอยู่ครบอีก ' + DRIVE.keepDays +
+        " วัน แล้วระบบจะลบเฉพาะไฟล์ที่รวมเล่มไปแล้ว (ตั้งค่าได้ในหน้าตั้งค่า)</div></div>" +
+        '<button class="btn ok">เปิดไฟล์รวม</button></div>';
 
     if (p.fromQuote)
       h += '<div class="note info" style="border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:16px">' +
@@ -951,20 +1071,37 @@
 
     // 4) เอกสาร
     h += '<div class="card"><h3>เอกสาร<span class="c">' + (miss.length ? "ขาด " + miss.length + " ใบ" : "ครบ") + "</span></h3>";
+    h += '<div class="rowline"><span class="nm">เก็บไว้ที่เดียว</span>' +
+      '<span class="droot">' + esc(DRIVE.folderOf(p)) + "</span></div>";
     DOCS.forEach(d => {
       const stt = docState(p, d);
       if (stt === "na") return;
       const mine = d.o === role;
+      const f = p.files[d.c];
       const badge = stt === "ok" ? '<span class="pill ok">มีแล้ว</span>'
         : stt === "wait" ? '<span class="pill ' + (mine ? "due" : "wait") + '">' +
             (mine ? "รอคุณอัพโหลด" : "รอ " + esc(ROLES[d.o] ? ROLES[d.o].name : d.o)) + "</span>"
         : '<span class="pill wait">ยังไม่ถึงคิว</span>';
       h += '<div class="rowline' + (stt === "wait" && d.req && mine ? " miss" : "") + '">' + dept(d.o) +
-        '<span class="nm">' + esc(d.n) + "</span>" + badge +
+        '<span class="nm">' + esc(d.n) +
+        (f ? '<div class="sub mono">' + esc(f.n) + "</div>" : "") +
+        (f && f.note ? '<div class="sub">หมายเหตุ: ' + esc(f.note) + " — " + esc(f.by) + "</div>" : "") +
+        "</span>" + badge +
         (stt === "wait" && mine && isActive(p) ? ' <button class="btn" data-up="' + esc(d.c) + '">อัพโหลด</button>' : "") + "</div>";
     });
-    h += '<div class="note info"><span class="ic">📁</span><span>ไฟล์เก็บใน Google Drive ให้เอง — ' +
-      "อัพจากหน้านี้ ไม่ต้องเปิด Drive ไม่ต้องตั้งชื่อไฟล์เอง</span></div></div>";
+    // หมายเหตุที่เขียนไว้ในป๊อปอัปของขั้นที่ไม่มีเอกสารบังคับ
+    Object.keys(p.files).filter(k => k.indexOf("STEP_") === 0).forEach(k => {
+      const f = p.files[k], sg = STAGES.filter(x => x.c === k.slice(5))[0];
+      h += '<div class="rowline"><span class="nm">' + esc(sg ? sg.n : k.slice(5)) +
+        '<div class="sub mono">' + esc(f.n) + "</div>" +
+        (f.note ? '<div class="sub">หมายเหตุ: ' + esc(f.note) + " — " + esc(f.by) + "</div>" : "") +
+        '</span><span class="pill ok">แนบแล้ว</span></div>';
+    });
+    h += '<div class="note info"><span class="ic">📁</span><span>ทุกไฟล์ของทุกแผนกอยู่ใน<b>ไดรฟ์กลางที่เดียว</b> (' +
+      esc(DRIVE.root) + ") — อัพจากหน้านี้ ระบบตั้งชื่อและวางโฟลเดอร์ให้เอง " +
+      "ไม่ต้องเปิด Drive ไม่ต้องสร้างโฟลเดอร์ และไม่มีไฟล์ค้างอยู่ในเครื่องใคร" +
+      (p.bundle ? "" : "<br>เมื่อทุกขั้นตอนเสร็จ ระบบจะ<b>รวมทุกใบเป็นไฟล์เดียว</b>ให้อัตโนมัติ") +
+      "</span></div></div>";
 
     // 5) การจ่ายเงิน
     if (money()) h += paymentCard(p);
@@ -1411,7 +1548,61 @@
       tabBtn("SAP", "เชื่อมต่อ SAP", SAP.objs.length) +
       tabBtn("STAGES", "ขั้นตอนและ SLA", STAGES.length) +
       tabBtn("DOCS", "เอกสารที่ต้องมี", DOCS.length) +
+      tabBtn("FILES", "ไดรฟ์และการรวมไฟล์", "") +
       tabBtn("USERS", "ผู้ใช้และสิทธิ์", Object.keys(ROLES).length) + "</div>";
+
+    if (subtab === "FILES") {
+      const cash = POS.filter(x => x.entry === "CASH");
+      const byp = cash.filter(x => x.qcBypass);
+      const bundles = POS.filter(x => x.bundle);
+      h += '<div class="card"><h3>ไดรฟ์กลางที่เดียว<span class="c">ไม่มีใครสร้างโฟลเดอร์เอง</span></h3>' +
+        '<div class="rowline"><span class="nm">Shared drive</span><span class="droot">' +
+          esc(DRIVE.root) + '</span></div>' +
+        '<div class="rowline"><span class="nm">โฟลเดอร์ของ PO</span><span class="droot">' +
+          "MGS-Documents / PO-2026 / &lt;เลข PO&gt;</span></div>" +
+        '<div class="rowline"><span class="nm">โฟลเดอร์ของรายการเงินสด</span><span class="droot">' +
+          "MGS-Documents / CASH-2026 / &lt;เลข CS&gt;</span></div>" +
+        '<div class="rowline"><span class="nm">ชื่อไฟล์</span><span class="droot">' +
+          "&lt;เลขรายการ&gt;_&lt;ประเภทเอกสาร&gt;.&lt;นามสกุลเดิม&gt;</span></div>" +
+        '<div class="note info"><span class="ic">📁</span><span>เดิมไฟล์กระจายอยู่ไดรฟ์ <b>M:</b> ' +
+        "เครื่องแต่ละคน และแชท — ตอนนี้อัพจากหน้ารายการเท่านั้น ระบบวางที่ให้และตั้งชื่อให้ " +
+        "จึงไม่มีไฟล์ชื่อ <i>scan01.pdf</i> ลอยอยู่ที่ไหนอีก</span></div></div>";
+
+      h += '<div class="card"><h3>การรวมไฟล์อัตโนมัติ<span class="c">' + bundles.length +
+        " รายการรวมเล่มแล้ว</span></h3>" +
+        '<div class="rowline"><span class="nm">รวมเมื่อไหร่</span>' +
+        '<span class="pill ok">ทันทีที่ทุกขั้นตอนเสร็จ (ปิดรายการ)</span></div>' +
+        '<div class="rowline"><span class="nm">รวมอะไรบ้าง</span>' +
+        "<span>เอกสารบังคับทุกใบ · ไฟล์ที่แนบรายขั้น · สลิปทุกงวด · ใบอนุมัติข้าม QC</span></div>" +
+        '<div class="rowline"><span class="nm">เก็บต้นฉบับต่ออีก</span>' +
+        '<span class="pill due">' + DRIVE.keepDays + " วัน แล้วลบเฉพาะใบที่รวมไปแล้ว</span></div>" +
+        '<div class="note warn"><span class="ic">!</span><span><b>ข้อแลกเปลี่ยนที่ต้องตัดสินใจ</b> — ' +
+        "การเก็บไฟล์รวมเพิ่มพื้นที่ประมาณเท่าตัวของชุดเอกสาร (แผน docs/07 ประเมินไว้ ~1,750 MB/เดือน) " +
+        "การลบต้นฉบับหลัง " + DRIVE.keepDays + " วันคือสิ่งที่ทำให้ตัวเลขกลับมาเท่าเดิม " +
+        "ถ้าฝ่ายบัญชีต้องเก็บต้นฉบับตามกฎหมาย ให้ปิดการลบและยอมรับพื้นที่ที่เพิ่มขึ้น</span></div></div>";
+
+      h += '<div class="card"><h3>รายการซื้อเงินสด<span class="c">' + cash.length + " รายการ · ข้าม QC " +
+        byp.length + " รายการ</span></h3>" +
+        '<div class="rowline"><span class="nm">วงเงินสูงสุดต่อรายการ</span><span class="pill due">' +
+        baht(APV_LIMIT) + " — เกินกว่านี้ต้องเปิด PO</span></div>" +
+        '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ร้าน / สินค้า</th>' +
+        '<th class="num">ยอด</th><th>เหตุผลที่ไม่เปิด PO</th><th>ข้าม QC</th></tr></thead><tbody>';
+      if (!cash.length) h += '<tr><td colspan="5" class="sub">— ยังไม่มีรายการเงินสด —</td></tr>';
+      cash.forEach(c => {
+        h += '<tr class="click" data-po="' + esc(c.no) + '"><td><span class="pono">' + esc(c.no) + "</span></td>" +
+          "<td>" + esc(c.sup) + '<div class="sub">' + esc(c.item) + "</div></td>" +
+          '<td class="num">' + baht(c.amt) + "</td>" +
+          '<td class="sub">' + esc(c.cashWhy || "—") + "</td>" +
+          "<td>" + (c.qcBypass
+            ? '<span class="pill late">ข้าม</span><div class="sub">' + esc(c.qcBypassWhy) +
+              " — " + esc(c.qcBypassBy) + "</div>"
+            : '<span class="pill ok">ตรวจตามปกติ</span>') + "</td></tr>";
+      });
+      h += "</tbody></table></div>" +
+        '<div class="note info"><span class="ic">▸</span><span>ตารางนี้คือ<b>สิ่งที่ผู้ตรวจสอบบัญชีจะขอดู</b> — ' +
+        "ทุกใบที่ข้าม QC มีเหตุผลและชื่อผู้อนุมัติติดอยู่ถาวร ลบไม่ได้ แก้ย้อนหลังไม่ได้</span></div></div>";
+      return h;
+    }
 
     if (subtab === "SAP") {
       h += '<div class="synced' + (SAP.ok ? "" : " stale") + '"><span>🔄</span>' +
@@ -1462,13 +1653,15 @@
       DOCS.forEach(d => {
         h += "<tr><td>" + esc(d.n) + "</td><td>" + dept(d.o) + "</td><td>" + esc(STAGES[d.at].n) + "</td>" +
           "<td>" + (d.req ? '<span class="pill late">บังคับ</span>' : '<span class="pill wait">ตามสินค้า</span>') + "</td>" +
-          '<td class="mono" style="font-size:11.5px">01_PO/…/' + esc(d.c) + "/</td></tr>";
+          '<td class="mono" style="font-size:11.5px">&lt;เลขรายการ&gt;_' + esc(d.c) + "</td></tr>";
       });
       h += '<tr><td>สลิป / Swift</td><td>' + dept("AC") + "</td><td>ทำจ่าย</td>" +
-        '<td><span class="pill late">บังคับทุกงวด</span></td><td class="mono" style="font-size:11.5px">…/06_Payment/</td></tr>';
+        '<td><span class="pill late">บังคับทุกงวด</span></td>' +
+        '<td class="mono" style="font-size:11.5px">&lt;เลขรายการ&gt;_SLIP_งวดที่N</td></tr>';
       h += "</tbody></table></div>" +
         '<div class="note info"><span class="ic">📁</span><span>สลิปไม่อยู่ใน checklist ของ PO เพราะ ' +
-        "<b>1 PO จ่าย 2 งวด = 2 สลิป</b> — ผูกกับงวดจ่ายแทน</span></div></div>";
+        "<b>1 PO จ่าย 2 งวด = 2 สลิป</b> — ผูกกับงวดจ่ายแทน · " +
+        "ทุกใบอยู่ในโฟลเดอร์เดียวของรายการนั้นในไดรฟ์กลาง (ดูแท็บไดรฟ์และการรวมไฟล์)</span></div></div>";
       return h;
     }
     if (subtab === "USERS") {
@@ -1744,6 +1937,281 @@
     return errs;
   }
 
+  /* ================= ป๊อปอัปประจำขั้นตอน: แนบไฟล์ + หมายเหตุ =================
+     ทุกขั้นตอนใช้ป๊อปอัปตัวเดียวกัน — ไฟล์เข้าไดรฟ์กลางที่เดียว ระบบตั้งชื่อให้เอง
+     ขั้นไหนมีเอกสารบังคับ ป๊อปอัปจะไม่ให้กดผ่านจนกว่าจะแนบ */
+  const fld1 = (lb, inp, req) => '<div class="fld"><span class="lbl">' + esc(lb) +
+    (req ? ' <span class="req">*</span>' : "") + "</span>" + inp + "</div>";
+
+  function upTarget() { return upOpen ? (POS.filter(x => x.no === upOpen.po)[0] || null) : null; }
+
+  function uploadModal() {
+    const el = $("#modal");
+    const p = upTarget();
+    if (!p) { upOpen = null; el.innerHTML = ""; return; }
+    const sg = STAGES.filter(x => x.c === upOpen.step)[0] || st(p) || {n:"ขั้นตอนนี้"};
+    const d = upOpen.doc ? DOCS.filter(x => x.c === upOpen.doc)[0] : null;
+    const code = d ? d.c : "STEP_" + upOpen.step;
+    const prev = p.files[code];
+
+    el.innerHTML = '<div class="bugwrap" data-uact="close"></div>' +
+      '<div class="bugpanel" role="dialog" aria-label="แนบเอกสารประจำขั้นตอน">' +
+      "<h3>" + esc(sg.n) + " — แนบเอกสาร" +
+        '<button data-uact="close" aria-label="ปิด">✕</button></h3>' +
+      '<div class="bugbody">' +
+
+      '<div class="ctxbox">' + esc(p.no) + " · " + esc(p.sup) + "<br>" +
+        (d ? "เอกสารของขั้นนี้: <b>" + esc(d.n) + "</b>" + (d.req ? " (บังคับ)" : " (ไม่บังคับ)")
+           : "ขั้นนี้ไม่มีเอกสารบังคับ — แนบได้ถ้ามี เช่น รูปถ่ายหรือใบจอง") + "<br>" +
+        'เก็บที่ <span class="droot">' + esc(DRIVE.folderOf(p)) + "</span></div>" +
+
+      fld1("ไฟล์ที่แนบ", '<input type="text" id="up_file" placeholder="เลือกไฟล์… เช่น scan_2026-08-08.pdf" value="' +
+        esc(prev ? prev.n : "") + '">', !!(d && d.req)) +
+      '<div class="hint" style="margin:-4px 0 2px">ระบบเปลี่ยนชื่อไฟล์ให้เป็น <b id="up_named">' +
+        esc(DRIVE.fileName(p, code, prev ? prev.n : "scan.pdf")) + "</b> แล้ววางในโฟลเดอร์ของรายการนี้ให้เอง — " +
+        "ไม่ต้องตั้งชื่อและไม่ต้องเปิด Drive</div>" +
+
+      '<div class="fld"><span class="lbl">หมายเหตุของขั้นนี้</span>' +
+        '<textarea id="up_note" rows="3" placeholder="เช่น ของมาไม่ครบ 5 KG ผู้ขายจะส่งตามพรุ่งนี้">' +
+        esc(prev ? prev.note : "") + "</textarea></div>" +
+
+      (d && d.req ? "" : '<label class="chkline"><input type="checkbox" id="up_none"' +
+        '> ขั้นนี้ไม่มีเอกสารต้องแนบ (บันทึกเฉพาะหมายเหตุ)</label>') +
+
+      '<div class="errbox" id="up_err"></div>' +
+      '<div class="fl2"><button class="btn" data-uact="close">ยกเลิก</button>' +
+      '<button class="btn ok" data-uact="save">บันทึกและส่งต่อ</button></div></div></div>';
+    upCalc();
+  }
+
+  function upCalc() {
+    const p = upTarget(); if (!p) return [];
+    const d = upOpen.doc ? DOCS.filter(x => x.c === upOpen.doc)[0] : null;
+    const code = d ? d.c : "STEP_" + upOpen.step;
+    const file = valOf("up_file").trim(), note = valOf("up_note").trim();
+    const none = !!(document.getElementById("up_none") || {}).checked;
+
+    const nm = document.getElementById("up_named");
+    if (nm) nm.textContent = DRIVE.fileName(p, code, file || "scan.pdf");
+
+    const errs = [];
+    if (d && d.req && !file) errs.push("ขั้นนี้ต้องแนบ " + d.n + " ก่อนถึงจะส่งต่อได้");
+    if (!file && !none && !d) errs.push("ยังไม่ได้แนบไฟล์ — ถ้าขั้นนี้ไม่มีเอกสารจริง ให้ติ๊กช่องด้านล่าง");
+    if (!file && none && !note) errs.push("ไม่แนบไฟล์ต้องเขียนหมายเหตุว่าทำอะไรไปในขั้นนี้");
+    const eb = document.getElementById("up_err");
+    if (eb) eb.innerHTML = errs.map(e => '<div class="e1">' + esc(e) + "</div>").join("");
+    return errs;
+  }
+
+  /* ================= เพิ่มรายการซื้อเงินสด (ไม่มี PO) ================= */
+  function cashModal() {
+    const el = $("#modal");
+    if (!cashOpen) { el.innerHTML = ""; return; }
+
+    el.innerHTML = '<div class="bugwrap" data-cash="close"></div>' +
+      '<div class="bugpanel wide" role="dialog" aria-label="เพิ่มรายการซื้อเงินสด">' +
+      "<h3>เพิ่มรายการซื้อเงินสด (ไม่ได้เปิด PO)" +
+        '<button data-cash="close" aria-label="ปิด">✕</button></h3>' +
+      '<div class="bugbody">' +
+
+      '<div class="ctxbox">ใช้กับของที่ต้องจ่ายสดหน้างานและไม่ได้เปิด PO ใน B1 ' +
+        "เช่น ผักสดตลาด ค่าขนส่งย่อย ของด่วน<br>" +
+        "ระบบจะออกเลข <b>CS-26-xxxx</b> ให้เอง — <i>ไม่ใช่เลข PO และจะไม่ถูกส่งเข้า B1 ในฐานะ PO</i></div>" +
+
+      '<div class="grid2">' +
+      fld1("ผู้ขาย / ร้าน", '<input type="text" id="cs_sup" placeholder="เช่น ตลาดไท — ร้านเจ๊หมวย">', true) +
+      fld1("สินค้า", '<input type="text" id="cs_item" placeholder="เช่น ผักชี / ต้นหอม">', true) +
+      fld1("จำนวน", '<input type="text" id="cs_qty" placeholder="เช่น 60 KG">', true) +
+      fld1("ยอดเงินที่จ่าย (บาท)", '<input type="number" step="0.01" id="cs_amt" placeholder="0.00">', true) +
+      fld1("วันที่จ่ายเงิน", '<input type="date" id="cs_date" value="' + todayISO() + '">', true) +
+      fld1("จ่ายจาก", '<select id="cs_from"><option value="PETTY">เงินสดย่อย (petty cash)</option>' +
+        '<option value="OWN">ผู้ซื้อสำรองจ่าย — ขอเบิกคืน</option>' +
+        '<option value="TRANSFER">โอนจากบัญชีบริษัท</option></select>', true) +
+      "</div>" +
+
+      '<div class="fld"><span class="lbl">ทำไมถึงไม่เปิด PO <span class="req">*</span></span>' +
+        '<input type="text" id="cs_why" placeholder="เช่น ร้านไม่รับเครดิต ต้องจ่ายสดหน้างาน"></div>' +
+
+      '<label class="chkline"><input type="checkbox" id="cs_bypass"> ' +
+        "ล็อตนี้ไม่ต้องให้ QC ตรวจรับ (ข้าม QC)</label>" +
+      '<div class="fld" id="cs_bywrap"><span class="lbl">เหตุผลที่ข้าม QC และใครอนุมัติ <span class="req">*</span></span>' +
+        '<input type="text" id="cs_bywhy" placeholder="เช่น ผักสดตรวจหน้างานแล้ว — คุณสมหญิง (หัวหน้า QC) อนุมัติ"></div>' +
+
+      '<div class="calcbox" id="cs_calc"></div>' +
+      '<div class="errbox" id="cs_err"></div>' +
+      '<div class="fl2"><button class="btn" data-cash="close">ยกเลิก</button>' +
+      '<button class="btn ok" data-cash="save">บันทึกรายการเงินสด</button></div></div></div>';
+    cashCalc();
+  }
+
+  function cashCalc() {
+    if (!cashOpen) return [];
+    const amt = numOf("cs_amt"), by = !!(document.getElementById("cs_bypass") || {}).checked;
+    const cb = document.getElementById("cs_calc");
+    if (cb) cb.innerHTML =
+      '<div class="cl"><span>ยอดที่จ่าย</span><span>' + baht(amt) + "</span></div>" +
+      '<div class="cl"><span>ขั้นตอนที่ต้องทำต่อ</span><span>' +
+        (by ? "รับเข้าคลัง → แนบบิล → ปิดรายการ" : "QC ตรวจรับ → รับเข้าคลัง → แนบบิล → ปิดรายการ") + "</span></div>" +
+      '<div class="cl tot"><span>' + (by ? "ข้าม QC — บันทึกเหตุผลถาวร" : "ผ่าน QC ตามปกติ") +
+        "</span><span>" + (by ? "ขึ้นในรายงานให้หัวหน้า QC เห็นทุกใบ" : "—") + "</span></div>";
+
+    const errs = [];
+    if (!valOf("cs_sup").trim()) errs.push("ต้องระบุผู้ขาย/ร้าน");
+    if (!valOf("cs_item").trim()) errs.push("ต้องระบุสินค้า");
+    if (!valOf("cs_qty").trim()) errs.push("ต้องระบุจำนวน");
+    if (amt <= 0) errs.push("ยอดเงินต้องมากกว่า 0");
+    if (!valOf("cs_why").trim()) errs.push("C1 · ต้องบอกเหตุผลที่ไม่เปิด PO — ผู้ตรวจสอบบัญชีถามทุกครั้ง");
+    const cd = valOf("cs_date");
+    if (!cd) errs.push("ต้องระบุวันที่จ่ายเงิน");
+    else if (dayDiff(cd, todayISO()) > 0) errs.push("C2 · วันที่จ่ายเป็นวันข้างหน้า — บันทึกได้เมื่อจ่ายจริงแล้ว");
+    if (by && !valOf("cs_bywhy").trim())
+      errs.push("C3 · ข้าม QC ต้องระบุเหตุผลและชื่อผู้อนุมัติ — เก็บไว้เป็นหลักฐานถาวร");
+    if (amt > APV_LIMIT) errs.push("C4 · เงินสดเกิน " + baht(APV_LIMIT) + " ต้องเปิด PO — วงเงินนี้แก้ได้ในหน้าตั้งค่า");
+
+    const bw = document.getElementById("cs_bywrap");
+    if (bw && bw.style) bw.style.display = by ? "" : "none";
+    const eb = document.getElementById("cs_err");
+    if (eb) eb.innerHTML = errs.map(e => '<div class="e1">' + esc(e) + "</div>").join("");
+    return errs;
+  }
+
+  /* ================= ขออนุมัติจ่าย (SR ขั้นส่งมอบเอกสาร) =================
+     ยอดเงิน + วันที่มีผล เป็นช่องบังคับ · ติ๊กเพื่อประทับข้อความลงบนเอกสารที่แนบ
+     ตัวอย่างแก้ข้อความได้ ปรับตำแหน่ง/ขนาดได้ แล้วส่งให้หัวหน้าอนุมัติ */
+  function prTarget() {
+    if (!payReqOpen) return null;
+    const p = POS.filter(x => x.no === payReqOpen.po)[0];
+    if (!p) return null;
+    // ขอจ่ายได้เฉพาะงวดที่ยังไม่ถูกตั้งเรื่อง — กันการขอซ้ำงวดที่หัวหน้าอนุมัติไปแล้ว
+    const x = p.payments.filter(y => y.status === "PENDING")[0] || null;
+    return {p:p, x:x};
+  }
+  const prRemain = p => p.payments.filter(y => y.status !== "PAID" && y.status !== "VOID" &&
+    y.status !== "CANCELLED").reduce((s, y) => s + y.amount, 0);
+
+  function prText() {
+    const t = prTarget(); if (!t || !t.x) return "";
+    return "ขออนุมัติทำจ่าย " + t.p.no + "\n" +
+      "ผู้ขาย " + t.p.sup + "\n" +
+      "ยอดที่ต้องจ่าย " + baht(numOf("pr_amt") || t.x.amount) + "\n" +
+      "มีผลวันที่ " + isoToTH(valOf("pr_eff") || todayISO()) + "\n" +
+      "ผู้ขอ " + (ROLES[role] ? ROLES[role].person : "-");
+  }
+
+  function payReqModal() {
+    const el = $("#modal");
+    const t = prTarget();
+    if (!t) { payReqOpen = null; el.innerHTML = ""; return; }
+    const p = t.p, x = t.x;
+    if (!x) {
+      el.innerHTML = '<div class="bugwrap" data-pract="close"></div>' +
+        '<div class="bugpanel" role="dialog" aria-label="ขออนุมัติทำจ่าย">' +
+        "<h3>ขออนุมัติทำจ่าย — " + esc(p.no) +
+          '<button data-pract="close" aria-label="ปิด">✕</button></h3>' +
+        '<div class="bugbody"><div class="ctxbox">ทุกงวดของ PO นี้ถูกตั้งเรื่องหรือจ่ายไปแล้ว ' +
+        "ไม่มีงวดที่ต้องขออนุมัติเพิ่ม<br>ถ้ายอดไม่ถูกต้อง ให้บัญชีกลับรายการงวดเดิมก่อน</div>" +
+        '<div class="fl2"><button class="btn" data-pract="close">ปิด</button></div></div></div>';
+      return;
+    }
+    const files = Object.keys(p.files).filter(k => k.indexOf("STEP_") !== 0);
+    const docOpts = (files.length ? files : DOCS.filter(d => docState(p, d) !== "na").map(d => d.c))
+      .map(c => { const d = DOCS.filter(y => y.c === c)[0];
+        return '<option value="' + esc(c) + '">' + esc(d ? d.n : c) + "</option>"; }).join("");
+
+    el.innerHTML = '<div class="bugwrap" data-pract="close"></div>' +
+      '<div class="bugpanel wide" role="dialog" aria-label="ขออนุมัติทำจ่าย">' +
+      "<h3>ส่งเอกสาร + ขออนุมัติทำจ่าย — " + esc(p.no) +
+        '<button data-pract="close" aria-label="ปิด">✕</button></h3>' +
+      '<div class="bugbody">' +
+
+      '<div class="ctxbox">ผู้ขาย: <b>' + esc(p.sup) + "</b> · เงื่อนไข <b>" + esc(p.term) + "</b><br>" +
+        "งวดที่จะขอจ่าย: <b>" + esc(x.type) + "</b> · ยอดคงเหลือทั้งใบ <b>" + baht(prRemain(p)) + "</b><br>" +
+        "เอกสารในไดรฟ์: <b>" + (DOCS.filter(d => docState(p, d) === "ok" || p.files[d.c]).length) +
+        " ใบ</b> — แนบไปพร้อมคำขอให้อัตโนมัติ</div>" +
+
+      '<div class="grid2">' +
+      fld1("ยอดเงินที่ต้องจ่าย (บาท)", '<input type="number" step="0.01" id="pr_amt" value="' +
+        x.amount + '">', true) +
+      fld1("Effective date — วันที่ต้องมีผลจ่าย", '<input type="date" id="pr_eff" value="' +
+        (thToISO(x.due) || todayISO()) + '">', true) +
+      "</div>" +
+
+      '<label class="chkline"><input type="checkbox" id="pr_stamp" checked> ' +
+        "ประทับข้อความนี้ลงบนเอกสารที่แนบ</label>" +
+
+      '<div class="grid2">' +
+      fld1("เอกสารที่จะประทับ", '<select id="pr_doc">' + docOpts + "</select>") +
+      fld1("ตำแหน่ง", '<select id="pr_pos"><option value="TR">มุมขวาบน</option>' +
+        '<option value="TL">มุมซ้ายบน</option><option value="BR" selected>มุมขวาล่าง</option>' +
+        '<option value="CT">กลางหน้า (ลายน้ำ)</option></select>') +
+      fld1("ขนาดตัวอักษร", '<select id="pr_size"><option value="11">เล็ก 11pt</option>' +
+        '<option value="13" selected>กลาง 13pt</option><option value="16">ใหญ่ 16pt</option></select>') +
+      fld1("สี", '<select id="pr_color"><option value="ดำ">ดำ</option>' +
+        '<option value="แดง" selected>แดง</option><option value="เทาจาง">เทาจาง (ลายน้ำ)</option></select>') +
+      "</div>" +
+
+      '<div class="fld"><span class="lbl">ตัวอย่างข้อความที่จะพิมพ์ลงเอกสาร — แก้ได้</span>' +
+      '<div class="prev" id="pr_prev"><div class="pt"><span id="pr_ptl">ตัวอย่าง</span>' +
+        '<span id="pr_ptr">—</span></div>' +
+      '<textarea class="sheet" id="pr_text">' + esc(prText()) + "</textarea></div></div>" +
+
+      '<div class="errbox" id="pr_err"></div>' +
+      '<div class="fl2"><button class="btn" data-pract="close">ยกเลิก</button>' +
+      '<button class="btn ok" data-pract="send">ส่งให้หัวหน้าอนุมัติ</button></div></div></div>';
+    prTouched = false;
+    prCalc();
+  }
+
+  function prCalc() {
+    const t = prTarget(); if (!t || !t.x) return [];
+    const p = t.p;
+    const stamp = !!(document.getElementById("pr_stamp") || {}).checked;
+    const amt = numOf("pr_amt"), eff = valOf("pr_eff");
+
+    // ข้อความตัวอย่างเดินตามยอด/วันที่ จนกว่าผู้ใช้จะพิมพ์ทับ
+    const ta = document.getElementById("pr_text");
+    if (ta && !prTouched) ta.value = prText();
+
+    const pv = document.getElementById("pr_prev");
+    if (pv && pv.classList) { if (stamp) pv.classList.remove("off"); else pv.classList.add("off"); }
+    const l = document.getElementById("pr_ptl"), r = document.getElementById("pr_ptr");
+    const POSN = {TR:"มุมขวาบน", TL:"มุมซ้ายบน", BR:"มุมขวาล่าง", CT:"กลางหน้า (ลายน้ำ)"};
+    const dc = DOCS.filter(y => y.c === valOf("pr_doc"))[0];
+    if (l) l.textContent = stamp ? "จะพิมพ์ลง " + (dc ? dc.n : "เอกสารที่เลือก") : "ไม่ประทับลงเอกสาร";
+    if (r) r.textContent = stamp
+      ? (POSN[valOf("pr_pos")] || "—") + " · " + (valOf("pr_size") || "13") + "pt · " + (valOf("pr_color") || "แดง")
+      : "แนบข้อความเป็นหมายเหตุแทน";
+
+    const errs = [];
+    if (amt <= 0) errs.push("S1 · ต้องระบุยอดเงินที่ต้องจ่าย");
+    if (amt > prRemain(p) + 1)
+      errs.push("S2 · ยอดที่ขอ " + baht(amt) + " เกินยอดคงเหลือของ PO (" + baht(prRemain(p)) + ")");
+    if (!eff) errs.push("S3 · ต้องระบุ Effective date");
+    else if (dayDiff(eff, todayISO()) < 0)
+      errs.push("S4 · Effective date เป็นวันย้อนหลัง — บัญชีจะทำจ่ายตามวันนี้ไม่ได้");
+    if (p.claim) errs.push("S5 · PO นี้มีใบเคลมค้าง — ขอจ่ายไม่ได้จนกว่าจะได้ใบลดหนี้");
+    if (missing(p).length)
+      errs.push("S6 · ยังขาดเอกสาร " + missing(p).map(d => d.n).join(" · ") + " — หัวหน้าจะตีกลับ");
+    if (stamp && !valOf("pr_text").trim()) errs.push("S7 · ติ๊กประทับข้อความแล้วแต่ข้อความว่าง");
+
+    const eb = document.getElementById("pr_err");
+    if (eb) eb.innerHTML = errs.map(e => '<div class="e1">' + esc(e) + "</div>").join("") +
+      (errs.length ? "" : '<div class="w1">ส่งแล้วจะไปที่ ' +
+        (amt > APV_LIMIT ? "ผู้บริหาร (เกินวงเงิน " + baht(APV_LIMIT) + ")" : "หัวหน้าบัญชี") +
+        " — ระบบแจ้งเตือนให้เอง</div>");
+    return errs;
+  }
+
+  /* ป๊อปอัปทั้งหมดใช้ช่อง #modal ร่วมกัน — ตัวจ่ายงานตัวเดียว กันไม่ให้ล้างของกันเอง */
+  function modals() {
+    if (payOpen) { payModal(); return; }
+    if (quoteOpen) { quoteModal(); return; }
+    if (upOpen) { uploadModal(); return; }
+    if (cashOpen) { cashModal(); return; }
+    if (payReqOpen) { payReqModal(); return; }
+    $("#modal").innerHTML = "";
+  }
+
   /* ========== กันพลาด: ยืนยันก่อนทำสิ่งที่ย้อนกลับยาก ========== */
   const CONFIRM = {
     qcfail: {t:"บันทึกว่าตรวจรับไม่ผ่าน",
@@ -1777,8 +2245,11 @@
     p.stage = n; p.age = 0;
     if (p.stage >= STAGES.length) {
       p.stage = STAGES.length; p.status = "COMPLETED";
+      p.bundle = mergeDocs(p);   // รวมเอกสารทั้งชุดเป็นไฟล์เดียวอัตโนมัติ
       p.tl.push(["วันนี้","ระบบ","ปิดรายการ — ย้ายไปแท็บเสร็จสิ้น"]);
-      toast(p.no + " ปิดรายการแล้ว — ย้ายออกจากรายการที่กำลังดำเนินการ");
+      p.tl.push(["วันนี้","ระบบ","รวมเอกสาร " + p.bundle.parts.length + " ใบเป็นไฟล์เดียว " +
+        p.bundle.name + " (" + p.bundle.pages + " หน้า) เก็บที่ " + DRIVE.folderOf(p)]);
+      toast(p.no + " ปิดรายการแล้ว — รวมเอกสาร " + p.bundle.parts.length + " ใบเป็นไฟล์เดียวให้แล้ว");
     } else {
       toast("ส่งต่อให้ " + ROLES[STAGES[p.stage].o].name + " แล้ว — ระบบแจ้งเตือนให้เอง");
     }
@@ -1862,6 +2333,44 @@
     }
     if (ev.target.closest("[data-clear]")) { q = ""; fDept = ""; render(); return; }
 
+    // รายการซื้อเงินสด — ไม่ผูกกับ PO ที่เปิดอยู่ จึงต้องอยู่ก่อนด่านตรวจ openPo
+    const cs = ev.target.closest("[data-cash]");
+    if (cs) {
+      const act = cs.dataset.cash;
+      if (act === "open") { cashOpen = true; modals(); return; }
+      if (act === "close") { cashOpen = false; modals(); return; }
+      if (act === "save") {
+        if (cashCalc().length) { toast("บันทึกไม่ได้ — แก้ข้อที่ติดก่อน"); return; }
+        const by = !!(document.getElementById("cs_bypass") || {}).checked;
+        const nums = POS.map(x => parseInt(String(x.no).split("-")[2], 10)).filter(v => !isNaN(v));
+        const no = "CS-26-" + String((nums.length ? Math.max.apply(null, nums) : 0) + 1).padStart(4, "0");
+        const amt = numOf("cs_amt"), d = valOf("cs_date");
+        const FROM = {PETTY:"เงินสดย่อย (petty cash)", OWN:"ผู้ซื้อสำรองจ่าย — ขอเบิกคืน",
+                      TRANSFER:"โอนจากบัญชีบริษัท"};
+        const p2 = {
+          no:no, sap:"", entry:"CASH", sup:valOf("cs_sup").trim(), item:valOf("cs_item").trim(),
+          qty:valOf("cs_qty").trim(), amt:amt, cur:"THB", term:"เงินสด — จ่ายหน้างาน",
+          stage:by ? 11 : 10, age:0, owner:ROLES[role].person, status:"ACTIVE", claim:false,
+          skip:cashSkip(by), date:isoToTH(d), files:{}, bundle:null,
+          cashWhy:valOf("cs_why").trim(),
+          qcBypass:by, qcBypassBy:by ? ROLES[role].person : "", qcBypassWhy:by ? valOf("cs_bywhy").trim() : "",
+          payments:[pay(1, "จ่ายสดหน้างาน", 100, amt, isoToTH(d), "PAID", isoToTH(d),
+            {method:"CASH", bank:FROM[valOf("cs_from")] || FROM.PETTY,
+             ref:"CS" + String(d).replace(/-/g, "").slice(2) + String(nums.length + 1).padStart(3, "0"),
+             fee:0, paidAmt:amt, paidBy:ROLES[role].person, reqBy:ROLES[role].person, apvBy:"—"})],
+          tl:[["วันนี้", ROLES[role].person, "เพิ่มรายการซื้อเงินสด " + baht(amt) +
+                " — ไม่ได้เปิด PO (" + valOf("cs_why").trim() + ")"]]
+        };
+        if (by) p2.tl.push(["วันนี้", "ระบบ",
+          "ข้าม QC ตามที่ระบุ: " + valOf("cs_bywhy").trim() + " — บันทึกถาวรและขึ้นในรายงานหัวหน้า QC"]);
+        POS.unshift(p2);
+        cashOpen = false; openPo = no; page = "detail";
+        toast(no + " บันทึกแล้ว" + (by ? " · ข้าม QC — แจ้งหัวหน้า QC ให้รับทราบแล้ว" : " · เข้าคิว QC ตรวจรับ"));
+        render(); return;
+      }
+      return;
+    }
+
     const pr = ev.target.closest("[data-po]");
     if (pr) { openPo = pr.dataset.po; page = "detail"; render(); return; }
     const cr = ev.target.closest("[data-claim]");
@@ -1890,7 +2399,7 @@
     const qa = ev.target.closest("[data-qact]");
     if (qa) {
       const act = qa.dataset.qact;
-      if (act === "cancel") { quoteOpen = null; quoteModal(); return; }
+      if (act === "cancel") { quoteOpen = null; modals(); return; }
       if (act === "save") {
         if (!quoteOpen) return;
         if (quoteCalc().length) { toast("บันทึกไม่ได้ — แก้ข้อที่ติดก่อน"); return; }
@@ -1903,12 +2412,12 @@
           validUntil:isoToTH(valOf("q_valid") || todayISO()), by:person(role) || "-", date:"วันนี้", selected:false
         });
         if (r.status === "NEW") r.status = "QUOTING";
-        quoteOpen = null; quoteModal();
+        quoteOpen = null; modals();
         toast(newId + " บันทึกแล้ว — เทียบกับใบอื่นได้ทันที");
         render(); return;
       }
       const r = PRICEREQS.filter(x => x.id === openPR)[0]; if (!r) return;
-      if (act === "add") { quoteOpen = {reqId: r.id}; quoteModal(); return; }
+      if (act === "add") { quoteOpen = {reqId: r.id}; modals(); return; }
       if (act === "pick") {
         quotesOf(r.id).forEach(q => { q.selected = (q.id === qa.dataset.id); });
         if (r.status === "NEW") r.status = "QUOTING";
@@ -1924,6 +2433,7 @@
           no:newNo, sap:"", sup:sel.supplier, item:r.item, qty:r.qty,
           amt:total, cur:sel.cur, term:"รอกำหนดตอนผูกกับ B1", stage:3, age:0, owner:person(role) || "คุณสมชาย",
           status:"ACTIVE", claim:false, skip:[1,2,5], date:"05/08/2026",
+          entry:"PO", files:{}, bundle:null,
           fromQuote:sel.id, fromReq:r.id,
           payments:[pay(1, "ชำระเต็ม", 100, total, "—", "PENDING")],
           tl:[["วันนี้", "ระบบ", "เปิด PO จากใบเสนอราคา " + sel.id + " (" + sel.supplier + ") — " +
@@ -1955,11 +2465,12 @@
 
     const p = POS.filter(x => x.no === openPo)[0];
     if (!p) return;
+    const s = st(p) || {c:"", n:"", o:"", sla:0};
 
     const pa = ev.target.closest("[data-payact]");
     if (pa) {
       const act = pa.dataset.payact;
-      if (act === "close") { payOpen = null; payModal(); return; }
+      if (act === "close") { payOpen = null; modals(); return; }
 
       if (act === "save") {
         const t = payTarget(); if (!t) return;
@@ -1984,7 +2495,7 @@
         t.p.tl.push(["วันนี้", ROLES[role].person,
           "บันทึกจ่ายงวดที่ " + x.seq + " " + baht(x.paidAmt) + " · อ้างอิง " + x.ref]);
         t.p.tl.push(["วันนี้", "ระบบ", "แจ้งผู้ขายพร้อมสลิปทางอีเมล และแจ้งจัดซื้อใน Lark"]);
-        payOpen = null; payModal();
+        payOpen = null; modals();
         toast(unpaid(t.p).length
           ? "บันทึกแล้ว — เหลืออีก " + unpaid(t.p).length + " งวด · ส่งสลิปให้ผู้ขายอัตโนมัติ"
           : "จ่ายครบทุกงวดแล้ว · ส่งสลิปให้ผู้ขายอัตโนมัติ");
@@ -1996,7 +2507,7 @@
       }
       const x = p.payments.filter(y => String(y.seq) === pa.dataset.seq)[0];
       if (!x) return;
-      if (act === "form") { payOpen = {po:p.no, seq:x.seq}; payModal(); return; }
+      if (act === "form") { payOpen = {po:p.no, seq:x.seq}; modals(); return; }
       if (act === "req") {
         x.status = "REQUESTED"; x.reqBy = ROLES[role].person;
         p.tl.push(["วันนี้", ROLES[role].person, "ตั้งเรื่องขอจ่ายงวดที่ " + x.seq + " " + baht(x.amount)]);
@@ -2025,14 +2536,77 @@
       }
       render(); return;
     }
+    // ป๊อปอัปแนบเอกสารประจำขั้น
+    const ua = ev.target.closest("[data-uact]");
+    if (ua) {
+      const act = ua.dataset.uact;
+      if (act === "close") { upOpen = null; modals(); return; }
+      if (act === "save") {
+        const tp = upTarget(); if (!tp) return;
+        if (upCalc().length) { toast("ส่งต่อไม่ได้ — แก้ข้อที่ติดก่อน"); return; }
+        const d = upOpen.doc ? DOCS.filter(x => x.c === upOpen.doc)[0] : null;
+        const code = d ? d.c : "STEP_" + upOpen.step;
+        const file = valOf("up_file").trim(), note = valOf("up_note").trim();
+        if (file) tp.files[code] = {n:DRIVE.fileName(tp, code, file), orig:file, note:note,
+          by:ROLES[role].person, at:"วันนี้", step:upOpen.step};
+        const sg = STAGES.filter(x => x.c === upOpen.step)[0];
+        if (file) tp.tl.push(["วันนี้", ROLES[role].person,
+          "แนบ " + (d ? d.n : "เอกสารขั้น " + (sg ? sg.n : "")) + " → " + DRIVE.folderOf(tp) +
+          "/" + DRIVE.fileName(tp, code, file)]);
+        if (note) tp.tl.push(["วันนี้", ROLES[role].person, "หมายเหตุ: " + note]);
+        const doneNote = upOpen.note || ("ทำ “" + (sg ? sg.n : "") + "” เสร็จ");
+        upOpen = null; modals();
+        advance(tp, doneNote);
+        render(); return;
+      }
+      return;
+    }
+
+    // ขออนุมัติทำจ่าย (SR ขั้นส่งมอบเอกสาร)
+    const pq = ev.target.closest("[data-pract]");
+    if (pq) {
+      const act = pq.dataset.pract;
+      if (act === "close") { payReqOpen = null; modals(); return; }
+      if (act === "send") {
+        const t = prTarget(); if (!t || !t.x) return;
+        if (prCalc().length) { toast("ส่งไม่ได้ — แก้ข้อที่ติดก่อน"); return; }
+        const amt = numOf("pr_amt"), eff = valOf("pr_eff");
+        const stamp = !!(document.getElementById("pr_stamp") || {}).checked;
+        const txt = valOf("pr_text").trim();
+        const dc = DOCS.filter(y => y.c === valOf("pr_doc"))[0];
+        const x = t.x;
+        x.amount = amt; x.due = isoToTH(eff); x.status = "REQUESTED";
+        x.reqBy = ROLES[role].person; x.effNote = txt;
+        t.p.tl.push(["วันนี้", ROLES[role].person,
+          "ขออนุมัติทำจ่าย " + baht(amt) + " · มีผลวันที่ " + isoToTH(eff)]);
+        if (stamp) t.p.tl.push(["วันนี้", "ระบบ",
+          "ประทับข้อความลงบน " + (dc ? dc.n : "เอกสารที่แนบ") + " (" +
+          (valOf("pr_size") || "13") + "pt) แล้วเก็บเป็นเวอร์ชันใหม่ — ต้นฉบับยังอยู่"]);
+        t.p.tl.push(["วันนี้", "ระบบ", "แนบเอกสารทั้งชุดจากไดรฟ์กลางไปกับคำขอ และแจ้ง " +
+          (amt > APV_LIMIT ? "ผู้บริหาร" : "หัวหน้าบัญชี") + " ทาง Lark"]);
+        payReqOpen = null; modals();
+        advance(t.p, "ส่งมอบเอกสารครบชุด + ขออนุมัติทำจ่าย");
+        toast(amt > APV_LIMIT ? "ส่งให้ผู้บริหารอนุมัติแล้ว (เกิน " + baht(APV_LIMIT) + ")"
+                              : "ส่งให้หัวหน้าบัญชีอนุมัติแล้ว");
+        render(); return;
+      }
+      return;
+    }
+
     const up = ev.target.closest("[data-up]");
-    if (up) { advance(p, "อัพโหลด " + (DOCS.filter(d=>d.c===up.dataset.up)[0]||{n:""}).n); render(); return; }
+    if (up) {
+      upOpen = {po:p.no, doc:up.dataset.up, step:(st(p) || {}).c,
+        note:"อัพโหลด " + (DOCS.filter(d => d.c === up.dataset.up)[0] || {n:""}).n};
+      modals(); return;
+    }
 
     const ab = ev.target.closest("[data-act]");
     if (!ab) return;
     const a = ab.dataset.act;
     if (CONFIRM[a] && confirmedOnce !== a) { pendingAct = {act:a}; confirmPanel(); return; }
-    if (a === "approve") advance(p, "อนุมัติภายใน");
+    if (a === "approve") { upOpen = {po:p.no, doc:null, step:s.c, note:"อนุมัติภายใน"}; modals(); return; }
+    else if (a === "payreq") { payReqOpen = {po:p.no}; modals(); return; }
+    else if (a === "cash") { cashOpen = true; modals(); return; }
     else if (a === "nudge") {
       p.tl.push(["วันนี้", ROLES[role].person, "เตือนงานไปที่ " + ROLES[ownerOf(p)].name]);
       toast("ส่งเตือนถึง " + person(ownerOf(p)) + " ทาง Lark แล้ว — บันทึกไว้ในประวัติด้วย");
@@ -2045,7 +2619,10 @@
       advance(p, "ผูกกับ PO ใน B1");
     }
     else if (a === "reject") { p.tl.push(["วันนี้", ROLES[role].person, "ไม่อนุมัติ — ตีกลับพร้อมเหตุผล"]); toast("ตีกลับให้จัดซื้อแล้ว"); }
-    else if (a === "qcpass") advance(p, "ตรวจรับผ่าน");
+    else if (a === "qcpass") {
+      upOpen = {po:p.no, doc:(docAtStage(p) || {}).c || null, step:s.c, note:"ตรวจรับผ่าน"};
+      modals(); return;
+    }
     else if (a === "goic") { page = "req"; subtab = "ITEM"; render(); return; }
     else if (a === "qcfail") {
       p.claim = true;
@@ -2066,7 +2643,10 @@
       // ขั้นปิดบัญชีถูกกั้นด้วยกฎตรวจสอบ — บอกทุกข้อที่ติดพร้อมกัน ไม่ใช่ทีละข้อ
       const bl = s.c === "AC_CLOSE" ? blockedBy(p) : [];
       if (bl.length) { toast("ปิดไม่ได้ — ติด " + bl.length + " ข้อ: " + bl.map(c => c.t).join(" · ")); render(); return; }
-      advance(p, "ทำ " + STAGES[p.stage].n + " เสร็จ");
+      // ทุกขั้นเปิดป๊อปอัปให้แนบไฟล์ของขั้นนั้น + เขียนหมายเหตุ ก่อนส่งต่อ
+      upOpen = {po:p.no, doc:(docAtStage(p) || {}).c || null, step:s.c,
+        note:"ทำ “" + (s.n || "") + "” เสร็จ"};
+      modals(); return;
     }
     render();
   }
@@ -2074,6 +2654,14 @@
   const PAYFIELDS = ["py_date","py_value","py_method","py_bank","py_ref","py_whttype",
     "py_wht","py_fee","py_feeby","py_amt","py_slip","py_reason","py_note"];
   const QFIELDS = ["q_supplier","q_price","q_lead","q_valid"];
+  const UPFIELDS = ["up_file","up_note","up_none"];
+  const CSFIELDS = ["cs_sup","cs_item","cs_qty","cs_amt","cs_date","cs_from","cs_why","cs_bypass","cs_bywhy"];
+  const PRFIELDS = ["pr_amt","pr_eff","pr_stamp","pr_doc","pr_pos","pr_size","pr_color","pr_text"];
+  function modalInput(id) {
+    if (UPFIELDS.indexOf(id) >= 0) { upCalc(); return; }
+    if (CSFIELDS.indexOf(id) >= 0) { cashCalc(); return; }
+    if (PRFIELDS.indexOf(id) >= 0) { if (id === "pr_text") prTouched = true; prCalc(); }
+  }
 
   document.addEventListener("input", function (ev) {
     if (ev.target.id === "q") { q = ev.target.value; const el = ev.target;
@@ -2086,6 +2674,7 @@
       payCalc();
     }
     if (QFIELDS.indexOf(ev.target.id) >= 0) quoteCalc();
+    modalInput(ev.target.id);
   });
   document.addEventListener("change", function (ev) {
     if (ev.target.id === "fdept") { fDept = ev.target.value; renderMain(); return; }
@@ -2094,6 +2683,7 @@
       payCalc();
     }
     if (QFIELDS.indexOf(ev.target.id) >= 0) quoteCalc();
+    modalInput(ev.target.id);
   });
 
   function renderMain() {
@@ -2107,7 +2697,7 @@
     else m.innerHTML = pageHome();
   }
   function render() {
-    chrome(); renderMain(); bugPanel(); payModal(); quoteModal(); confirmPanel();
+    chrome(); renderMain(); bugPanel(); modals(); confirmPanel();
     window.scrollTo({top:0, behavior:"instant"});
   }
   render();
