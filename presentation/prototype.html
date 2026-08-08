@@ -362,6 +362,26 @@
   .droot{font-family:var(--mono);font-size:11.5px;background:var(--surface);border:1px solid var(--line);
     border-radius:var(--r-sm);padding:2px 7px;color:var(--ink-2);white-space:nowrap}
 
+  /* ใบส่งงาน — สิ่งที่แผนกก่อนหน้าส่งมาให้ อยู่เหนือปุ่มที่ต้องกด ไม่ต้องเลื่อนหา */
+  .hoff{border:1px solid var(--line-2);border-left:3px solid var(--cold);border-radius:var(--r-md);
+    background:var(--surface);padding:12px 16px 10px;margin-bottom:14px}
+  .hoff>.ht{font-size:11px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-3);margin-bottom:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .hoff .grp{margin-bottom:9px}
+  .hoff .grp:last-child{margin-bottom:0}
+  .hoff .gh{font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:4px;display:flex;gap:7px;align-items:center}
+  .hoff .kv{display:grid;grid-template-columns:minmax(120px,auto) 1fr;gap:2px 14px;font-size:13px}
+  .hoff .kv dt{color:var(--ink-3)}
+  .hoff .kv dd{margin:0;font-weight:600;color:var(--ink)}
+  .hoff .kv dd.mono{font-family:var(--mono);font-size:12.5px}
+  .hoff .none{font-size:13px;color:var(--ink-3);font-style:italic}
+  .miss1{border:1px solid var(--stop);background:var(--stop-bg);border-radius:var(--r-md);
+    padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--stop);
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .miss1 .sp2{flex:1;min-width:180px}
+  @media (max-width:640px){.hoff .kv{grid-template-columns:1fr;gap:0 0}
+    .hoff .kv dt{margin-top:5px;font-size:12px}}
+
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);background:var(--ink);
     color:var(--paper);padding:10px 18px;font-size:13.5px;border-radius:var(--r-md);opacity:0;pointer-events:none;
     transition:opacity .2s,transform .2s;z-index:50;max-width:92vw;text-align:center;box-shadow:var(--sh-2)}
@@ -447,6 +467,48 @@
     {c:"INVOICE",   n:"ใบแจ้งหนี้",         o:"AC", at:12, req:true},
     {c:"RECEIPT",   n:"ใบเสร็จตัวจริง",     o:"AC", at:15, req:true}
   ];
+
+  /* ============ สัญญาระหว่างขั้น (Stage Contract) ============
+     ปัญหาที่แก้: แผนกถัดไปเปิดหน้าจอแล้วไม่รู้ว่าแผนกก่อนหน้าทำอะไรไว้ ต้องไปถามในไลน์
+     วิธีแก้: แต่ละขั้น "ประกาศ" ว่าต้องส่งมอบข้อมูลอะไรบ้าง เก็บเป็นข้อมูลเหมือน Stage_Templates
+       f   = ช่องที่ขั้นนี้ต้องกรอกก่อนส่งต่อ (ขึ้นในป๊อปอัปของขั้นนั้นเอง)
+       to  = ใครเอาไปใช้ต่อ — ใช้บอกผู้กรอกว่า "กรอกให้ใคร" ไม่ใช่กรอกให้ระบบ
+     เพิ่มช่องใหม่ = เพิ่มบรรทัดในตารางนี้ ไม่ต้องแก้หน้าจอ */
+  const HAND = {
+    SUPPLIER_SIGN: {to:"โลจิสติกส์", f:[
+      {k:"shipDate", lb:"ผู้ขายนัดส่งของวันที่", t:"date", req:true}]},
+    DELIVERY_BOOKING: {to:"QC และคลังสินค้า", f:[
+      {k:"eta",     lb:"ของถึงห้องเย็นวันที่", t:"date", req:true},
+      {k:"etaTime", lb:"เวลาโดยประมาณ",       t:"time", req:true},
+      {k:"truck",   lb:"ทะเบียนรถ / ผู้ขนส่ง", t:"text", req:false}]},
+    QC_INCOMING: {to:"คลังสินค้า และบัญชี", f:[
+      {k:"temp",   lb:"อุณหภูมิที่วัดได้ (°C)", t:"num",  req:true},
+      {k:"qtyOk",  lb:"จำนวนที่ตรวจแล้วรับได้", t:"text", req:true},
+      {k:"qtyBad", lb:"จำนวนที่ตีกลับ (ถ้ามี)", t:"text", req:false}]},
+    GR: {to:"บัญชี", f:[
+      {k:"qtyIn", lb:"จำนวนที่รับเข้าคลังจริง", t:"text", req:true},
+      {k:"grNo",  lb:"เลข GRPO ใน B1",          t:"text", req:true}]},
+    INVOICE_RECEIVED: {to:"จัดซื้อ และบัญชี", f:[
+      {k:"invNo",  lb:"เลขใบแจ้งหนี้ของผู้ขาย", t:"text", req:true},
+      {k:"invAmt", lb:"ยอดในใบแจ้งหนี้ (บาท)",  t:"num",  req:true}]},
+    RECEIPT_ORIGINAL: {to:"บัญชี", f:[
+      {k:"rcvBy", lb:"ใครเป็นผู้รับเอกสารตัวจริง", t:"text", req:true}]}
+  };
+
+  // ขั้นไหน "ต้องใช้" ข้อมูลที่ขั้นก่อนหน้าส่งมา — ถ้าไม่มี ระบบเตือนและให้ถามกลับได้ในคลิกเดียว
+  const NEEDS = {
+    DELIVERY_BOOKING: ["shipDate"],
+    QC_INCOMING:      ["eta"],
+    GR:               ["qtyOk", "temp"],
+    INVOICE_RECEIVED: ["qtyIn"],
+    DOC_HANDOVER:     ["invNo", "invAmt"],
+    PAYMENT:          ["invNo", "invAmt"],
+    AC_CLOSE:         ["qtyOk", "qtyIn", "invAmt"]
+  };
+
+  // ช่องไหนมาจากขั้นไหน (สร้างจาก HAND ไม่ต้องเขียนซ้ำ)
+  const FIELD_AT = {};
+  Object.keys(HAND).forEach(sc => HAND[sc].f.forEach(f => { FIELD_AT[f.k] = {stage:sc, lb:f.lb}; }));
 
   // งวดจ่าย — PENDING → REQUESTED → APPROVED → PAID (ดู docs/08)
   const pay = (seq, type, pct, amt, due, st, paid, ext) => Object.assign({
@@ -581,11 +643,52 @@
          ["07 ก.ค.","คุณสมชาย","ยกเลิก — แจ้งผู้ขายและปฏิเสธการสั่งซื้อ"]]}
   ];
 
+  // ข้อมูลที่แต่ละขั้นส่งมอบต่อกัน (ดู HAND) — ของตัวอย่างเติมย้อนหลังให้เหมือนใช้งานจริง
+  const HANDDATA = {
+    "PO-26-0042": {shipDate:"2026-07-30", eta:"2026-07-31", etaTime:"08:30", truck:"70-1234 กทม (ห้องเย็น)"},
+    "CS-26-0007": {qtyIn:"60 KG", grNo:"GR-CS-0007"},
+    "PO-26-0038": {shipDate:"2026-07-29", eta:"2026-07-30", etaTime:"07:00", truck:"82-5567 สป.",
+                   temp:-18.5, qtyOk:"800 KG", qtyBad:"—"},
+    "PO-26-0029": {shipDate:"2026-07-28", eta:"2026-07-29", etaTime:"06:30", truck:"70-9981 กทม",
+                   temp:-14.2, qtyOk:"80 KG", qtyBad:"40 KG (อุณหภูมิไม่ผ่าน)",
+                   qtyIn:"80 KG", grNo:"GR-26-0311"},
+    "PO-26-0033": {shipDate:"2026-07-26", eta:"2026-07-27", etaTime:"09:00", truck:"70-4412 กทม",
+                   temp:-19.0, qtyOk:"200 KG", qtyBad:"—", qtyIn:"200 KG", grNo:"GR-26-0298",
+                   invNo:"INV-OB-2607", invAmt:310000},
+    "PO-26-0045": {shipDate:"2026-07-31", eta:"2026-08-01", etaTime:"08:00", truck:"70-2210 กทม",
+                   temp:-18.8, qtyOk:"350 KG", qtyBad:"—", qtyIn:"350 KG", grNo:"GR-26-0305",
+                   invNo:"INV-ABC-0804", invAmt:122500},
+    "PO-26-0031": {shipDate:"2026-07-22", eta:"2026-07-23", etaTime:"08:00", truck:"70-3320 กทม",
+                   temp:-18.2, qtyOk:"150 KG", qtyBad:"—", qtyIn:"150 KG", grNo:"GR-26-0271",
+                   invNo:"INV-SM-2207", invAmt:84000, rcvBy:"คุณวิภา (รับที่หน้าออฟฟิศ)"},
+    "PO-26-0025": {shipDate:"2026-07-20", eta:"2026-07-21", etaTime:"08:00", truck:"70-1180 กทม",
+                   temp:-18.6, qtyOk:"400 KG", qtyBad:"—", qtyIn:"400 KG", grNo:"GR-26-0255",
+                   invNo:"INV-OB-2007", invAmt:268000, rcvBy:"คุณวิภา"},
+    "PO-26-0019": {shipDate:"2026-07-12", eta:"2026-07-13", etaTime:"08:00", truck:"70-7745 กทม",
+                   temp:-18.4, qtyOk:"250 KG", qtyBad:"—", qtyIn:"250 KG", grNo:"GR-26-0240",
+                   invNo:"INV-ABC-1207", invAmt:112000, rcvBy:"คุณวิภา"}
+  };
+  // สเปกที่ต้องตรวจ — เดิมอยู่แต่ในใบขอราคา QC จึงไม่เคยเห็นเกณฑ์ตรวจรับ
+  const SPECS = {
+    "PO-26-0042":"เปลือกใส ไม่มีจุดดำ แช่แข็ง IQF อุณหภูมิใจกลาง ≤ -18°C",
+    "PO-26-0051":"ทั้งตัว ไม่ควักไส้ แช่แข็งเดี่ยว IQF",
+    "CS-26-0007":"ผักสด ใบไม่เหลือง ไม่ช้ำ — ตรวจด้วยสายตาหน้างาน",
+    "PO-26-0038":"ปอกเปลือกไม่ผ่าหลัง IQF ≤ -18°C",
+    "PO-26-0029":"เนื้อขาว ไม่มีกลิ่น แช่แข็ง ≤ -18°C",
+    "PO-26-0033":"แล่ไม่มีหนัง ไม่มีก้าง แช่แข็ง ≤ -18°C",
+    "PO-26-0045":"ทั้งตัว ขอดเกล็ดแล้ว แช่น้ำแข็ง 0–4°C",
+    "PO-26-0031":"ตัวเป็น ขนาดสม่ำเสมอ",
+    "PO-26-0025":"ท่อนกลาง ไม่มีหนัง แช่แข็ง ≤ -18°C",
+    "PO-26-0019":"ทั้งตัว ล้างสะอาด แช่แข็ง ≤ -18°C"
+  };
+
   // ค่าเริ่มต้นของฟิลด์ที่เพิ่มรอบล่าสุด — ไม่ต้องไปเติมทีละแถวข้างบน
   POS.forEach(p => {
     if (!p.entry) p.entry = "PO";      // PO = เปิด PO ใน B1 · CASH = ซื้อเงินสด ไม่มี PO
     if (!p.files) p.files = {};        // ไฟล์ + หมายเหตุที่แนบในแต่ละขั้น
     if (!p.bundle) p.bundle = null;    // ชุดเอกสารรวมเล่ม (สร้างเมื่อปิดรายการ)
+    if (!p.hand) p.hand = HANDDATA[p.no] || {};   // ข้อมูลที่แต่ละขั้นส่งมอบต่อกัน
+    if (!p.spec) p.spec = SPECS[p.no] || "";      // เกณฑ์ตรวจรับ — QC ต้องเห็น
   });
 
   // ใบขอราคา — จุดเริ่มของ P2P (ก่อนมี PO) ผูกกับใบเสนอราคาที่ SR เทียบจากซัพหลายราย
@@ -959,13 +1062,77 @@
   }
   const person = k => ROLES[k] ? ROLES[k].person : "";
 
+  /* ============ ใบส่งงาน: "แผนกก่อนหน้าส่งอะไรมาให้" ============
+     เดิมข้อมูลนี้กระจายอยู่ในประวัติ ในการ์ดเอกสาร และในหัวของผู้ทำ
+     ตอนนี้รวมไว้เหนือปุ่มที่ต้องกด — เปิดหน้าจอแล้วเห็นเลย ไม่ต้องเลื่อน ไม่ต้องถามในไลน์ */
+  const handFmt = (f, v) => {
+    if (v === "" || v == null) return "—";
+    if (f.t === "date") return isoToTH(String(v));
+    if (f.t === "num") return /Amt$/.test(f.k) ? baht(v) : String(v);
+    return String(v);
+  };
+  function handoffCard(p) {
+    if (!isActive(p)) return "";
+    // ขั้นที่ทำไปแล้วและมีสัญญาส่งมอบข้อมูล เรียงจากใหม่ไปเก่า เอา 3 ขั้นล่าสุดพอ
+    const done = [];
+    for (let i = p.stage - 1; i >= 0 && done.length < 3; i--) {
+      if (p.skip.indexOf(i) >= 0) continue;
+      const sg = STAGES[i], h = HAND[sg.c], f = p.files[sg.c] || p.files["STEP_" + sg.c];
+      const kv = h ? h.f.filter(x => p.hand[x.k] !== undefined && p.hand[x.k] !== "") : [];
+      if (!kv.length && !f) continue;
+      done.push({sg:sg, kv:kv, file:f});
+    }
+    if (!done.length) return "";
+
+    let h = '<div class="hoff"><div class="ht">แผนกก่อนหน้าส่งอะไรมาให้คุณ' +
+      '<span class="droot">ไม่ต้องถามในไลน์</span></div>';
+    done.forEach(d => {
+      h += '<div class="grp"><div class="gh">' + dept(d.sg.o) + " " +
+        esc(ROLES[d.sg.o] ? ROLES[d.sg.o].name : d.sg.o) + " · " + esc(d.sg.n) + "</div>";
+      if (d.kv.length || d.file) {
+        h += '<dl class="kv">';
+        d.kv.forEach(x => { h += "<dt>" + esc(x.lb) + "</dt><dd>" + esc(handFmt(x, p.hand[x.k])) + "</dd>"; });
+        if (d.file && d.file.note) h += "<dt>หมายเหตุที่เขียนไว้</dt><dd>" + esc(d.file.note) + "</dd>";
+        if (d.file) h += "<dt>ไฟล์ที่แนบ</dt><dd class=\"mono\">" + esc(d.file.n) + "</dd>";
+        h += "</dl>";
+      } else h += '<div class="none">ไม่ได้ส่งข้อมูลอะไรมาเพิ่ม</div>';
+      h += "</div>";
+    });
+    return h + "</div>";
+  }
+
+  // ข้อมูลที่ขั้นนี้ "ต้องใช้" แต่ขั้นก่อนหน้าไม่ได้ส่งมา
+  function missingIn(p) {
+    const s = st(p); if (!s || !isActive(p)) return [];
+    return (NEEDS[s.c] || []).filter(k => p.hand[k] === undefined || p.hand[k] === "");
+  }
+  function missingCard(p) {
+    const ms = missingIn(p);
+    if (!ms.length) return "";
+    const byStage = {};
+    ms.forEach(k => { const at = FIELD_AT[k]; if (!at) return;
+      (byStage[at.stage] = byStage[at.stage] || []).push(at.lb); });
+    return Object.keys(byStage).map(sc => {
+      const sg = STAGES.filter(x => x.c === sc)[0] || {n:sc, o:"SR"};
+      return '<div class="miss1"><span>!</span><span class="sp2"><b>ข้อมูลที่ควรได้จาก' +
+        esc(ROLES[sg.o] ? ROLES[sg.o].name : sg.o) + "ยังไม่มี:</b> " + esc(byStage[sc].join(" · ")) +
+        " — ทำต่อได้ แต่ปลายทางจะติด</span>" +
+        '<button class="btn bad" data-ask="' + esc(sc) + '">ถามกลับไปที่ ' +
+        esc(ROLES[sg.o] ? ROLES[sg.o].name : sg.o) + "</button></div>";
+    }).join("");
+  }
+
   // กล่องบนสุด: ตอบคำถามเดียว — "ตอนนี้ฉันต้องทำอะไร"
   function todoCard(p) {
     const s = st(p), nx = nextStage(p);
     const mine = isActive(p) && s && s.o === role;
-    const then = nx ? '<div class="then">กดแล้วงานจะไปที่ <b>' + esc(ROLES[nx.o].name) + " (" + esc(person(nx.o)) +
-      ")</b> และระบบแจ้งเตือนให้เอง — ไม่ต้องบอกในไลน์</div>"
-      : '<div class="then">กดแล้ว PO นี้จะปิดและย้ายไปแท็บเสร็จสิ้น</div>';
+    // บอกล่วงหน้าว่างานจะไปไหน — ถ้าขั้นถัดไปเป็นแผนกตัวเอง ต้องไม่พูดว่า "ส่งต่อ" เพราะไม่ได้ส่งไปไหน
+    const then = !nx ? '<div class="then">กดแล้ว PO นี้จะปิดและย้ายไปแท็บเสร็จสิ้น</div>'
+      : nx.o === (s ? s.o : "") ? '<div class="then">กดแล้ว<b>งานยังอยู่ที่คุณ</b> — ขั้นถัดไปคือ <b>' +
+          esc(nx.n) + "</b> ไม่ได้ส่งไปแผนกอื่น</div>"
+      : '<div class="then">กดแล้วงานจะไปที่ <b>' + esc(ROLES[nx.o].name) + " (" + esc(person(nx.o)) +
+        ")</b> และระบบแจ้งเตือนให้เอง — ไม่ต้องบอกในไลน์" +
+        (HAND[s.c] ? " · สิ่งที่คุณกรอกจะไปขึ้นบนหน้าจอของเขาเลย" : "") + "</div>";
 
     if (!isActive(p))
       return '<div class="todo calm"><h3>สถานะ</h3><div class="big">PO นี้' +
@@ -993,6 +1160,13 @@
       btns = '<button class="btn pri" data-act="sappull">ดึงข้อมูล PO จาก SAP B1</button>';
     else if (s.c === "DOC_HANDOVER")
       btns = '<button class="btn pri" data-act="payreq">ส่งเอกสาร + ขออนุมัติทำจ่าย</button>';
+    else if (s.c === "PAYMENT") {
+      // ขั้นทำจ่ายต้องผูกกับการบันทึกจ่ายจริง ไม่ใช่ปุ่ม "เสร็จ" ลอย ๆ
+      const left = unpaid(p).filter(x => x.status !== "BLOCKED");
+      btns = left.length
+        ? '<button class="btn pri" data-act="topay">ไปที่งวดที่ต้องจ่าย (' + left.length + ' งวด)</button>'
+        : '<button class="btn ok" data-act="done">จ่ายครบแล้ว — ปิดขั้นทำจ่าย</button>';
+    }
     else
       btns = '<button class="btn pri" data-act="done">ทำ “' + esc(s.n) + '” เสร็จ</button>';
 
@@ -1023,6 +1197,8 @@
       (money() ? fld("มูลค่า", baht(p.amt), p.sap ? "B1" : "") : "") +
       fld("เงื่อนไขจ่าย", p.term, p.sap ? "B1" : "") +
       fld("ผู้ดูแล", p.owner) + fld("วันที่เปิด", p.date) +
+      // เกณฑ์ตรวจรับต้องเดินทางมาถึง QC ด้วย ไม่ใช่ค้างอยู่ในใบขอราคา
+      (p.spec ? fld("เกณฑ์ตรวจรับ (สเปก)", p.spec, p.fromReq ? "ใบขอราคา" : "") : "") +
       "</div></div>";
 
     // รายการเงินสด — ต้องเห็นทันทีว่าทำไมถึงไม่มี PO และใครอนุมัติให้ข้าม QC
@@ -1052,7 +1228,8 @@
         '" style="color:inherit">' + esc(p.fromQuote) + "</a></b> — ราคาและจำนวนตรงกับที่เทียบไว้ ไม่ได้พิมพ์ใหม่</span></div>";
 
     // 2) ตอนนี้ต้องทำอะไร — อยู่บนสุดเสมอ ไม่ต้องเลื่อนหา
-    h += todoCard(p);
+    //    นำหน้าด้วยใบส่งงานจากแผนกก่อนหน้า และคำเตือนเมื่อข้อมูลที่ต้องใช้ยังไม่มา
+    h += handoffCard(p) + missingCard(p) + todoCard(p);
 
     // 3) ความคืบหน้า
     h += '<div class="card"><h3>ความคืบหน้า<span class="c">' +
@@ -1465,11 +1642,24 @@
       add(!p.payments.length || sum === p.amt, "block",
           sum === p.amt ? "ผลรวมงวดจ่ายเท่ากับมูลค่า PO" : "งวดจ่ายรวม " + baht(sum) + " ไม่เท่ากับมูลค่า PO " + baht(p.amt), "AC");
 
-      if (p.inv != null) {
-        const diff = Math.abs(p.inv - p.amt), pct = p.amt ? diff / p.amt * 100 : 0;
+      // ตรวจ 3 ทางต้องเทียบกับ "จำนวนที่ QC รับได้" ไม่ใช่จำนวนที่ส่งมา
+      const qOk = p.hand.qtyOk, qIn = p.hand.qtyIn;
+      if (qOk && qIn)
+        add(String(qOk).trim() === String(qIn).trim(), "block",
+            String(qOk).trim() === String(qIn).trim()
+              ? "จำนวนที่ QC รับได้ตรงกับที่คลังรับเข้า (" + esc(qOk) + ")"
+              : "QC รับได้ " + esc(qOk) + " แต่คลังรับเข้า " + esc(qIn) + " — ต้องตรงกันก่อนตั้งหนี้",
+            "WH");
+      else if (p.stage >= 12)
+        add(false, "warn", "ยังไม่มีจำนวนที่ QC รับได้หรือจำนวนที่คลังรับเข้า — เทียบ 3 ทางไม่ได้",
+            !qOk ? "QC" : "WH");
+
+      const invAmt = p.hand.invAmt != null ? p.hand.invAmt : p.inv;
+      if (invAmt != null) {
+        const diff = Math.abs(invAmt - p.amt), pct = p.amt ? diff / p.amt * 100 : 0;
         if (pct > 5) add(false, "block", "ยอดใบแจ้งหนี้ต่างจาก PO " + baht(diff) + " (" + pct.toFixed(1) + "%) เกินเกณฑ์ 5%", "SR");
         else if (pct > 2) add(false, "warn", "ยอดใบแจ้งหนี้ต่างจาก PO " + baht(diff) + " (" + pct.toFixed(1) + "%) — ต้องระบุเหตุผล", "AC");
-        else add(true, "block", "ยอดใบแจ้งหนี้ตรงกับ PO (" + baht(p.inv) + ")", "");
+        else add(true, "block", "ยอดใบแจ้งหนี้ตรงกับ PO (" + baht(invAmt) + ")", "");
       } else add(false, "warn", "ยังไม่ได้รับใบแจ้งหนี้", "AC");
 
       add(unpaid(p).length === 0, "block",
@@ -1953,6 +2143,8 @@
     const d = upOpen.doc ? DOCS.filter(x => x.c === upOpen.doc)[0] : null;
     const code = d ? d.c : "STEP_" + upOpen.step;
     const prev = p.files[code];
+    const hc = HAND[upOpen.step];                  // สัญญาส่งมอบข้อมูลของขั้นนี้
+    const hv = x => p.hand[x.k] === undefined ? "" : p.hand[x.k];
 
     el.innerHTML = '<div class="bugwrap" data-uact="close"></div>' +
       '<div class="bugpanel" role="dialog" aria-label="แนบเอกสารประจำขั้นตอน">' +
@@ -1964,6 +2156,17 @@
         (d ? "เอกสารของขั้นนี้: <b>" + esc(d.n) + "</b>" + (d.req ? " (บังคับ)" : " (ไม่บังคับ)")
            : "ขั้นนี้ไม่มีเอกสารบังคับ — แนบได้ถ้ามี เช่น รูปถ่ายหรือใบจอง") + "<br>" +
         'เก็บที่ <span class="droot">' + esc(DRIVE.folderOf(p)) + "</span></div>" +
+
+      // ช่องที่ "ขั้นถัดไปต้องใช้" — ถามที่นี่ที่เดียว แล้วไปโผล่บนหน้าจอของเขาเอง
+      (hc ? '<div class="note info" style="border:1px solid var(--line);border-radius:var(--r-md);margin:0 0 4px">' +
+        '<span class="ic">→</span><span>ช่องด้านล่างนี้<b>' + esc(hc.to) +
+        "จะเอาไปใช้ต่อ</b> — กรอกที่นี่ครั้งเดียว เขาเห็นบนหน้าจอเลย ไม่ต้องส่งไลน์</span></div>" +
+        '<div class="grid2">' + hc.f.map(x => fld1(x.lb,
+          x.t === "num"  ? '<input type="number" step="0.01" id="hf_' + x.k + '" value="' + esc(hv(x)) + '">' :
+          x.t === "date" ? '<input type="date" id="hf_' + x.k + '" value="' + esc(hv(x)) + '">' :
+          x.t === "time" ? '<input type="time" id="hf_' + x.k + '" value="' + esc(hv(x)) + '">' :
+                           '<input type="text" id="hf_' + x.k + '" value="' + esc(hv(x)) + '">',
+          x.req)).join("") + "</div>" : "") +
 
       fld1("ไฟล์ที่แนบ", '<input type="text" id="up_file" placeholder="เลือกไฟล์… เช่น scan_2026-08-08.pdf" value="' +
         esc(prev ? prev.n : "") + '">', !!(d && d.req)) +
@@ -1995,6 +2198,11 @@
     if (nm) nm.textContent = DRIVE.fileName(p, code, file || "scan.pdf");
 
     const errs = [];
+    const hc = HAND[upOpen.step];
+    if (hc) hc.f.forEach(x => {
+      if (x.req && !String(valOf("hf_" + x.k)).trim())
+        errs.push("H · ต้องกรอก “" + x.lb + "” — " + hc.to + "ต้องใช้ข้อมูลนี้ ไม่งั้นเขาต้องโทรถามคุณ");
+    });
     if (d && d.req && !file) errs.push("ขั้นนี้ต้องแนบ " + d.n + " ก่อนถึงจะส่งต่อได้");
     if (!file && !none && !d) errs.push("ยังไม่ได้แนบไฟล์ — ถ้าขั้นนี้ไม่มีเอกสารจริง ให้ติ๊กช่องด้านล่าง");
     if (!file && none && !note) errs.push("ไม่แนบไฟล์ต้องเขียนหมายเหตุว่าทำอะไรไปในขั้นนี้");
@@ -2272,6 +2480,7 @@
     if (rb) { role = rb.dataset.role; render(); return; }
     const nb = ev.target.closest("[data-page]");
     if (nb) { page = nb.dataset.page; openPo = null; openClaim = null; openIC = null; openPR = null;
+      upOpen = null; payReqOpen = null; payOpen = null;
       subtab = SUB0[page] || "ACTIVE"; render(); return; }
 
     const bg = ev.target.closest("[data-bug]");
@@ -2351,7 +2560,8 @@
           no:no, sap:"", entry:"CASH", sup:valOf("cs_sup").trim(), item:valOf("cs_item").trim(),
           qty:valOf("cs_qty").trim(), amt:amt, cur:"THB", term:"เงินสด — จ่ายหน้างาน",
           stage:by ? 11 : 10, age:0, owner:ROLES[role].person, status:"ACTIVE", claim:false,
-          skip:cashSkip(by), date:isoToTH(d), files:{}, bundle:null,
+          skip:cashSkip(by), date:isoToTH(d), files:{}, bundle:null, hand:{},
+          spec:"ซื้อหน้างาน — ตรวจด้วยสายตาตอนรับของ",
           cashWhy:valOf("cs_why").trim(),
           qcBypass:by, qcBypassBy:by ? ROLES[role].person : "", qcBypassWhy:by ? valOf("cs_bywhy").trim() : "",
           payments:[pay(1, "จ่ายสดหน้างาน", 100, amt, isoToTH(d), "PAID", isoToTH(d),
@@ -2372,7 +2582,12 @@
     }
 
     const pr = ev.target.closest("[data-po]");
-    if (pr) { openPo = pr.dataset.po; page = "detail"; render(); return; }
+    if (pr) {
+      if (upOpen && upOpen.po !== pr.dataset.po) upOpen = null;          // ป๊อปอัปของรายการเก่า
+      if (payReqOpen && payReqOpen.po !== pr.dataset.po) payReqOpen = null;
+      if (payOpen && payOpen.po !== pr.dataset.po) payOpen = null;
+      openPo = pr.dataset.po; page = "detail"; render(); return;
+    }
     const cr = ev.target.closest("[data-claim]");
     if (cr) { openClaim = cr.dataset.claim; page = "req"; subtab = "CLAIM"; render(); return; }
 
@@ -2433,7 +2648,7 @@
           no:newNo, sap:"", sup:sel.supplier, item:r.item, qty:r.qty,
           amt:total, cur:sel.cur, term:"รอกำหนดตอนผูกกับ B1", stage:3, age:0, owner:person(role) || "คุณสมชาย",
           status:"ACTIVE", claim:false, skip:[1,2,5], date:"05/08/2026",
-          entry:"PO", files:{}, bundle:null,
+          entry:"PO", files:{}, bundle:null, hand:{}, spec:r.spec, needBy:r.needBy,
           fromQuote:sel.id, fromReq:r.id,
           payments:[pay(1, "ชำระเต็ม", 100, total, "—", "PENDING")],
           tl:[["วันนี้", "ระบบ", "เปิด PO จากใบเสนอราคา " + sel.id + " (" + sel.supplier + ") — " +
@@ -2547,6 +2762,12 @@
         const d = upOpen.doc ? DOCS.filter(x => x.c === upOpen.doc)[0] : null;
         const code = d ? d.c : "STEP_" + upOpen.step;
         const file = valOf("up_file").trim(), note = valOf("up_note").trim();
+        // เก็บข้อมูลตามสัญญาส่งมอบของขั้นนี้ — ไปโผล่บนใบส่งงานของแผนกถัดไป
+        const hc2 = HAND[upOpen.step];
+        if (hc2) hc2.f.forEach(x => {
+          const v = String(valOf("hf_" + x.k)).trim();
+          if (v !== "") tp.hand[x.k] = x.t === "num" ? parseFloat(v) : v;
+        });
         if (file) tp.files[code] = {n:DRIVE.fileName(tp, code, file), orig:file, note:note,
           by:ROLES[role].person, at:"วันนี้", step:upOpen.step};
         const sg = STAGES.filter(x => x.c === upOpen.step)[0];
@@ -2593,6 +2814,18 @@
       return;
     }
 
+    // ถามกลับไปแผนกก่อนหน้าเมื่อข้อมูลที่ต้องใช้ยังไม่มา — 1 คลิก ไม่ต้องเปิดไลน์
+    const ak = ev.target.closest("[data-ask]");
+    if (ak) {
+      const sg = STAGES.filter(x => x.c === ak.dataset.ask)[0];
+      const ms = missingIn(p).filter(k => FIELD_AT[k] && FIELD_AT[k].stage === ak.dataset.ask)
+        .map(k => FIELD_AT[k].lb);
+      p.tl.push(["วันนี้", ROLES[role].person,
+        "ถามกลับไปที่ " + (sg ? ROLES[sg.o].name : "-") + " — ขอ " + ms.join(" · ")]);
+      toast("ส่งคำถามถึง " + (sg ? person(sg.o) : "-") + " ทาง Lark แล้ว พร้อมบอกว่าขาดช่องไหน");
+      render(); return;
+    }
+
     const up = ev.target.closest("[data-up]");
     if (up) {
       upOpen = {po:p.no, doc:up.dataset.up, step:(st(p) || {}).c,
@@ -2615,7 +2848,16 @@
       // ของจริงคือเรียกข้อมูล PO จาก B1 มาเติมให้ ไม่ให้คนพิมพ์เลขเอง
       p.sap = String(10250 + Math.floor(Math.random() * 40));   // DocNum ของ B1
       p.tl.push(["วันนี้", "ระบบ", "ดึง PO " + p.sap + " จาก B1 (OPOR/POR1) — ผู้ขาย จำนวน มูลค่า มาพร้อมกัน"]);
-      p.tl.push(["วันนี้", "ระบบ", "สร้างงวดจ่ายจากเงื่อนไขชำระ (OCTG) ของ B1 อัตโนมัติ"]);
+      // ต้องเติมเงื่อนไขชำระและสร้างงวดจ่ายจริง ไม่ใช่แค่เขียนในประวัติว่าทำแล้ว
+      if (!p.term || /^รอกำหนด/.test(p.term)) {
+        p.term = "เครดิต 30 วัน";              // OCTG.GroupNum ของผู้ขายรายนี้
+        const dueTH = isoToTH(new Date(Date.now() + 30*864e5).toISOString().slice(0,10));
+        p.payments = [pay(1, "ชำระเต็ม", 100, p.amt, dueTH, "PENDING")];
+        p.tl.push(["วันนี้", "ระบบ",
+          "อ่านเงื่อนไขชำระจาก OCTG = “" + p.term + "” → สร้างงวดจ่าย 1 งวด ครบกำหนด " + dueTH]);
+      } else {
+        p.tl.push(["วันนี้", "ระบบ", "เงื่อนไขชำระตรงกับ OCTG อยู่แล้ว — งวดจ่ายไม่เปลี่ยน"]);
+      }
       advance(p, "ผูกกับ PO ใน B1");
     }
     else if (a === "reject") { p.tl.push(["วันนี้", ROLES[role].person, "ไม่อนุมัติ — ตีกลับพร้อมเหตุผล"]); toast("ตีกลับให้จัดซื้อแล้ว"); }
@@ -2623,7 +2865,26 @@
       upOpen = {po:p.no, doc:(docAtStage(p) || {}).c || null, step:s.c, note:"ตรวจรับผ่าน"};
       modals(); return;
     }
-    else if (a === "goic") { page = "req"; subtab = "ITEM"; render(); return; }
+    else if (a === "goic") {
+      // เดิมแค่พาไปหน้าใบขอรหัส แต่ไม่มีใบของ PO นี้ LS จึงเปิดไปเจอใบของคนอื่น
+      let r = ITEMREQS.filter(x => x.po === p.no)[0];
+      if (!r) {
+        const nums = ITEMREQS.map(x => parseInt(x.id.split("-")[2], 10)).filter(n => !isNaN(n));
+        r = {id:"IC-26-" + String((nums.length ? Math.max.apply(null, nums) : 0) + 1).padStart(4, "0"),
+             item:p.item, brand:"—", group:"Food", uom:(String(p.qty).split(" ")[1] || "KG"),
+             spec:p.spec || "—", by:ROLES[role].person, date:"วันนี้", status:"WAIT_APPROVE",
+             po:p.no, sap:""};
+        ITEMREQS.unshift(r);
+        p.tl.push(["วันนี้", ROLES[role].person,
+          "เปิดใบขอรหัสสินค้า " + r.id + " จาก PO นี้ — ชื่อสินค้า หน่วย และสเปกถูกดึงมาให้ ไม่ต้องพิมพ์ซ้ำ"]);
+        toast("เปิดใบขอรหัส " + r.id + " ให้แล้ว — ข้อมูลดึงมาจาก PO ไม่ต้องกรอกใหม่");
+      }
+      openIC = r.id; page = "req"; subtab = "ITEM"; render(); return;
+    }
+    else if (a === "topay") {
+      toast("เลื่อนลงไปที่ตารางการจ่ายเงินด้านล่าง — ปุ่มบันทึกการจ่ายอยู่ที่งวดนั้น");
+      render(); return;
+    }
     else if (a === "qcfail") {
       p.claim = true;
       p.payments.forEach(x => {
@@ -2658,7 +2919,7 @@
   const CSFIELDS = ["cs_sup","cs_item","cs_qty","cs_amt","cs_date","cs_from","cs_why","cs_bypass","cs_bywhy"];
   const PRFIELDS = ["pr_amt","pr_eff","pr_stamp","pr_doc","pr_pos","pr_size","pr_color","pr_text"];
   function modalInput(id) {
-    if (UPFIELDS.indexOf(id) >= 0) { upCalc(); return; }
+    if (UPFIELDS.indexOf(id) >= 0 || String(id).indexOf("hf_") === 0) { upCalc(); return; }
     if (CSFIELDS.indexOf(id) >= 0) { cashCalc(); return; }
     if (PRFIELDS.indexOf(id) >= 0) { if (id === "pr_text") prTouched = true; prCalc(); }
   }
