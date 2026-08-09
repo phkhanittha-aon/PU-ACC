@@ -85,7 +85,7 @@ for (let guard=0; guard<40; guard++){
   // ทำงานของขั้นนั้น — ดูจากปุ่มจริงในหน้าจอ ไม่ใช่ข้อความในประวัติ
   const HF = {up_file:"doc.pdf", up_note:"", up_none:false,
     hf_shipDate:"2026-09-05", hf_eta:"2026-09-06", hf_etaTime:"08:00", hf_truck:"70-5566 กทม",
-    hf_temp:"-18.7", hf_qtyOk:"300 KG", hf_qtyBad:"—", hf_qtyIn:"300 KG", hf_grNo:"GR-26-0410",
+    hf_qcRef:"IIF-26-0300", hf_temp:"-18.7", hf_qtyOk:"300 KG", hf_qtyBad:"—", hf_qtyIn:"300 KG", hf_grNo:"GR-26-0410",
     hf_invNo:"INV-AS-0905", hf_invAmt:"63000", hf_rcvBy:"คุณวิภา"};
   const H = nodes["#main"].innerHTML;
   const has = a => H.indexOf('data-act="'+a+'"') >= 0;

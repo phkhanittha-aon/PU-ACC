@@ -6,7 +6,7 @@
     --ink:#17211d; --ink-2:#48544c; --ink-3:#79857c; --line:#dde3dc; --line-2:#c3cbc0;
     --gold:#96731c; --gold-bg:#faf3df; --cold:#276456; --cold-bg:#e6f0ec;
     --go:#2c6e49; --go-bg:#e6f1ea; --warn:#a4501d; --warn-bg:#fbefe4; --stop:#a02b30; --stop-bg:#fdeaea;
-    --sr:#96731c; --qc:#1a6a5c; --ls:#3d5a8f; --wh:#556354; --ac:#7d3660; --gm:#48544c;
+    --sr:#96731c; --qc:#1a6a5c; --ls:#3d5a8f; --wh:#556354; --ac:#7d3660; --ach:#5c3a7d; --gm:#48544c;
     --sans:"Leelawadee UI","Noto Sans Thai","Sarabun","IBM Plex Sans Thai","Thonburi",system-ui,-apple-system,"Segoe UI",sans-serif;
     --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Consolas,monospace;
     --r-sm:4px; --r-md:7px; --r-lg:11px;
@@ -19,7 +19,7 @@
     --ink:#eaf0ec; --ink-2:#aab8b0; --ink-3:#7c8b83; --line:#28352e; --line-2:#3a4a41;
     --gold:#dcb35e; --gold-bg:#2a2010; --cold:#69b39e; --cold-bg:#112722;
     --go:#68c095; --go-bg:#12261c; --warn:#e29a67; --warn-bg:#2c2013; --stop:#ea8f8f; --stop-bg:#301a1a;
-    --sr:#dcb35e; --qc:#5ec1ab; --ls:#96a9dc; --wh:#a3b3a4; --ac:#d68cb6; --gm:#aab8b0;
+    --sr:#dcb35e; --qc:#5ec1ab; --ls:#96a9dc; --wh:#a3b3a4; --ac:#d68cb6; --ach:#b49ada; --gm:#aab8b0;
     --sh-1:0 1px 2px rgba(0,0,0,.28), 0 1px 1px rgba(0,0,0,.22);
     --sh-2:0 10px 28px rgba(0,0,0,.42), 0 3px 10px rgba(0,0,0,.32);
   }}
@@ -28,7 +28,7 @@
     --ink:#eaf0ec; --ink-2:#aab8b0; --ink-3:#7c8b83; --line:#28352e; --line-2:#3a4a41;
     --gold:#dcb35e; --gold-bg:#2a2010; --cold:#69b39e; --cold-bg:#112722;
     --go:#68c095; --go-bg:#12261c; --warn:#e29a67; --warn-bg:#2c2013; --stop:#ea8f8f; --stop-bg:#301a1a;
-    --sr:#dcb35e; --qc:#5ec1ab; --ls:#96a9dc; --wh:#a3b3a4; --ac:#d68cb6; --gm:#aab8b0;
+    --sr:#dcb35e; --qc:#5ec1ab; --ls:#96a9dc; --wh:#a3b3a4; --ac:#d68cb6; --ach:#b49ada; --gm:#aab8b0;
     --sh-1:0 1px 2px rgba(0,0,0,.28), 0 1px 1px rgba(0,0,0,.22);
     --sh-2:0 10px 28px rgba(0,0,0,.42), 0 3px 10px rgba(0,0,0,.32);
   }
@@ -37,7 +37,7 @@
     --ink:#17211d; --ink-2:#48544c; --ink-3:#79857c; --line:#dde3dc; --line-2:#c3cbc0;
     --gold:#96731c; --gold-bg:#faf3df; --cold:#276456; --cold-bg:#e6f0ec;
     --go:#2c6e49; --go-bg:#e6f1ea; --warn:#a4501d; --warn-bg:#fbefe4; --stop:#a02b30; --stop-bg:#fdeaea;
-    --sr:#96731c; --qc:#1a6a5c; --ls:#3d5a8f; --wh:#556354; --ac:#7d3660; --gm:#48544c;
+    --sr:#96731c; --qc:#1a6a5c; --ls:#3d5a8f; --wh:#556354; --ac:#7d3660; --ach:#5c3a7d; --gm:#48544c;
     --sh-1:0 1px 2px rgba(23,33,29,.05), 0 1px 1px rgba(23,33,29,.04);
     --sh-2:0 6px 20px rgba(23,33,29,.10), 0 2px 6px rgba(23,33,29,.06);
   }
@@ -454,6 +454,8 @@
     LS:{name:"โลจิสติกส์",en:"Logistics", person:"คุณอนุชา",   init:"อช", money:false, v:"--ls"},
     WH:{name:"คลังสินค้า",en:"Warehouse", person:"คุณประเสริฐ",init:"ปส", money:false, v:"--wh"},
     AC:{name:"บัญชี",   en:"Accounting", person:"คุณวิภา",    init:"วภ", money:true,  v:"--ac"},
+    // หัวหน้าบัญชีเป็นคนละคนกับผู้บันทึกจ่าย — อนุมัติอย่างเดียว ไม่ได้ถือขั้นตอนไหน
+    ACH:{name:"หัวหน้าบัญชี", en:"AC Head", person:"คุณอารีย์", init:"อร", money:true, v:"--ach"},
     GM:{name:"ผู้บริหาร",en:"GM",        person:"คุณผู้จัดการ",init:"GM", money:true,  v:"--gm"}
   };
 
@@ -508,7 +510,9 @@
       {k:"eta",     lb:"ของถึงห้องเย็นวันที่", t:"date", req:true},
       {k:"etaTime", lb:"เวลาโดยประมาณ",       t:"time", req:true},
       {k:"truck",   lb:"ทะเบียนรถ / ผู้ขนส่ง", t:"text", req:false}]},
-    QC_INCOMING: {to:"คลังสินค้า และบัญชี", f:[
+    // QC ตรวจในแอป Incoming Inspection ที่มีอยู่แล้ว — ที่นี่แค่อ้างเลขใบตรวจและสรุปผลที่ปลายทางต้องใช้
+    QC_INCOMING: {to:"คลังสินค้า และบัญชี", app:"QCAPP", f:[
+      {k:"qcRef",  lb:"เลขที่ใบตรวจในแอป Incoming Inspection", t:"text", req:true},
       {k:"temp",   lb:"อุณหภูมิที่วัดได้ (°C)", t:"num",  req:true},
       {k:"qtyOk",  lb:"จำนวนที่ตรวจแล้วรับได้", t:"text", req:true},
       {k:"qtyBad", lb:"จำนวนที่ตีกลับ (ถ้ามี)", t:"text", req:false}]},
@@ -659,7 +663,7 @@
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"10/07/2026",
      payments:[pay(1,"ชำระเต็ม",100,112000,"10/08/2026","PAID","09/08/2026",
                  {method:"TRANSFER", bank:BANKS[0], ref:"KB26080900311", fee:35, paidAmt:112035,
-                  paidBy:"คุณวิภา", apvBy:"คุณผู้จัดการ", reqBy:"คุณวิภา", lateDays:-1})],
+                  paidBy:"คุณวิภา", apvBy:"คุณอารีย์", reqBy:"คุณสมชาย", lateDays:-1})],
      tl:[["10 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["12 ส.ค.","คุณวิภา","ปิดรายการ"]]},
 
     {no:"PO-26-0012", sap:"", sup:"Ocean Best", item:"กุ้งแวนนาไม", qty:"600 KG",
@@ -674,24 +678,24 @@
   const HANDDATA = {
     "PO-26-0042": {shipDate:"2026-07-30", eta:"2026-07-31", etaTime:"08:30", truck:"70-1234 กทม (ห้องเย็น)"},
     "CS-26-0007": {qtyIn:"60 KG", grNo:"GR-CS-0007"},
-    "PO-26-0038": {shipDate:"2026-07-29", eta:"2026-07-30", etaTime:"07:00", truck:"82-5567 สป.",
+    "PO-26-0038": {qcRef:"IIF-26-0188", shipDate:"2026-07-29", eta:"2026-07-30", etaTime:"07:00", truck:"82-5567 สป.",
                    temp:-18.5, qtyOk:"800 KG", qtyBad:"—"},
-    "PO-26-0029": {shipDate:"2026-07-28", eta:"2026-07-29", etaTime:"06:30", truck:"70-9981 กทม",
+    "PO-26-0029": {qcRef:"IIF-26-0179", shipDate:"2026-07-28", eta:"2026-07-29", etaTime:"06:30", truck:"70-9981 กทม",
                    temp:-14.2, qtyOk:"80 KG", qtyBad:"40 KG (อุณหภูมิไม่ผ่าน)",
                    qtyIn:"80 KG", grNo:"GR-26-0311"},
-    "PO-26-0033": {shipDate:"2026-07-26", eta:"2026-07-27", etaTime:"09:00", truck:"70-4412 กทม",
+    "PO-26-0033": {qcRef:"IIF-26-0170", shipDate:"2026-07-26", eta:"2026-07-27", etaTime:"09:00", truck:"70-4412 กทม",
                    temp:-19.0, qtyOk:"200 KG", qtyBad:"—", qtyIn:"200 KG", grNo:"GR-26-0298",
                    invNo:"INV-OB-2607", invAmt:310000},
-    "PO-26-0045": {shipDate:"2026-07-31", eta:"2026-08-01", etaTime:"08:00", truck:"70-2210 กทม",
+    "PO-26-0045": {qcRef:"IIF-26-0192", shipDate:"2026-07-31", eta:"2026-08-01", etaTime:"08:00", truck:"70-2210 กทม",
                    temp:-18.8, qtyOk:"350 KG", qtyBad:"—", qtyIn:"350 KG", grNo:"GR-26-0305",
                    invNo:"INV-ABC-0804", invAmt:122500},
-    "PO-26-0031": {shipDate:"2026-07-22", eta:"2026-07-23", etaTime:"08:00", truck:"70-3320 กทม",
+    "PO-26-0031": {qcRef:"IIF-26-0151", shipDate:"2026-07-22", eta:"2026-07-23", etaTime:"08:00", truck:"70-3320 กทม",
                    temp:-18.2, qtyOk:"150 KG", qtyBad:"—", qtyIn:"150 KG", grNo:"GR-26-0271",
                    invNo:"INV-SM-2207", invAmt:84000, rcvBy:"คุณวิภา (รับที่หน้าออฟฟิศ)"},
-    "PO-26-0025": {shipDate:"2026-07-20", eta:"2026-07-21", etaTime:"08:00", truck:"70-1180 กทม",
+    "PO-26-0025": {qcRef:"IIF-26-0144", shipDate:"2026-07-20", eta:"2026-07-21", etaTime:"08:00", truck:"70-1180 กทม",
                    temp:-18.6, qtyOk:"400 KG", qtyBad:"—", qtyIn:"400 KG", grNo:"GR-26-0255",
                    invNo:"INV-OB-2007", invAmt:268000, rcvBy:"คุณวิภา"},
-    "PO-26-0019": {shipDate:"2026-07-12", eta:"2026-07-13", etaTime:"08:00", truck:"70-7745 กทม",
+    "PO-26-0019": {qcRef:"IIF-26-0130", shipDate:"2026-07-12", eta:"2026-07-13", etaTime:"08:00", truck:"70-7745 กทม",
                    temp:-18.4, qtyOk:"250 KG", qtyBad:"—", qtyIn:"250 KG", grNo:"GR-26-0240",
                    invNo:"INV-ABC-1207", invAmt:112000, rcvBy:"คุณวิภา"}
   };
@@ -808,6 +812,17 @@
     FIXING:{t:"กำลังแก้",cls:"info"}, FIXED:{t:"แก้แล้ว รอผู้แจ้งยืนยัน",cls:"ok"}, CLOSED:{t:"ปิดเรื่อง",cls:"wait"}};
 
   // เชื่อมกับ SAP Business One — อ่านอย่างเดียว ไม่เขียนกลับ (ดู docs/09 §3)
+  /* แอปตรวจรับของ QC ที่มีอยู่แล้ว — ระบบนี้ไม่สร้างฟอร์มตรวจซ้ำ แต่ดึงผลมาใช้
+     ยังไม่ทราบวิธีเชื่อมจริง (API / ส่งออกไฟล์ / ฝังหน้าจอ) — ดูคำถามใน docs/15 */
+  const QCAPP = {
+    name:"Incoming Inspection (Food & Mech)",
+    mode:"ยังไม่ได้เชื่อม — ตอนนี้ให้ QC กรอกเลขที่ใบตรวจแล้วระบบดึงผลตามเลขนั้น",
+    lines:[
+      {o:"อาหาร (Food)", form:"QC-F006 / Incoming Inspection", n:"~40 ใบ/เดือน", st:"รอเชื่อม"},
+      {o:"เครื่องจักร (Mech)", form:"Mech Incoming Inspection", n:"~12 ใบ/เดือน", st:"รอเชื่อม"}
+    ]
+  };
+
   const SAP = {
     at:"วันนี้ 08:30", ok:true,
     mode:"ตัวส่งข้อมูลรันในออฟฟิศ อ่าน B1 แล้วส่งออกมา (ขาออกอย่างเดียว ไม่เปิดพอร์ตเข้า)",
@@ -956,7 +971,7 @@
     // คำขออนุมัติจ่ายไม่ได้ผูกกับ "เจ้าของขั้น" — ผู้อนุมัติจึงไม่เคยเห็นบนหน้าหลักมาก่อน
     const toApprove = act.filter(p => p.payments.some(x =>
       x.status === "REQUESTED" && x.reqBy !== ROLES[role].person &&
-      ((x.reqTo === "GM" && role === "GM") || (x.reqTo === "AC_HEAD" && role === "AC"))));
+      ((x.reqTo === "GM" && role === "GM") || (x.reqTo === "AC_HEAD" && role === "ACH"))));
     const others = act.filter(p => ownerOf(p) !== role && !comingToMe(p) && toApprove.indexOf(p) < 0);
     const duePay = act.reduce((n, p) => n + unpaid(p).length, 0);
 
@@ -1384,7 +1399,7 @@
     // ผู้อนุมัติต้องไม่ใช่ผู้ตั้งเรื่อง — ในตัวอย่างนี้บัญชีตั้งเรื่อง ผู้บริหารอนุมัติ
     if (x.status === "REQUESTED") {
       const mineToApprove = (x.reqTo === "GM" && role === "GM") ||
-                            (x.reqTo === "AC_HEAD" && role === "AC") ||
+                            (x.reqTo === "AC_HEAD" && role === "ACH") ||
                             (!x.reqTo && role === "GM");
       if (!mineToApprove) return "";
       // ถ้ามีใบขออนุมัติเต็มอยู่ด้านบนแล้ว ไม่ให้กดอนุมัติจากแถวในตาราง — ต้องอ่านใบก่อน
@@ -1432,7 +1447,7 @@
     if (!x) return "";
     const stt = x.status === "REQUESTED" ? "PENDING" : x.reqSt === "REJECTED" ? "REJECTED" : "APPROVED";
     const s = REQ_ST[stt];
-    const isApprover = (x.reqTo === "GM" && role === "GM") || (x.reqTo === "AC_HEAD" && role === "AC");
+    const isApprover = (x.reqTo === "GM" && role === "GM") || (x.reqTo === "AC_HEAD" && role === "ACH");
     const canAct = stt === "PENDING" && isApprover && x.reqBy !== ROLES[role].person;
     const docs = x.reqDocs || [];
     const cs = checksOf(p).filter(c => c.tag !== "paid" && (c.lv === "block" || !c.ok));
@@ -1450,7 +1465,9 @@
       '<div class="who" style="margin-top:12px">ผู้ขอ <b>' + esc(x.reqBy || "—") + "</b> (" +
         esc(ROLES[x.reqRole] ? ROLES[x.reqRole].name : "จัดซื้อ") + ") · " + esc(x.reqAt || "—") +
         "<br>ส่งถึง <b>" + (x.reqTo === "GM" ? "ผู้บริหาร" : "หัวหน้าบัญชี") + "</b> — " +
-        (x.amount > APV_LIMIT ? "เกินวงเงิน " + baht(APV_LIMIT) : "อยู่ในวงเงินหัวหน้าบัญชี") + "</div>";
+        (x.amount > APV_LIMIT ? "เกินวงเงิน " + baht(APV_LIMIT) : "อยู่ในวงเงินหัวหน้าบัญชี") +
+        "<br>ผู้บันทึกจ่ายจะเป็น <b>" + esc(person("AC")) +
+        "</b> — คนละคนกับผู้อนุมัติ ตามหลักแยกหน้าที่</div>";
 
     if (x.effNote)
       h += '<div class="sec">ข้อความที่ผู้ขอประทับลงบน' + esc(x.stampOn || "เอกสารที่แนบ") + "</div>" +
@@ -1484,7 +1501,7 @@
         '<button class="btn bad" data-payact="rej" data-seq="' + x.seq + '">ตีกลับพร้อมเหตุผล</button></div>';
     else if (stt === "PENDING")
       h += '<div class="acts"><span class="hint">รอ ' +
-        esc(x.reqTo === "GM" ? person("GM") : person("AC")) + " กดอนุมัติ — คุณดูได้แต่กดแทนไม่ได้</span></div>";
+        esc(x.reqTo === "GM" ? person("GM") : person("ACH")) + " กดอนุมัติ — คุณดูได้แต่กดแทนไม่ได้</span></div>";
 
     return h + "</div></div>";
   }
@@ -1992,6 +2009,24 @@
         '<div class="rowline">เทียบการจ่ายกับ <span class="mono">OVPM</span> — เจอทันทีถ้าบันทึกแล้วแต่ไม่ได้จ่ายจริง<span class="pill ok">กระทบยอด</span></div>' +
         '<div class="rowline">B1 ล่ม = ระบบยังใช้ได้ ขึ้นป้ายบอกว่าข้อมูลเก่าแค่ไหน<span class="pill ok">ไม่บล็อกงาน</span></div>' +
         "</div>";
+
+      // QC มีแอปตรวจรับของตัวเองอยู่แล้ว — ต้องไม่สร้างฟอร์มตรวจซ้ำในระบบนี้
+      h += '<div class="card"><h3>แอปตรวจรับของ QC ที่มีอยู่แล้ว<span class="c">' +
+        esc(QCAPP.name) + "</span></h3>" +
+        '<div class="note warn"><span class="ic">!</span><span><b>ระบบนี้ไม่ทำฟอร์มตรวจรับซ้ำ</b> — ' +
+        "QC ตรวจในแอปเดิมตามที่ใช้อยู่ แล้วเอา<b>เลขที่ใบตรวจ</b>มาผูกกับ PO ที่นี่ " +
+        "พร้อมสรุปเฉพาะตัวเลขที่คลังและบัญชีต้องใช้ต่อ (อุณหภูมิ · จำนวนที่รับได้ · จำนวนที่ตีกลับ)</span></div>" +
+        '<div class="tw"><table><thead><tr><th>สายงาน</th><th>ฟอร์มที่ใช้</th>' +
+        "<th>ปริมาณ</th><th>สถานะการเชื่อม</th></tr></thead><tbody>";
+      QCAPP.lines.forEach(l => {
+        h += "<tr><td>" + esc(l.o) + "</td><td>" + esc(l.form) + "</td><td>" + esc(l.n) + "</td>" +
+          '<td><span class="pill due">' + esc(l.st) + "</span></td></tr>";
+      });
+      h += "</tbody></table></div>" +
+        '<div class="rowline">วิธีเชื่อมตอนนี้: <b>' + esc(QCAPP.mode) + "</b></div>" +
+        '<div class="note info"><span class="ic">▸</span><span>ยังต้องถามทีม QC 3 ข้อ — ' +
+        "แอปมี API หรือส่งออกไฟล์ได้ไหม · เลขที่ใบตรวจผูกกับเลข PO อยู่แล้วหรือเปล่า · " +
+        "ฟอร์ม Food กับ Mech ใช้ช่องเดียวกันไหม (ดู docs/15)</span></div></div>";
       return h;
     }
 
@@ -2239,6 +2274,8 @@
     if (d && dayDiff(today, d) > 7) warns.push("P9 · จ่ายย้อนหลัง " + dayDiff(today, d) + " วัน — ต้องให้หัวหน้าบัญชีอนุมัติเพิ่ม");
     if (ref && POS.some(q => q.payments.some(y => y.ref === ref && !(q.no === p.no && y.seq === x.seq))))
       errs.push("P11 · เลขอ้างอิงนี้ถูกใช้แล้วในรายการจ่ายอื่น — กันการจ่ายซ้ำ");
+    if (x.apvBy && x.apvBy === ROLES[role].person)
+      errs.push("P13 · คุณเป็นผู้อนุมัติงวดนี้เอง — ผู้บันทึกจ่ายต้องเป็นคนละคนกับผู้อนุมัติ");
     if (d && x.due && dayDiff(d, thToISO(x.due)) > 0)
       warns.push("จ่ายช้ากว่ากำหนด " + dayDiff(d, thToISO(x.due)) + " วัน — บันทึกไว้ในตัวชี้วัดการจ่ายตรงเวลา");
 
@@ -2336,6 +2373,12 @@
         'เก็บที่ <span class="droot">' + esc(DRIVE.folderOf(p)) + "</span></div>" +
 
       // ช่องที่ "ขั้นถัดไปต้องใช้" — ถามที่นี่ที่เดียว แล้วไปโผล่บนหน้าจอของเขาเอง
+      (hc && hc.app === "QCAPP"
+        ? '<div class="note warn" style="border:1px solid var(--gold);border-radius:var(--r-md);margin:0 0 4px">' +
+          '<span class="ic">↗</span><span><b>ตรวจในแอป ' + esc(QCAPP.name) + " ตามเดิม</b> — " +
+          "ระบบนี้ไม่มีฟอร์มตรวจซ้ำ ตรวจเสร็จแล้วเอา<b>เลขที่ใบตรวจ</b>มากรอกที่นี่ " +
+          "พร้อมสรุป 2–3 ตัวที่คลังและบัญชีต้องใช้</span></div>"
+        : "") +
       (hc ? '<div class="note info" style="border:1px solid var(--line);border-radius:var(--r-md);margin:0 0 4px">' +
         '<span class="ic">→</span><span>ช่องด้านล่างนี้<b>' + esc(hc.to) +
         "จะเอาไปใช้ต่อ</b> — กรอกที่นี่ครั้งเดียว เขาเห็นบนหน้าจอเลย ไม่ต้องส่งไลน์</span></div>" +
@@ -3087,7 +3130,7 @@
           (valOf("pr_size") || "13") + "pt) แล้วเก็บเป็นเวอร์ชันใหม่ — ต้นฉบับยังอยู่"]);
         t.p.tl.push(["วันนี้", "ระบบ", "แนบเอกสารทั้งชุดจากไดรฟ์กลางไปกับคำขอ และแจ้ง " +
           (amt > APV_LIMIT ? "ผู้บริหาร" : "หัวหน้าบัญชี") + " ทาง Lark"]);
-        notify(x.reqTo === "GM" ? "GM" : "AC", "act", t.p.no,
+        notify(x.reqTo === "GM" ? "GM" : "ACH", "act", t.p.no,
           "รออนุมัติจ่าย " + x.reqNo,
           t.p.no + " " + t.p.sup + " — " + baht(amt) + " มีผล " + isoToTH(eff) +
           " · ขอโดย " + ROLES[role].person + " · เอกสารแนบ " + x.reqDocs.length + " ใบ");

@@ -41,7 +41,7 @@ new Function(src)();
 function click(attr, data) {
   clickH({ target: { closest(sel) { return sel === "[" + attr + "]" ? { dataset: data } : null; } } });
 }
-const ROLES = ["SR", "QC", "LS", "WH", "AC", "GM"];
+const ROLES = ["SR", "QC", "LS", "WH", "AC", "ACH", "GM"];
 const PAGES = { home: [""], po: ["ACTIVE","DONE","CANCELLED","SEARCH"], req: ["PRICE","CLAIM","ITEM"],
                 inbox: [""], admin: ["ISSUES","SAP","STAGES","DOCS","FILES","USERS"], report: [""] };
 const POS = ["PO-26-0042","PO-26-0051","CS-26-0007","PO-26-0038","PO-26-0029","PO-26-0033","PO-26-0045","PO-26-0031","PO-26-0025","PO-26-0019","PO-26-0012"];
@@ -258,8 +258,17 @@ click("data-cf", { cf: "yes" });
 // ตรวจไม่ผ่านต้องบันทึกผลตรวจก่อน ใบเคลมจึงมีตัวเลขให้ผู้ขายและบัญชี
 if (!/บันทึกผลตรวจไม่ผ่าน/.test(nodes["#modal"].innerHTML))
   bad.push("ยืนยันตรวจไม่ผ่านแล้วไม่มีป๊อปอัปให้บันทึกผลตรวจ");
+// ต้องอ้างเลขที่ใบตรวจจากแอป Incoming Inspection ที่ QC ใช้อยู่แล้ว
+if (!/Incoming Inspection/.test(nodes["#modal"].innerHTML))
+  bad.push("ป๊อปอัป QC ไม่ได้บอกว่าให้ตรวจในแอปเดิมแล้วเอาเลขใบตรวจมากรอก");
 setFields({up_file:"qc_fail.pdf", up_note:"เปลือกมีจุดดำเกินเกณฑ์", up_none:false,
-           hf_temp:"-12.4", hf_qtyOk:"460 KG", hf_qtyBad:"40 KG"});
+           hf_qcRef:"", hf_temp:"-12.4", hf_qtyOk:"460 KG", hf_qtyBad:"40 KG"});
+formFields.up_err = {innerHTML:""}; formFields.up_named = {textContent:""};
+click("data-uact", { uact: "save" });
+if (!/เลขที่ใบตรวจ/.test(formFields.up_err.innerHTML))
+  bad.push("บันทึกผลตรวจได้โดยไม่ต้องอ้างเลขที่ใบตรวจจากแอป QC");
+setFields({up_file:"qc_fail.pdf", up_note:"เปลือกมีจุดดำเกินเกณฑ์", up_none:false,
+           hf_qcRef:"IIF-26-0201", hf_temp:"-12.4", hf_qtyOk:"460 KG", hf_qtyBad:"40 KG"});
 formFields.up_err = {innerHTML:""}; formFields.up_named = {textContent:""};
 click("data-uact", { uact: "save" });
 d = nodes["#main"].innerHTML;
@@ -737,6 +746,50 @@ if (!/ชุดเอกสารรวมเล่มพร้อมแล้�
 if (/ยังไม่ได้ผูกกับ PO ใน B1/.test(d))
   bad.push("รายการเงินสดยังถูกกฎ PO ใน B1 บล็อกอยู่");
 
+
+
+/* ================= แยกบทบาทหัวหน้าบัญชี + แอปตรวจรับของ QC ================= */
+
+// คำขอไม่เกินวงเงินต้องไปหาหัวหน้าบัญชี ไม่ใช่คนที่บันทึกจ่าย
+click("data-role", { role: "SR" });
+click("data-po", { po: "PO-26-0038" });
+click("data-page", { page: "admin" });
+click("data-sub", { sub: "USERS" });
+d = nodes["#main"].innerHTML;
+if (!/หัวหน้าบัญชี/.test(d)) bad.push("ไม่มีบทบาทหัวหน้าบัญชีแยกจากบัญชี");
+if (!/คุณอารีย์/.test(d)) bad.push("บทบาทหัวหน้าบัญชีไม่มีผู้ใช้");
+
+// บัญชี (ผู้บันทึกจ่าย) ต้องไม่มีสิทธิ์อนุมัติคำขอที่ส่งถึงหัวหน้าบัญชี
+click("data-role", { role: "AC" });
+click("data-po", { po: "PO-26-0033" });
+click("data-payact", { payact: "req", seq: "2" });
+d = nodes["#main"].innerHTML;
+if (/data-payact="apv"/.test(d)) bad.push("บัญชีอนุมัติคำขอของตัวเองได้ — ผิดหลักแยกหน้าที่");
+click("data-role", { role: "ACH" });
+click("data-po", { po: "PO-26-0033" });
+if (!/อนุมัติจ่าย/.test(nodes["#main"].innerHTML))
+  bad.push("หัวหน้าบัญชีไม่เห็นปุ่มอนุมัติคำขอที่ส่งถึงตัวเอง");
+click("data-payact", { payact: "apv", seq: "2" });
+if (!/อนุมัติแล้ว รอทำจ่าย/.test(nodes["#main"].innerHTML))
+  bad.push("หัวหน้าบัญชีอนุมัติแล้วสถานะไม่เปลี่ยน");
+
+// ผู้บันทึกจ่ายต้องไม่ใช่ผู้อนุมัติคนเดียวกัน (P13)
+click("data-payact", { payact: "form", seq: "2" });
+setFields({py_date:today(), py_value:today(), py_method:"TRANSFER", py_bank:"KBANK",
+           py_ref:"KB77001", py_whttype:"GOODS", py_wht:0, py_fee:35, py_feeby:"OUR",
+           py_amt:155035, py_slip:true, py_reason:"", py_note:""});
+click("data-payact", { payact: "save" });
+if (!/P13/.test(formFields.py_err.innerHTML))
+  bad.push("ผู้อนุมัติบันทึกการจ่ายเองได้ (P13) — ผิดหลักแยกหน้าที่ระดับคน");
+
+// หน้าตั้งค่าต้องบอกว่า QC มีแอปตรวจรับอยู่แล้ว ไม่สร้างฟอร์มซ้ำ
+click("data-role", { role: "QC" });
+click("data-page", { page: "admin" });
+click("data-sub", { sub: "SAP" });
+d = nodes["#main"].innerHTML;
+if (!/Incoming Inspection/.test(d)) bad.push("หน้าตั้งค่าไม่มีข้อมูลแอปตรวจรับของ QC");
+if (!/ไม่ทำฟอร์มตรวจรับซ้ำ/.test(d)) bad.push("ไม่ได้ระบุว่าระบบนี้จะไม่สร้างฟอร์มตรวจซ้ำ");
+if (!/Mech/.test(d)) bad.push("ไม่ได้ครอบคลุมสายงาน Mech");
 
 console.log("เรนเดอร์ทั้งหมด " + n + " ครั้ง + จ่าย + ใช้งานง่าย/SAP + ขอราคา→PO + เงินสด/ไดรฟ์กลาง/รวมไฟล์/ป๊อปอัป");
 if (bad.length) { console.log("พบปัญหา " + bad.length + ":"); bad.slice(0, 30).forEach(b => console.log("  - " + b)); process.exit(1); }
