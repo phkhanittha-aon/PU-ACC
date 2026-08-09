@@ -164,9 +164,16 @@ if (!/ตั้งเรื่องขอจ่าย<\/button>/.test(nodes["#m
 click("data-payact", { payact: "req", seq: "2" });
 if (!/รออนุมัติจ่าย/.test(nodes["#main"].innerHTML)) bad.push("ตั้งเรื่องแล้วสถานะไม่เป็น REQUESTED");
 if (/อนุมัติจ่าย<\/button>/.test(nodes["#main"].innerHTML)) bad.push("บัญชีอนุมัติคำขอของตัวเองได้ (ผิดหลักแยกหน้าที่)");
+click("data-role", { role: "ACH" });
+click("data-po", { po: "PO-26-0033" });
+if (!/อนุมัติจ่าย/.test(nodes["#main"].innerHTML))
+  bad.push("ผู้จัดการฝ่ายบัญชีไม่เห็นปุ่มอนุมัติจ่าย");
 click("data-role", { role: "GM" });
 click("data-po", { po: "PO-26-0033" });
-if (!/อนุมัติจ่าย<\/button>/.test(nodes["#main"].innerHTML)) bad.push("ผู้บริหารไม่เห็นปุ่มอนุมัติจ่าย");
+if (/data-payact="apv"/.test(nodes["#main"].innerHTML))
+  bad.push("คนที่ไม่ใช่ผู้อนุมัติที่ระบุไว้ยังกดอนุมัติได้");
+click("data-role", { role: "ACH" });
+click("data-po", { po: "PO-26-0033" });
 click("data-payact", { payact: "apv", seq: "2" });
 if (!/อนุมัติแล้ว รอทำจ่าย/.test(nodes["#main"].innerHTML)) bad.push("อนุมัติแล้วสถานะไม่เปลี่ยน");
 
@@ -526,7 +533,12 @@ if (!/15\/12\/2026/.test(d)) bad.push("Effective date ที่กรอกไ�
 if (!/ประทับข้อความ/.test(d)) bad.push("ไม่บันทึกประวัติว่าประทับข้อความลงเอกสาร");
 
 // หัวหน้าต้องได้ "ใบขออนุมัติ" ที่มีของให้ดู ไม่ใช่ปุ่มลอย ๆ ในตาราง
+// ยอด 122,500 — เดิมจะเด้งไปผู้บริหารเพราะเกิน 50,000 ตอนนี้ทุกยอดไปที่ผู้จัดการฝ่ายบัญชี
 click("data-role", { role: "GM" });
+click("data-po", { po: "PO-26-0045" });
+if (/data-payact="apv"/.test(nodes["#main"].innerHTML))
+  bad.push("ยอดใหญ่ยังเด้งไปผู้บริหาร — ต้องผ่านผู้จัดการฝ่ายบัญชีทุกยอด");
+click("data-role", { role: "ACH" });
 click("data-po", { po: "PO-26-0045" });
 d = nodes["#main"].innerHTML;
 if (!/ใบขออนุมัติทำจ่าย/.test(d)) bad.push("คำขอจ่ายจาก SR ไม่มีใบขออนุมัติให้หัวหน้าดู");
@@ -538,6 +550,9 @@ if (!/ระบบตรวจให้แล้วก่อนถึงคุ�
 if (!/อนุมัติจ่าย ฿/.test(d)) bad.push("ไม่มีปุ่มอนุมัติในใบขออนุมัติ");
 if (/data-payact="apv"[^>]*>อนุมัติจ่าย<\/button>/.test(d))
   bad.push("ยังมีปุ่มอนุมัติลอยในตาราง — กดได้โดยไม่ต้องอ่านใบคำขอ");
+if (/เกินวงเงิน|อยู่ในวงเงิน/.test(d))
+  bad.push("ใบขออนุมัติยังพูดถึงเกณฑ์วงเงิน ทั้งที่ทุกยอดต้องผ่านผู้จัดการ");
+if (!/ทุกยอดต้องผ่านผู้จัดการ/.test(d)) bad.push("ใบขออนุมัติไม่ได้บอกกติกาว่าทุกยอดต้องผ่านผู้จัดการ");
 
 // หน้าหลักของผู้อนุมัติต้องบอกว่ามีของรออนุมัติ ไม่ใช่ขึ้น "ต้องทำวันนี้ 0"
 click("data-page", { page: "home" });
@@ -551,6 +566,7 @@ if (!/รออนุมัติจ่าย PRQ/.test(nodes["#main"].innerHTML
   bad.push("ไม่มีแจ้งเตือนถึงผู้อนุมัติเมื่อมีคำขอจ่ายเข้ามา");
 
 // ตีกลับต้องบังคับเหตุผล และเหตุผลต้องไปถึงผู้ขอ
+click("data-role", { role: "ACH" });
 click("data-po", { po: "PO-26-0045" });
 click("data-payact", { payact: "rej", seq: "1" });
 if (!/ตีกลับ PRQ/.test(nodes["#modal"].innerHTML)) bad.push("ตีกลับไม่มีหน้าจอให้ระบุเหตุผล");
@@ -773,7 +789,21 @@ click("data-payact", { payact: "apv", seq: "2" });
 if (!/อนุมัติแล้ว รอทำจ่าย/.test(nodes["#main"].innerHTML))
   bad.push("หัวหน้าบัญชีอนุมัติแล้วสถานะไม่เปลี่ยน");
 
+// ยอดเล็กก็ต้องผ่านผู้จัดการเหมือนกัน — ไม่มียอดไหนข้ามได้
+click("data-role", { role: "AC" });
+click("data-po", { po: "PO-26-0038" });
+click("data-payact", { payact: "req", seq: "1" });
+d = nodes["#main"].innerHTML;
+if (!/รออนุมัติจ่าย/.test(d)) bad.push("ตั้งเรื่องขอจ่ายจากฝั่งบัญชีแล้วสถานะไม่เปลี่ยน");
+if (/data-payact="apv"/.test(d)) bad.push("บัญชีอนุมัติคำขอที่ตัวเองตั้งได้");
+click("data-role", { role: "ACH" });
+click("data-po", { po: "PO-26-0038" });
+if (!/data-payact="apv"/.test(nodes["#main"].innerHTML))
+  bad.push("คำขอจากฝั่งบัญชีไม่ไปถึงผู้จัดการฝ่ายบัญชี");
+
 // ผู้บันทึกจ่ายต้องไม่ใช่ผู้อนุมัติคนเดียวกัน (P13)
+click("data-role", { role: "ACH" });
+click("data-po", { po: "PO-26-0033" });
 click("data-payact", { payact: "form", seq: "2" });
 setFields({py_date:today(), py_value:today(), py_method:"TRANSFER", py_bank:"KBANK",
            py_ref:"KB77001", py_whttype:"GOODS", py_wht:0, py_fee:35, py_feeby:"OUR",

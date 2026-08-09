@@ -106,7 +106,7 @@ for (let guard=0; guard<40; guard++){
   else if (has("topay")) {
     // ขั้นทำจ่ายต้องบันทึกจ่ายจริงก่อน ปุ่ม "เสร็จ" ถึงจะโผล่
     click("data-payact",{payact:"req", seq:"1"});
-    click("data-role",{role:"GM"}); click("data-po",{po:PO});
+    click("data-role",{role:"ACH"}); click("data-po",{po:PO});   // ทุกยอดผ่านผู้จัดการฝ่ายบัญชี
     click("data-payact",{payact:"apv", seq:"1"});
     click("data-role",{role:"AC"}); click("data-po",{po:PO});
     click("data-payact",{payact:"form", seq:"1"});

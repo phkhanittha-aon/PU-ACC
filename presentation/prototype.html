@@ -448,16 +448,28 @@
 
   /* ================= ข้อมูลตัวอย่าง ================= */
 
+  /* โครงสร้างองค์กร: ทุกแผนกมี "พนักงาน" กับ "ผู้จัดการ"
+     lvl = staff | mgr   ·   mgr = ผู้จัดการของบทบาทนี้ (ใช้เป็นสายอนุมัติ)
+     กติกาที่ทีมยืนยัน: งานที่ต้องอนุมัติ ต้องผ่านผู้จัดการ "ทุกยอด" ไม่มีเกณฑ์วงเงินยกเว้น */
   const ROLES = {
-    SR:{name:"จัดซื้อ", en:"Sourcing",   person:"คุณสมชาย",   init:"สช", money:true,  v:"--sr"},
-    QC:{name:"QC",      en:"Quality",    person:"คุณสมหญิง",  init:"สญ", money:false, v:"--qc"},
-    LS:{name:"โลจิสติกส์",en:"Logistics", person:"คุณอนุชา",   init:"อช", money:false, v:"--ls"},
-    WH:{name:"คลังสินค้า",en:"Warehouse", person:"คุณประเสริฐ",init:"ปส", money:false, v:"--wh"},
-    AC:{name:"บัญชี",   en:"Accounting", person:"คุณวิภา",    init:"วภ", money:true,  v:"--ac"},
-    // หัวหน้าบัญชีเป็นคนละคนกับผู้บันทึกจ่าย — อนุมัติอย่างเดียว ไม่ได้ถือขั้นตอนไหน
-    ACH:{name:"หัวหน้าบัญชี", en:"AC Head", person:"คุณอารีย์", init:"อร", money:true, v:"--ach"},
-    GM:{name:"ผู้บริหาร",en:"GM",        person:"คุณผู้จัดการ",init:"GM", money:true,  v:"--gm"}
+    SR:{name:"จัดซื้อ", en:"Sourcing",   person:"คุณสมชาย",   init:"สช", money:true,  v:"--sr",
+        lvl:"staff", mgr:"GM"},
+    QC:{name:"QC",      en:"Quality",    person:"คุณสมหญิง",  init:"สญ", money:false, v:"--qc",
+        lvl:"staff", mgr:"GM"},
+    LS:{name:"โลจิสติกส์",en:"Logistics", person:"คุณอนุชา",   init:"อช", money:false, v:"--ls",
+        lvl:"staff", mgr:"GM"},
+    WH:{name:"คลังสินค้า",en:"Warehouse", person:"คุณประเสริฐ",init:"ปส", money:false, v:"--wh",
+        lvl:"staff", mgr:"GM"},
+    AC:{name:"บัญชี",   en:"Accounting", person:"คุณวิภา",    init:"วภ", money:true,  v:"--ac",
+        lvl:"staff", mgr:"ACH"},
+    // หัวหน้าบัญชี = ผู้จัดการฝ่ายบัญชี · คนละคนกับผู้บันทึกจ่าย · อนุมัติอย่างเดียว ไม่ถือขั้นตอนไหน
+    ACH:{name:"หัวหน้าบัญชี", en:"AC Head", person:"คุณอารีย์", init:"อร", money:true, v:"--ach",
+        lvl:"mgr"},
+    GM:{name:"ผู้บริหาร",en:"GM",        person:"คุณผู้จัดการ",init:"GM", money:true,  v:"--gm",
+        lvl:"mgr"}
   };
+  // ผู้จัดการที่อนุมัติเรื่องเงินทั้งหมด — ทุกยอดผ่านคนนี้ ไม่มีเกณฑ์วงเงิน
+  const PAY_APPROVER = "ACH";
 
   // 4 เฟส ครอบ 17 ขั้น — ผู้ใช้เห็นเฟสก่อน ค่อยเจาะดูขั้นย่อย
   const PHASES = [
@@ -558,7 +570,8 @@
     PAID:{t:"จ่ายแล้ว", cls:"ok"}, FAILED:{t:"ธนาคารตีกลับ", cls:"late"},
     VOID:{t:"กลับรายการ", cls:"wait"}, CANCELLED:{t:"ยกเลิก", cls:"wait"}
   };
-  const APV_LIMIT = 50000;   // เกินวงเงินนี้ต้องผู้บริหารอนุมัติ
+  // วงเงินซื้อเงินสดต่อรายการ — คนละเรื่องกับสายอนุมัติจ่าย (สายอนุมัติไม่มีเกณฑ์วงเงิน)
+  const CASH_LIMIT = 50000;
 
   // ไดรฟ์กลางที่เดียวของทั้งบริษัท — ไม่มีใครสร้างโฟลเดอร์เอง ระบบตั้งชื่อและวางที่ให้
   const DRIVE = {
@@ -971,7 +984,7 @@
     // คำขออนุมัติจ่ายไม่ได้ผูกกับ "เจ้าของขั้น" — ผู้อนุมัติจึงไม่เคยเห็นบนหน้าหลักมาก่อน
     const toApprove = act.filter(p => p.payments.some(x =>
       x.status === "REQUESTED" && x.reqBy !== ROLES[role].person &&
-      ((x.reqTo === "GM" && role === "GM") || (x.reqTo === "AC_HEAD" && role === "ACH"))));
+      role === (x.reqTo || PAY_APPROVER)));
     const others = act.filter(p => ownerOf(p) !== role && !comingToMe(p) && toApprove.indexOf(p) < 0);
     const duePay = act.reduce((n, p) => n + unpaid(p).length, 0);
 
@@ -1398,9 +1411,7 @@
     }
     // ผู้อนุมัติต้องไม่ใช่ผู้ตั้งเรื่อง — ในตัวอย่างนี้บัญชีตั้งเรื่อง ผู้บริหารอนุมัติ
     if (x.status === "REQUESTED") {
-      const mineToApprove = (x.reqTo === "GM" && role === "GM") ||
-                            (x.reqTo === "AC_HEAD" && role === "ACH") ||
-                            (!x.reqTo && role === "GM");
+      const mineToApprove = role === (x.reqTo || PAY_APPROVER);
       if (!mineToApprove) return "";
       // ถ้ามีใบขออนุมัติเต็มอยู่ด้านบนแล้ว ไม่ให้กดอนุมัติจากแถวในตาราง — ต้องอ่านใบก่อน
       if (x.reqNo) return '<span class="hint">ดูใบขออนุมัติ ' + esc(x.reqNo) + " ด้านบน</span>";
@@ -1447,7 +1458,7 @@
     if (!x) return "";
     const stt = x.status === "REQUESTED" ? "PENDING" : x.reqSt === "REJECTED" ? "REJECTED" : "APPROVED";
     const s = REQ_ST[stt];
-    const isApprover = (x.reqTo === "GM" && role === "GM") || (x.reqTo === "AC_HEAD" && role === "ACH");
+    const isApprover = role === (x.reqTo || PAY_APPROVER);
     const canAct = stt === "PENDING" && isApprover && x.reqBy !== ROLES[role].person;
     const docs = x.reqDocs || [];
     const cs = checksOf(p).filter(c => c.tag !== "paid" && (c.lv === "block" || !c.ok));
@@ -1464,8 +1475,8 @@
 
       '<div class="who" style="margin-top:12px">ผู้ขอ <b>' + esc(x.reqBy || "—") + "</b> (" +
         esc(ROLES[x.reqRole] ? ROLES[x.reqRole].name : "จัดซื้อ") + ") · " + esc(x.reqAt || "—") +
-        "<br>ส่งถึง <b>" + (x.reqTo === "GM" ? "ผู้บริหาร" : "หัวหน้าบัญชี") + "</b> — " +
-        (x.amount > APV_LIMIT ? "เกินวงเงิน " + baht(APV_LIMIT) : "อยู่ในวงเงินหัวหน้าบัญชี") +
+        "<br>ส่งถึง <b>" + esc(ROLES[x.reqTo] ? ROLES[x.reqTo].name : "ผู้จัดการ") + " (" +
+        esc(person(x.reqTo || PAY_APPROVER)) + ")</b> — ทุกยอดต้องผ่านผู้จัดการ ไม่มีเกณฑ์วงเงินยกเว้น" +
         "<br>ผู้บันทึกจ่ายจะเป็น <b>" + esc(person("AC")) +
         "</b> — คนละคนกับผู้อนุมัติ ตามหลักแยกหน้าที่</div>";
 
@@ -1501,7 +1512,7 @@
         '<button class="btn bad" data-payact="rej" data-seq="' + x.seq + '">ตีกลับพร้อมเหตุผล</button></div>';
     else if (stt === "PENDING")
       h += '<div class="acts"><span class="hint">รอ ' +
-        esc(x.reqTo === "GM" ? person("GM") : person("ACH")) + " กดอนุมัติ — คุณดูได้แต่กดแทนไม่ได้</span></div>";
+        esc(person(x.reqTo || PAY_APPROVER)) + " กดอนุมัติ — คุณดูได้แต่กดแทนไม่ได้</span></div>";
 
     return h + "</div></div>";
   }
@@ -1537,8 +1548,8 @@
           (x.wht ? '<div class="sub">หัก ณ ที่จ่าย ' + baht(x.wht) + "</div>" : "") + "</td>" +
         "<td>" + dueCell + "</td><td>" + payCell + "</td><td>" + refCell + "</td>" +
         '<td><span class="pill ' + s.cls + '">' + esc(s.t) + "</span>" +
-          (x.status === "REQUESTED" && x.amount > APV_LIMIT
-            ? '<div class="sub">เกิน ' + baht(APV_LIMIT) + " · ผู้บริหาร</div>" : "") + "</td>" +
+          (x.status === "REQUESTED"
+            ? '<div class="sub">รอ ' + esc(ROLES[x.reqTo || PAY_APPROVER].name) + "</div>" : "") + "</td>" +
         "<td>" + payButtons(p, x) + "</td></tr>";
     });
     h += "</tbody></table></div>";
@@ -1965,7 +1976,7 @@
       h += '<div class="card"><h3>รายการซื้อเงินสด<span class="c">' + cash.length + " รายการ · ข้าม QC " +
         byp.length + " รายการ</span></h3>" +
         '<div class="rowline"><span class="nm">วงเงินสูงสุดต่อรายการ</span><span class="pill due">' +
-        baht(APV_LIMIT) + " — เกินกว่านี้ต้องเปิด PO</span></div>" +
+        baht(CASH_LIMIT) + " — เกินกว่านี้ต้องเปิด PO</span></div>" +
         '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ร้าน / สินค้า</th>' +
         '<th class="num">ยอด</th><th>เหตุผลที่ไม่เปิด PO</th><th>ข้าม QC</th></tr></thead><tbody>';
       if (!cash.length) h += '<tr><td colspan="5" class="sub">— ยังไม่มีรายการเงินสด —</td></tr>';
@@ -2064,16 +2075,24 @@
       return h;
     }
     if (subtab === "USERS") {
-      h += '<div class="card"><h3>ผู้ใช้และสิทธิ์<span class="c">ตัวอย่าง 6 บทบาท</span></h3>' +
-        '<div class="tw"><table><thead><tr><th>ผู้ใช้</th><th>แผนก</th><th>เห็นยอดเงิน</th>' +
-        "<th>ขั้นที่รับผิดชอบ</th></tr></thead><tbody>";
+      h += '<div class="card"><h3>ผู้ใช้และสิทธิ์<span class="c">' + Object.keys(ROLES).length +
+        " บทบาท · พนักงาน–ผู้จัดการ</span></h3>" +
+        '<div class="tw"><table><thead><tr><th>ผู้ใช้</th><th>แผนก</th><th>ระดับ</th>' +
+        "<th>ผู้จัดการที่อนุมัติงานให้</th><th>เห็นยอดเงิน</th><th>ขั้นที่รับผิดชอบ</th></tr></thead><tbody>";
       Object.keys(ROLES).forEach(k => {
-        const owns = STAGES.filter(s => s.o === k).length;
-        h += "<tr><td>" + esc(ROLES[k].person) + "</td><td>" + dept(k) + " " + esc(ROLES[k].name) + "</td>" +
-          "<td>" + (ROLES[k].money ? '<span class="pill ok">เห็น</span>' : '<span class="pill wait">ไม่เห็น</span>') + "</td>" +
+        const r = ROLES[k], owns = STAGES.filter(s => s.o === k).length;
+        h += "<tr><td>" + esc(r.person) + "</td><td>" + dept(k) + " " + esc(r.name) + "</td>" +
+          "<td>" + (r.lvl === "mgr" ? '<span class="pill info">ผู้จัดการ</span>'
+                                    : '<span class="pill wait">พนักงาน</span>') + "</td>" +
+          "<td>" + (r.mgr ? esc(ROLES[r.mgr].name) + " (" + esc(person(r.mgr)) + ")" : "—") + "</td>" +
+          "<td>" + (r.money ? '<span class="pill ok">เห็น</span>' : '<span class="pill wait">ไม่เห็น</span>') + "</td>" +
           '<td class="num">' + owns + " ขั้น</td></tr>";
       });
       h += "</tbody></table></div>" +
+        '<div class="note warn"><span class="ic">!</span><span><b>ทุกยอดต้องผ่านผู้จัดการ</b> — ' +
+        "คำขอจ่ายทุกใบไม่ว่ายอดเท่าไหร่ ไปที่ <b>" + esc(ROLES[PAY_APPROVER].name) + " (" +
+        esc(person(PAY_APPROVER)) + ")</b> เสมอ <b>ไม่มีเกณฑ์วงเงินให้ข้าม</b><br>" +
+        "ผู้ขอ · ผู้อนุมัติ · ผู้บันทึกจ่าย ต้องเป็นคนละคนกัน — ระบบบล็อกให้ ไม่ใช่ฝากไว้กับวินัยคน</span></div>" +
         '<div class="note info"><span class="ic">▸</span><span>QC / โลจิสติกส์ / คลัง <b>ไม่เห็นราคา</b> — ' +
         "แยกการตัดสินใจเรื่องคุณภาพออกจากมูลค่าของล็อต</span></div></div>";
       return h;
@@ -2496,7 +2515,7 @@
     else if (dayDiff(cd, todayISO()) > 0) errs.push("C2 · วันที่จ่ายเป็นวันข้างหน้า — บันทึกได้เมื่อจ่ายจริงแล้ว");
     if (by && !valOf("cs_bywhy").trim())
       errs.push("C3 · ข้าม QC ต้องระบุเหตุผลและชื่อผู้อนุมัติ — เก็บไว้เป็นหลักฐานถาวร");
-    if (amt > APV_LIMIT) errs.push("C4 · เงินสดเกิน " + baht(APV_LIMIT) + " ต้องเปิด PO — วงเงินนี้แก้ได้ในหน้าตั้งค่า");
+    if (amt > CASH_LIMIT) errs.push("C4 · เงินสดเกิน " + baht(CASH_LIMIT) + " ต้องเปิด PO — วงเงินนี้แก้ได้ในหน้าตั้งค่า");
 
     const bw = document.getElementById("cs_bywrap");
     if (bw && bw.style) bw.style.display = by ? "" : "none";
@@ -2627,8 +2646,8 @@
     const eb = document.getElementById("pr_err");
     if (eb) eb.innerHTML = errs.map(e => '<div class="e1">' + esc(e) + "</div>").join("") +
       (errs.length ? "" : '<div class="w1">ส่งแล้วจะไปที่ ' +
-        (amt > APV_LIMIT ? "ผู้บริหาร (เกินวงเงิน " + baht(APV_LIMIT) + ")" : "หัวหน้าบัญชี") +
-        " — ระบบแจ้งเตือนให้เอง</div>");
+        esc(ROLES[PAY_APPROVER].name) + " (" + esc(person(PAY_APPROVER)) +
+        ") — ทุกยอดต้องผ่านผู้จัดการ ไม่มียอดไหนข้ามได้ · ระบบแจ้งเตือนให้เอง</div>");
     return errs;
   }
 
@@ -3028,10 +3047,12 @@
       if (!x) return;
       if (act === "form") { payOpen = {po:p.no, seq:x.seq}; modals(); return; }
       if (act === "req") {
-        x.status = "REQUESTED"; x.reqBy = ROLES[role].person;
+        x.status = "REQUESTED"; x.reqBy = ROLES[role].person; x.reqRole = role;
+        x.reqTo = PAY_APPROVER; x.reqAt = "วันนี้";
         p.tl.push(["วันนี้", ROLES[role].person, "ตั้งเรื่องขอจ่ายงวดที่ " + x.seq + " " + baht(x.amount)]);
-        toast(x.amount > APV_LIMIT ? "ส่งให้ผู้บริหารอนุมัติ (เกิน " + baht(APV_LIMIT) + ")"
-                                   : "ส่งให้หัวหน้าบัญชีอนุมัติแล้ว");
+        notify(PAY_APPROVER, "act", p.no, "รออนุมัติจ่าย งวดที่ " + x.seq,
+          p.no + " " + p.sup + " — " + baht(x.amount) + " · ขอโดย " + ROLES[role].person);
+        toast("ส่งให้" + ROLES[PAY_APPROVER].name + "อนุมัติแล้ว — ทุกยอดต้องผ่านผู้จัดการ");
       }
       if (act === "apv") {
         // ผู้อนุมัติต้องไม่ใช่ผู้ขอ — กันเซ็นอนุมัติงานของตัวเอง
@@ -3118,7 +3139,7 @@
         x.reqNo = "PRQ-26-" + String((rnums.length ? Math.max.apply(null, rnums) : 0) + 1).padStart(4, "0");
         x.amount = amt; x.due = isoToTH(eff); x.status = "REQUESTED";
         x.reqBy = ROLES[role].person; x.reqRole = role; x.reqAt = "วันนี้";
-        x.reqTo = amt > APV_LIMIT ? "GM" : "AC_HEAD";
+        x.reqTo = PAY_APPROVER;   // ทุกยอดผ่านผู้จัดการ ไม่มีเกณฑ์วงเงิน
         x.reqDocs = reqDocs(t.p);
         x.stampOn = stamp && dc ? dc.n : "";
         x.reqSt = "PENDING"; x.rejWhy = ""; x.rejBy = ""; x.apvAt = "";
@@ -3129,15 +3150,14 @@
           "ประทับข้อความลงบน " + (dc ? dc.n : "เอกสารที่แนบ") + " (" +
           (valOf("pr_size") || "13") + "pt) แล้วเก็บเป็นเวอร์ชันใหม่ — ต้นฉบับยังอยู่"]);
         t.p.tl.push(["วันนี้", "ระบบ", "แนบเอกสารทั้งชุดจากไดรฟ์กลางไปกับคำขอ และแจ้ง " +
-          (amt > APV_LIMIT ? "ผู้บริหาร" : "หัวหน้าบัญชี") + " ทาง Lark"]);
-        notify(x.reqTo === "GM" ? "GM" : "ACH", "act", t.p.no,
+          esc(ROLES[PAY_APPROVER].name) + " ทาง Lark"]);
+        notify(PAY_APPROVER, "act", t.p.no,
           "รออนุมัติจ่าย " + x.reqNo,
           t.p.no + " " + t.p.sup + " — " + baht(amt) + " มีผล " + isoToTH(eff) +
           " · ขอโดย " + ROLES[role].person + " · เอกสารแนบ " + x.reqDocs.length + " ใบ");
         payReqOpen = null; modals();
         advance(t.p, "ส่งมอบเอกสารครบชุด + ขออนุมัติทำจ่าย");
-        toast(amt > APV_LIMIT ? "ส่งให้ผู้บริหารอนุมัติแล้ว (เกิน " + baht(APV_LIMIT) + ")"
-                              : "ส่งให้หัวหน้าบัญชีอนุมัติแล้ว");
+        toast("ส่งให้" + ROLES[PAY_APPROVER].name + "อนุมัติแล้ว — ทุกยอดต้องผ่านผู้จัดการ");
         render(); return;
       }
       return;
