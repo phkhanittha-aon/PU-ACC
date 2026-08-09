@@ -255,9 +255,24 @@ click("data-po", { po: "PO-26-0042" });
 if (/มีเคลมค้าง/.test(nodes["#main"].innerHTML)) bad.push("กดยกเลิกแล้วยังทำงานต่อ");
 click("data-act", { act: "qcfail" });
 click("data-cf", { cf: "yes" });
+// ตรวจไม่ผ่านต้องบันทึกผลตรวจก่อน ใบเคลมจึงมีตัวเลขให้ผู้ขายและบัญชี
+if (!/บันทึกผลตรวจไม่ผ่าน/.test(nodes["#modal"].innerHTML))
+  bad.push("ยืนยันตรวจไม่ผ่านแล้วไม่มีป๊อปอัปให้บันทึกผลตรวจ");
+setFields({up_file:"qc_fail.pdf", up_note:"เปลือกมีจุดดำเกินเกณฑ์", up_none:false,
+           hf_temp:"-12.4", hf_qtyOk:"460 KG", hf_qtyBad:"40 KG"});
+formFields.up_err = {innerHTML:""}; formFields.up_named = {textContent:""};
+click("data-uact", { uact: "save" });
+d = nodes["#main"].innerHTML;
+if (!/CL-26-\d{4}/.test(d)) bad.push("เลขใบเคลมผิดรูปแบบ (ต้องเป็น CL-26-xxxx สี่หลัก)");
+if (!/40 KG/.test(d)) bad.push("ใบเคลมไม่ได้ใช้จำนวนที่ QC ตีกลับจริง");
+if (!/-12\.4/.test(d)) bad.push("ใบเคลมไม่มีอุณหภูมิที่ QC วัดได้ — ผู้ขายเถียงได้");
 click("data-po", { po: "PO-26-0042" });
-if (!/มีเคลมค้าง|ล็อก \(เคลม\)/.test(nodes["#main"].innerHTML + nodes["#main"].innerHTML))
+if (!/มีเคลมค้าง|ล็อก \(เคลม\)/.test(nodes["#main"].innerHTML))
   bad.push("ยืนยันแล้วไม่ได้เปิดเคลม");
+
+// จำนวนที่ตีกลับต้องเป็นช่องบังคับเฉพาะตอนตรวจไม่ผ่าน
+click("data-role", { role: "QC" });
+click("data-po", { po: "PO-26-0038" });
 
 /* ---------- SAP tab ---------- */
 click("data-role", { role: "SR" });
@@ -268,6 +283,21 @@ if (!/OPOR/.test(d)) bad.push("หน้าตั้งค่าไม่มี�
 if (!/ไม่เขียนอะไรกลับเข้า B1/.test(d)) bad.push("ไม่ระบุว่าเชื่อมต่อทิศทางเดียว");
 click("data-act", { act: "sapnow" });
 if (!/เมื่อสักครู่/.test(nodes["#main"].innerHTML)) bad.push("ปุ่มดึงข้อมูล SAP ไม่อัพเดตเวลา");
+
+// ใบขอรหัสสินค้าที่ระบบเปิดให้เองต้องมีชื่อสินค้าจริง ไม่ใช่ช่องว่าง
+click("data-role", { role: "LS" });
+click("data-po", { po: "PO-26-0051" });
+if (!/data-act="goic"/.test(nodes["#main"].innerHTML))
+  bad.push("PO-26-0051 ไม่ได้อยู่ขั้นขอรหัสสินค้าของ LS");
+click("data-act", { act: "goic" });
+d = nodes["#main"].innerHTML;
+if (!/IC-26-0007/.test(d)) bad.push("ไม่ได้เปิดใบขอรหัสของ PO ที่กดมา");
+if (/undefined/.test(d)) bad.push("ใบขอรหัสมีช่องที่ไม่มีข้อมูล (undefined)");
+click("data-ic", { ic: "sap", id: "IC-26-0007" });
+click("data-role", { role: "SR" });
+click("data-po", { po: "PO-26-0051" });
+if (!/ดึงข้อมูล PO จาก SAP B1/.test(nodes["#main"].innerHTML))
+  bad.push("ได้รหัสสินค้าจาก B1 แล้วแต่ PO ไม่เดินต่อไปขั้นผูก PO");
 
 /* ---------- ดึง PO จาก SAP แทนการพิมพ์เลขเอง ---------- */
 click("data-role", { role: "SR" });
@@ -616,6 +646,58 @@ if (!/จำนวนที่ QC รับได้ตรงกับที่�
 click("data-po", { po: "PO-26-0042" });   // ยังไม่ผ่าน QC — ต้องเตือนว่าเทียบไม่ได้
 click("data-role", { role: "AC" });
 click("data-po", { po: "PO-26-0051" });
+
+
+/* ================= รอบสอง: สายที่ไม่ใช่ทางปกติ ================= */
+
+// รายการเงินสดต้องไม่ตันที่ขั้นส่งมอบเอกสาร (จ่ายไปแล้ว ไม่มีงวดให้ขออนุมัติ)
+click("data-role", { role: "WH" });
+click("data-po", { po: "CS-26-0007" });
+setFields({up_file:"gr.jpg", up_note:"", up_none:false, hf_qtyIn:"60 KG", hf_grNo:"GR-CS-7"});
+formFields.up_err={innerHTML:""}; formFields.up_named={textContent:""};
+click("data-act", { act: "done" });
+click("data-uact", { uact: "save" });
+click("data-role", { role: "AC" });
+click("data-po", { po: "CS-26-0007" });
+setFields({up_file:"bill.jpg", up_note:"", up_none:false, hf_invNo:"BILL-7", hf_invAmt:"5400"});
+formFields.up_err={innerHTML:""}; formFields.up_named={textContent:""};
+click("data-act", { act: "done" });
+click("data-uact", { uact: "save" });
+click("data-role", { role: "SR" });
+click("data-po", { po: "CS-26-0007" });
+d = nodes["#main"].innerHTML;
+if (/data-act="payreq"/.test(d))
+  bad.push("รายการเงินสดที่จ่ายไปแล้วยังบังคับให้ขออนุมัติจ่าย — กดแล้วเจอทางตัน");
+if (!/จ่ายสดไปแล้ว/.test(d)) bad.push("ขั้นส่งมอบเอกสารของรายการเงินสดไม่มีทางไปต่อ");
+
+// เดินรายการเงินสดต่อจนปิด — กฎตรวจสอบเดิมบังคับ "ต้องผูกกับ PO ใน B1" ซึ่งเงินสดไม่มีตามนิยาม
+for (let i = 0; i < 6; i++) {
+  let owner = null;
+  for (const r of ["SR","AC","WH","QC","LS","GM"]) {
+    click("data-role", { role: r });
+    click("data-po", { po: "CS-26-0007" });
+    if (/งานนี้อยู่ที่คุณ/.test(nodes["#main"].innerHTML)) { owner = r; break; }
+  }
+  if (!owner) break;
+  const acts = (nodes["#main"].innerHTML.match(/data-act="[a-z]+"/g) || []);
+  if (!acts.length) { bad.push("รายการเงินสดตันที่ " + owner + " — ไม่มีปุ่มให้กด"); break; }
+  setFields({up_file:"x.pdf", up_note:"", up_none:false, hf_rcvBy:"คุณสมชาย"});
+  formFields.up_err={innerHTML:""}; formFields.up_named={textContent:""};
+  click("data-act", { act: acts[0].slice(10, -1) });
+  if (/data-uact/.test(nodes["#modal"].innerHTML)) click("data-uact", { uact: "save" });
+  if (/data-uact/.test(nodes["#modal"].innerHTML)) {
+    bad.push("รายการเงินสดติดที่ " + owner + ": " + String(formFields.up_err.innerHTML).replace(/<[^>]+>/g," "));
+    break;
+  }
+}
+click("data-role", { role: "AC" });
+click("data-po", { po: "CS-26-0007" });
+d = nodes["#main"].innerHTML;
+if (!/ชุดเอกสารรวมเล่มพร้อมแล้ว/.test(d))
+  bad.push("รายการซื้อเงินสดปิดบัญชีไม่ได้ — กฎ 'ต้องผูกกับ PO ใน B1' บล็อกไว้ตลอดไป");
+if (/ยังไม่ได้ผูกกับ PO ใน B1/.test(d))
+  bad.push("รายการเงินสดยังถูกกฎ PO ใน B1 บล็อกอยู่");
+
 
 console.log("เรนเดอร์ทั้งหมด " + n + " ครั้ง + จ่าย + ใช้งานง่าย/SAP + ขอราคา→PO + เงินสด/ไดรฟ์กลาง/รวมไฟล์/ป๊อปอัป");
 if (bad.length) { console.log("พบปัญหา " + bad.length + ":"); bad.slice(0, 30).forEach(b => console.log("  - " + b)); process.exit(1); }

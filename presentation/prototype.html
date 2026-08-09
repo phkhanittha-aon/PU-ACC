@@ -1158,8 +1158,13 @@
       btns = '<button class="btn pri" data-act="goic">ไปที่ใบขอเปิดรหัสสินค้า</button>';
     else if (s.c === "PO_CREATED")
       btns = '<button class="btn pri" data-act="sappull">ดึงข้อมูล PO จาก SAP B1</button>';
-    else if (s.c === "DOC_HANDOVER")
-      btns = '<button class="btn pri" data-act="payreq">ส่งเอกสาร + ขออนุมัติทำจ่าย</button>';
+    else if (s.c === "DOC_HANDOVER") {
+      // รายการที่จ่ายไปแล้ว (เช่นซื้อเงินสด) ไม่มีงวดให้ขออนุมัติ — ต้องมีทางไปต่อ ไม่ใช่ทางตัน
+      btns = p.payments.some(x => x.status === "PENDING")
+        ? '<button class="btn pri" data-act="payreq">ส่งเอกสาร + ขออนุมัติทำจ่าย</button>'
+        : '<button class="btn pri" data-act="done">ส่งมอบเอกสารครบชุด' +
+          (p.entry === "CASH" ? " (จ่ายสดไปแล้ว)" : " (จ่ายครบแล้ว)") + "</button>";
+    }
     else if (s.c === "PAYMENT") {
       // ขั้นทำจ่ายต้องผูกกับการบันทึกจ่ายจริง ไม่ใช่ปุ่ม "เสร็จ" ลอย ๆ
       const left = unpaid(p).filter(x => x.status !== "BLOCKED");
@@ -1630,8 +1635,14 @@
     const miss = missing(p), out = [];
     const add = (ok, lv, t, who) => out.push({ok:ok, lv:lv, t:t, who:who || ""});
 
-    add(!!p.sap, "block",
-        p.sap ? "ผูกกับ PO ใน B1 แล้ว (DocNum " + p.sap + ")" : "ยังไม่ได้ผูกกับ PO ใน B1", "SR");
+    // รายการซื้อเงินสดไม่มี PO ใน B1 ตามนิยาม — ใช้เกณฑ์คนละชุด ไม่งั้นปิดบัญชีไม่ได้ตลอดไป
+    if (p.entry === "CASH")
+      add(!!String(p.cashWhy || "").trim(), "block",
+          p.cashWhy ? "รายการเงินสด — บันทึกเหตุผลที่ไม่เปิด PO ไว้แล้ว" :
+                      "รายการเงินสดแต่ไม่มีเหตุผลที่ไม่เปิด PO", "SR");
+    else
+      add(!!p.sap, "block",
+          p.sap ? "ผูกกับ PO ใน B1 แล้ว (DocNum " + p.sap + ")" : "ยังไม่ได้ผูกกับ PO ใน B1", "SR");
     add(!miss.length, "block",
         miss.length ? "ขาดเอกสาร " + miss.length + " ใบ — " + miss.map(d => d.n).join(", ") : "เอกสารบังคับครบทุกใบ",
         miss.length ? miss[0].o : "");
@@ -1650,6 +1661,9 @@
               ? "จำนวนที่ QC รับได้ตรงกับที่คลังรับเข้า (" + esc(qOk) + ")"
               : "QC รับได้ " + esc(qOk) + " แต่คลังรับเข้า " + esc(qIn) + " — ต้องตรงกันก่อนตั้งหนี้",
             "WH");
+      else if (p.qcBypass)
+        add(true, "block", "ล็อตนี้ข้าม QC ตามที่อนุมัติไว้ (" + esc(p.qcBypassBy || "—") +
+            ") — เทียบกับจำนวนที่คลังรับเข้าแทน", "");
       else if (p.stage >= 12)
         add(false, "warn", "ยังไม่มีจำนวนที่ QC รับได้หรือจำนวนที่คลังรับเข้า — เทียบ 3 ทางไม่ได้",
             !qOk ? "QC" : "WH");
@@ -2148,11 +2162,15 @@
 
     el.innerHTML = '<div class="bugwrap" data-uact="close"></div>' +
       '<div class="bugpanel" role="dialog" aria-label="แนบเอกสารประจำขั้นตอน">' +
-      "<h3>" + esc(sg.n) + " — แนบเอกสาร" +
+      "<h3>" + esc(sg.n) + (upOpen.mode === "qcfail" ? " — บันทึกผลตรวจไม่ผ่าน" : " — แนบเอกสาร") +
         '<button data-uact="close" aria-label="ปิด">✕</button></h3>' +
       '<div class="bugbody">' +
 
       '<div class="ctxbox">' + esc(p.no) + " · " + esc(p.sup) + "<br>" +
+        (upOpen.mode === "qcfail"
+          ? "ตัวเลขที่กรอกด้านล่างจะ<b>ขึ้นบนใบเคลมที่ส่งให้ผู้ขาย</b>และเป็นยอดที่บัญชีใช้ตามใบลดหนี้ — " +
+            "ต้องระบุจำนวนที่ตีกลับ<br>"
+          : "") +
         (d ? "เอกสารของขั้นนี้: <b>" + esc(d.n) + "</b>" + (d.req ? " (บังคับ)" : " (ไม่บังคับ)")
            : "ขั้นนี้ไม่มีเอกสารบังคับ — แนบได้ถ้ามี เช่น รูปถ่ายหรือใบจอง") + "<br>" +
         'เก็บที่ <span class="droot">' + esc(DRIVE.folderOf(p)) + "</span></div>" +
@@ -2200,7 +2218,8 @@
     const errs = [];
     const hc = HAND[upOpen.step];
     if (hc) hc.f.forEach(x => {
-      if (x.req && !String(valOf("hf_" + x.k)).trim())
+      const need = x.req || (upOpen.mode === "qcfail" && x.k === "qtyBad");
+      if (need && !String(valOf("hf_" + x.k)).trim())
         errs.push("H · ต้องกรอก “" + x.lb + "” — " + hc.to + "ต้องใช้ข้อมูลนี้ ไม่งั้นเขาต้องโทรถามคุณ");
     });
     if (d && d.req && !file) errs.push("ขั้นนี้ต้องแนบ " + d.n + " ก่อนถึงจะส่งต่อได้");
@@ -2408,6 +2427,30 @@
         (amt > APV_LIMIT ? "ผู้บริหาร (เกินวงเงิน " + baht(APV_LIMIT) + ")" : "หัวหน้าบัญชี") +
         " — ระบบแจ้งเตือนให้เอง</div>");
     return errs;
+  }
+
+  /* เปิดใบเคลมจากผลตรวจที่ QC เพิ่งบันทึก — ไม่ใช่ตัวเลขตายตัว */
+  function openClaimFor(p) {
+    p.claim = true;
+    p.payments.forEach(x => {
+      if (["PENDING","REQUESTED","APPROVED"].indexOf(x.status) >= 0) x.status = "BLOCKED";
+    });
+    // เลขใบเคลมต้องรูปแบบเดียวกับของเดิม (CL-26-0004) ไม่ใช่ CL-26-006
+    const nums = CLAIMS.map(c => parseInt(String(c.id).split("-")[2], 10)).filter(n => !isNaN(n));
+    const cid = "CL-26-" + String((nums.length ? Math.max.apply(null, nums) : 0) + 1).padStart(4, "0");
+    const bad = p.hand.qtyBad && String(p.hand.qtyBad).trim() !== "—"
+      ? String(p.hand.qtyBad).trim() : (p.hand.qtyOk ? "ดูรายละเอียดในผลตรวจ" : p.qty);
+    const tempTxt = p.hand.temp !== undefined && p.hand.temp !== ""
+      ? " · อุณหภูมิที่วัดได้ " + p.hand.temp + "°C" : "";
+    CLAIMS.unshift({id:cid, src:"INCOMING", date:"วันนี้", cust:"—", pi:"", dn:"",
+      item:p.item, lot:"LOT-" + p.no.slice(-4), qty:bad,
+      desc:"ตรวจรับไม่ผ่านที่ห้องเย็นต้นทาง" + tempTxt +
+        (p.spec ? " · เกณฑ์ที่ตกลงไว้: " + p.spec : ""),
+      qcResult:"FAIL", supplier:p.sup, po:p.no, cn:"", photos:0});
+    p.tl.push(["วันนี้", ROLES[role].person, "ตรวจรับไม่ผ่าน — ตีกลับ " + bad + tempTxt]);
+    p.tl.push(["วันนี้","ระบบ","เปิดใบเคลม " + cid + " + ล็อกงวดจ่าย + แจ้งจัดซื้อและบัญชี"]);
+    openClaim = cid; page = "req"; subtab = "CLAIM";
+    toast("เปิดใบเคลม " + cid + " (" + bad + ") และล็อกการจ่ายเงินให้แล้ว");
   }
 
   /* ป๊อปอัปทั้งหมดใช้ช่อง #modal ร่วมกัน — ตัวจ่ายงานตัวเดียว กันไม่ให้ล้างของกันเอง */
@@ -2776,7 +2819,10 @@
           "/" + DRIVE.fileName(tp, code, file)]);
         if (note) tp.tl.push(["วันนี้", ROLES[role].person, "หมายเหตุ: " + note]);
         const doneNote = upOpen.note || ("ทำ “" + (sg ? sg.n : "") + "” เสร็จ");
+        const mode = upOpen.mode;
         upOpen = null; modals();
+
+        if (mode === "qcfail") { openClaimFor(tp); render(); return; }
         advance(tp, doneNote);
         render(); return;
       }
@@ -2870,10 +2916,13 @@
       let r = ITEMREQS.filter(x => x.po === p.no)[0];
       if (!r) {
         const nums = ITEMREQS.map(x => parseInt(x.id.split("-")[2], 10)).filter(n => !isNaN(n));
+        // ต้องใช้ชื่อฟิลด์ชุดเดียวกับที่หน้าจอใบขอรหัสอ่าน (name/pack/sup/hs/storage/shelf)
         r = {id:"IC-26-" + String((nums.length ? Math.max.apply(null, nums) : 0) + 1).padStart(4, "0"),
-             item:p.item, brand:"—", group:"Food", uom:(String(p.qty).split(" ")[1] || "KG"),
-             spec:p.spec || "—", by:ROLES[role].person, date:"วันนี้", status:"WAIT_APPROVE",
-             po:p.no, sap:""};
+             po:p.no, name:p.item, brand:"—", group:"Food",
+             uom:(String(p.qty).split(" ")[1] || "KG"), pack:"—", sup:p.sup,
+             hs:"—", storage:"—", shelf:"—",
+             by:ROLES[role].person, date:"วันนี้", status:"WAIT_APPROVE", sap:"",
+             note:"เปิดจาก " + p.no + " · สเปก: " + (p.spec || "—")};
         ITEMREQS.unshift(r);
         p.tl.push(["วันนี้", ROLES[role].person,
           "เปิดใบขอรหัสสินค้า " + r.id + " จาก PO นี้ — ชื่อสินค้า หน่วย และสเปกถูกดึงมาให้ ไม่ต้องพิมพ์ซ้ำ"]);
@@ -2886,19 +2935,10 @@
       render(); return;
     }
     else if (a === "qcfail") {
-      p.claim = true;
-      p.payments.forEach(x => {
-        if (["PENDING","REQUESTED","APPROVED"].indexOf(x.status) >= 0) x.status = "BLOCKED";
-      });
-      const cid = "CL-26-00" + (CLAIMS.length + 4);
-      CLAIMS.unshift({id:cid, src:"INCOMING", date:"วันนี้", cust:"—", pi:"", dn:"",
-        item:p.item, lot:"LOT-" + p.no.slice(-4), qty:"40 KG",
-        desc:"ตรวจรับไม่ผ่านที่ห้องเย็นต้นทาง", qcResult:"FAIL", supplier:p.sup, po:p.no, cn:"", photos:0});
-      p.tl.push(["วันนี้", ROLES[role].person, "ตรวจรับไม่ผ่าน"]);
-      p.tl.push(["วันนี้","ระบบ","เปิดใบเคลม " + cid + " + ล็อกงวดจ่าย + แจ้งจัดซื้อและบัญชี"]);
-      openClaim = cid; page = "req"; subtab = "CLAIM";
-      toast("เปิดใบเคลม " + cid + " และล็อกการจ่ายเงินให้แล้ว");
-      render(); return;
+      // ต้องบันทึกผลตรวจก่อน ไม่งั้นใบเคลมไม่มีตัวเลขให้ผู้ขายดู และบัญชีไม่รู้ว่าต้องได้คืนเท่าไหร่
+      upOpen = {po:p.no, doc:(docAtStage(p) || {}).c || null, step:s.c, mode:"qcfail",
+        note:"ตรวจรับไม่ผ่าน"};
+      modals(); return;
     }
     else if (a === "done") {
       // ขั้นปิดบัญชีถูกกั้นด้วยกฎตรวจสอบ — บอกทุกข้อที่ติดพร้อมกัน ไม่ใช่ทีละข้อ
