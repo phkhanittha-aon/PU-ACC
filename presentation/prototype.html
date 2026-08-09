@@ -375,6 +375,33 @@
   .hoff .kv dd{margin:0;font-weight:600;color:var(--ink)}
   .hoff .kv dd.mono{font-family:var(--mono);font-size:12.5px}
   .hoff .none{font-size:13px;color:var(--ink-3);font-style:italic}
+  /* ใบขออนุมัติทำจ่าย — สิ่งที่ผู้อนุมัติต้องอ่านก่อนกด ไม่ใช่ปุ่มลอยในตาราง */
+  .apv{border:1px solid var(--gold);border-radius:var(--r-md);background:var(--paper);
+    margin-bottom:16px;overflow:hidden;box-shadow:var(--sh-1)}
+  .apv>.ah{background:var(--gold-bg);border-bottom:1px solid var(--gold);padding:10px 16px;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .apv>.ah .rno{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--gold)}
+  .apv>.ah .sp2{flex:1}
+  .apv .ab{padding:14px 16px}
+  .apv .amt{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+  .apv .amt small{display:block;font-size:12px;font-weight:500;color:var(--ink-3);letter-spacing:0;margin-top:2px}
+  .apv .who{font-size:13px;color:var(--ink-2);margin-bottom:12px}
+  .apv .who b{color:var(--ink)}
+  .apv .sec{font-size:11px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-3);margin:14px 0 6px}
+  .apv .stamp{border:1px dashed var(--line-2);border-radius:var(--r-sm);padding:10px 14px;
+    font-size:13px;line-height:1.7;white-space:pre-wrap;background:var(--surface);color:var(--ink)}
+  .apv .dl{display:flex;justify-content:space-between;gap:12px;padding:5px 0;
+    border-bottom:1px solid var(--line);font-size:13px}
+  .apv .dl:last-child{border-bottom:0}
+  .apv .dl .fn{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);text-align:right}
+  .apv .ck{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:3px 0}
+  .apv .ck .m{font-weight:700;width:14px;flex:none}
+  .apv .ck.ok .m{color:var(--go)} .apv .ck.no .m{color:var(--stop)} .apv .ck.wn .m{color:var(--warn)}
+  .apv .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .apv .seg{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:640px){.apv .seg{grid-template-columns:1fr}}
+
   .miss1{border:1px solid var(--stop);background:var(--stop-bg);border-radius:var(--r-md);
     padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--stop);
     display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -798,7 +825,7 @@
   /* ================= สถานะหน้าจอ ================= */
   let role = "SR", page = "home", subtab = "ACTIVE", openPo = null, openClaim = null, q = "", fDept = "";
   let bugOpen = false, bugSev = "WRONG", openIC = null, openPR = null, quoteOpen = null, pendingAct = null;
-  let upOpen = null, cashOpen = false, payReqOpen = null;   // ป๊อปอัปอัพโหลด / รายการเงินสด / ขอทำจ่าย
+  let upOpen = null, cashOpen = false, payReqOpen = null, rejOpen = null;   // ป๊อปอัปอัพโหลด / เงินสด / ขอทำจ่าย / ตีกลับ
   let payOpen = null, payTouched = {amt:false, wht:false}, prTouched = false;
 
   const $ = s => document.querySelector(s);
@@ -926,11 +953,19 @@
     const mine = act.filter(p => ownerOf(p) === role);
     const mineLate = mine.filter(p => st(p) && p.age > st(p).sla);
     const soon = act.filter(comingToMe);
-    const others = act.filter(p => ownerOf(p) !== role && !comingToMe(p));
+    // คำขออนุมัติจ่ายไม่ได้ผูกกับ "เจ้าของขั้น" — ผู้อนุมัติจึงไม่เคยเห็นบนหน้าหลักมาก่อน
+    const toApprove = act.filter(p => p.payments.some(x =>
+      x.status === "REQUESTED" && x.reqBy !== ROLES[role].person &&
+      ((x.reqTo === "GM" && role === "GM") || (x.reqTo === "AC_HEAD" && role === "AC"))));
+    const others = act.filter(p => ownerOf(p) !== role && !comingToMe(p) && toApprove.indexOf(p) < 0);
     const duePay = act.reduce((n, p) => n + unpaid(p).length, 0);
 
     let h = '<div class="ph"><h1>สวัสดี ' + esc(ROLES[role].person) + '</h1><span class="d">' +
-      esc(ROLES[role].name) + " · " + (mine.length ? "มีงานรอคุณ " + mine.length + " รายการ" : "ไม่มีงานค้างที่คุณ") + "</span></div>";
+      esc(ROLES[role].name) + " · " +
+      (mine.length || toApprove.length
+        ? "มีงานรอคุณ " + (mine.length + toApprove.length) + " รายการ" +
+          (toApprove.length ? " (รออนุมัติจ่าย " + toApprove.length + ")" : "")
+        : "ไม่มีงานค้างที่คุณ") + "</span></div>";
 
     // แถบสรุปข้อมูล B1 — บอกเสมอว่าเลขที่เห็นสดแค่ไหน
     h += '<div class="synced' + (SAP.ok ? "" : " stale") + '"><span>🔄</span>' +
@@ -939,17 +974,39 @@
       '<span class="sp2"></span><button class="btn" data-act="sapnow">ดึงข้อมูลใหม่ตอนนี้</button></div>';
 
     h += '<div class="kpis">' +
-      '<div class="kpi a"><div class="n">' + mine.length + '</div><div class="k">ต้องทำวันนี้</div></div>' +
+      '<div class="kpi a"><div class="n">' + (mine.length + toApprove.length) + '</div><div class="k">ต้องทำวันนี้</div></div>' +
+      (toApprove.length ? '<div class="kpi r"><div class="n">' + toApprove.length +
+        '</div><div class="k">รออนุมัติจ่ายจากคุณ</div></div>' : "") +
       '<div class="kpi r"><div class="n">' + mineLate.length + '</div><div class="k">เลยกำหนดของคุณ</div></div>' +
       '<div class="kpi b"><div class="n">' + soon.length + '</div><div class="k">กำลังจะถึงคิวคุณ</div></div>' +
       (money() ? '<div class="kpi"><div class="n">' + duePay + '</div><div class="k">งวดที่ยังไม่จ่าย</div></div>' : "") +
       '<div class="kpi g"><div class="n">' + POS.filter(p => p.status === "COMPLETED").length + '</div><div class="k">ปิดแล้วเดือนนี้</div></div>' +
       "</div>";
 
-    if (!mine.length)
+    if (!mine.length && !toApprove.length)
       h += '<div class="note good" style="border:1px solid var(--go);margin-bottom:16px">' +
         '<span class="ic">✓</span><span><b>ตอนนี้ไม่มีอะไรที่คุณต้องทำ</b> — ' +
         "ระบบจะแจ้งเตือนทาง Lark เมื่อถึงคิวคุณ ไม่ต้องเปิดมานั่งเช็คเอง</span></div>";
+
+    // คำขออนุมัติจ่ายขึ้นก่อนงานอื่น เพราะปล่อยไว้แล้วผู้ขายไม่ได้เงินตามกำหนด
+    if (toApprove.length) {
+      h += '<div class="card" style="border-color:var(--gold)"><h3>⚑ รออนุมัติจ่ายจากคุณ' +
+        '<span class="c">' + toApprove.length + " รายการ · กดเข้าไปดูใบขออนุมัติเต็ม</span></h3>" +
+        '<div class="tw"><table><thead><tr><th>เลขที่คำขอ</th><th>รายการ / ผู้ขาย</th>' +
+        '<th class="num">ยอดที่ขอ</th><th>มีผลวันที่</th><th>ผู้ขอ</th></tr></thead><tbody>';
+      toApprove.forEach(p => {
+        const x = p.payments.filter(y => y.status === "REQUESTED")[0] || {};
+        h += '<tr class="click" data-po="' + esc(p.no) + '">' +
+          '<td><span class="pono">' + esc(x.reqNo || "—") + '</span><div class="sub mono">' + esc(p.no) + "</div></td>" +
+          "<td>" + esc(p.sup) + '<div class="sub">' + esc(p.item) + "</div></td>" +
+          '<td class="num">' + baht(x.amount) + "</td>" +
+          '<td><span class="mono">' + esc(x.due || "—") + "</span></td>" +
+          "<td>" + esc(x.reqBy || "—") + '<div class="sub">' + esc(x.reqAt || "") + "</div></td></tr>";
+      });
+      h += "</tbody></table></div>" +
+        '<div class="note info"><span class="ic">▸</span><span>กดที่แถวเพื่อดู<b>ใบขออนุมัติเต็ม</b> — ' +
+        "ยอด วันที่มีผล เอกสารประกอบทุกใบ และผลตรวจที่ระบบทำให้แล้ว ก่อนกดอนุมัติ</span></div></div>";
+    }
 
     h += poTable("① ต้องทำวันนี้", mine, "ไม่มีงานค้างที่คุณ");
     h += poTable("② กำลังจะถึงคิวคุณ — เตรียมตัวได้", soon, "ยังไม่มีงานที่กำลังจะเข้ามา");
@@ -1286,7 +1343,7 @@
       "</span></div></div>";
 
     // 5) การจ่ายเงิน
-    if (money()) h += paymentCard(p);
+    if (money()) h += payReqCard(p) + paymentCard(p);
 
     // 6) ตรวจสอบก่อนบันทึก — แสดงเต็มเฉพาะช่วงตั้งหนี้/จ่าย หรือเมื่อมีข้อติดจริง
     const nearClose = p.stage >= PHASES[2].from || !isActive(p);
@@ -1325,9 +1382,111 @@
       if (x.status === "PAID")     return b("void", "bad", "กลับรายการ");
     }
     // ผู้อนุมัติต้องไม่ใช่ผู้ตั้งเรื่อง — ในตัวอย่างนี้บัญชีตั้งเรื่อง ผู้บริหารอนุมัติ
-    if (role === "GM" && x.status === "REQUESTED")
+    if (x.status === "REQUESTED") {
+      const mineToApprove = (x.reqTo === "GM" && role === "GM") ||
+                            (x.reqTo === "AC_HEAD" && role === "AC") ||
+                            (!x.reqTo && role === "GM");
+      if (!mineToApprove) return "";
+      // ถ้ามีใบขออนุมัติเต็มอยู่ด้านบนแล้ว ไม่ให้กดอนุมัติจากแถวในตาราง — ต้องอ่านใบก่อน
+      if (x.reqNo) return '<span class="hint">ดูใบขออนุมัติ ' + esc(x.reqNo) + " ด้านบน</span>";
       return b("apv", "ok", "อนุมัติจ่าย") + " " + b("rej", "bad", "ตีกลับ");
+    }
     return "";
+  }
+
+  // สร้างแจ้งเตือนใหม่เข้ากล่อง — ใช้กับเรื่องที่ไม่ได้ผูกกับ "เจ้าของขั้น" เช่นคำขออนุมัติ
+  function notify(to, lv, ref, t, b) {
+    const now = new Date();
+    NOTIFS.unshift({id:Math.max.apply(null, NOTIFS.map(n => n.id).concat([0])) + 1,
+      to:to, lv:lv, ch:lv === "act" ? "Lark" : "Lark", read:false, ref:ref, t:t, b:b,
+      tm:(now.getHours() < 10 ? "0" : "") + now.getHours() + ":" +
+         (now.getMinutes() < 10 ? "0" : "") + now.getMinutes()});
+  }
+
+  /* ============ ใบขออนุมัติทำจ่าย ============
+     ปัญหาที่แก้: ผู้อนุมัติเห็นแค่ปุ่ม "อนุมัติจ่าย" ในตาราง ไม่มีอะไรอ้างอิงเลย
+     กดอนุมัติทั้งที่ไม่รู้ว่ากำลังอนุมัติอะไร ใครขอ เอกสารครบไหม
+     ตอนนี้ทุกคำขอมีใบของตัวเอง เลขที่ ผู้ขอ ยอด วันที่มีผล เอกสารแนบ และผลตรวจที่ระบบทำให้แล้ว */
+  const REQ_ST = {PENDING:{t:"รอคุณอนุมัติ", cls:"due"}, APPROVED:{t:"อนุมัติแล้ว", cls:"ok"},
+                  REJECTED:{t:"ตีกลับแล้ว", cls:"late"}};
+
+  // เอกสารที่แนบไปกับคำขอ — ดึงจากไดรฟ์กลางให้เอง ผู้ขอไม่ต้องแนบทีละใบ
+  function reqDocs(p) {
+    const out = [];
+    DOCS.forEach(d => {
+      if (docState(p, d) === "na") return;
+      const f = p.files[d.c];
+      if (f) out.push({n:d.n, fn:f.n, by:f.by});
+      else if (docState(p, d) === "ok") out.push({n:d.n, fn:DRIVE.fileName(p, d.c, "scan.pdf"), by:"—"});
+    });
+    Object.keys(p.files).filter(k => k.indexOf("STEP_") === 0).forEach(k => {
+      const sg = STAGES.filter(x => x.c === k.slice(5))[0];
+      out.push({n:"บันทึกขั้น " + (sg ? sg.n : ""), fn:p.files[k].n, by:p.files[k].by});
+    });
+    return out;
+  }
+
+  function payReqCard(p) {
+    const x = p.payments.filter(y => y.reqNo && ["REQUESTED","APPROVED"].indexOf(y.status) >= 0)[0] ||
+              p.payments.filter(y => y.reqNo && y.reqSt === "REJECTED")[0];
+    if (!x) return "";
+    const stt = x.status === "REQUESTED" ? "PENDING" : x.reqSt === "REJECTED" ? "REJECTED" : "APPROVED";
+    const s = REQ_ST[stt];
+    const isApprover = (x.reqTo === "GM" && role === "GM") || (x.reqTo === "AC_HEAD" && role === "AC");
+    const canAct = stt === "PENDING" && isApprover && x.reqBy !== ROLES[role].person;
+    const docs = x.reqDocs || [];
+    const cs = checksOf(p).filter(c => c.tag !== "paid" && (c.lv === "block" || !c.ok));
+
+    let h = '<div class="apv"><div class="ah"><span class="rno">' + esc(x.reqNo) + "</span>" +
+      '<span style="font-size:13px;font-weight:600">ใบขออนุมัติทำจ่าย</span>' +
+      '<span class="sp2"></span><span class="pill ' + s.cls + '">' + esc(s.t) + "</span></div>" +
+      '<div class="ab">' +
+      '<div class="seg"><div>' +
+        '<div class="amt">' + baht(x.amount) + "<small>ยอดที่ขออนุมัติ · งวดที่ " + x.seq + " " +
+          esc(x.type) + "</small></div></div><div>" +
+        '<div class="amt" style="font-size:18px">' + esc(x.due || "—") +
+          "<small>Effective date — วันที่ต้องมีผลจ่าย</small></div></div></div>" +
+
+      '<div class="who" style="margin-top:12px">ผู้ขอ <b>' + esc(x.reqBy || "—") + "</b> (" +
+        esc(ROLES[x.reqRole] ? ROLES[x.reqRole].name : "จัดซื้อ") + ") · " + esc(x.reqAt || "—") +
+        "<br>ส่งถึง <b>" + (x.reqTo === "GM" ? "ผู้บริหาร" : "หัวหน้าบัญชี") + "</b> — " +
+        (x.amount > APV_LIMIT ? "เกินวงเงิน " + baht(APV_LIMIT) : "อยู่ในวงเงินหัวหน้าบัญชี") + "</div>";
+
+    if (x.effNote)
+      h += '<div class="sec">ข้อความที่ผู้ขอประทับลงบน' + esc(x.stampOn || "เอกสารที่แนบ") + "</div>" +
+        '<div class="stamp">' + esc(x.effNote) + "</div>";
+
+    h += '<div class="sec">เอกสารประกอบ ' + docs.length + " ใบ — ระบบแนบให้จากไดรฟ์กลาง</div>";
+    if (!docs.length) h += '<div class="ck no"><span class="m">✕</span><span>ไม่มีเอกสารแนบ — ไม่ควรอนุมัติ</span></div>';
+    else docs.forEach(d => {
+      h += '<div class="dl"><span>' + esc(d.n) + "</span>" +
+        '<span class="fn">' + esc(d.fn) + "</span></div>";
+    });
+
+    h += '<div class="sec">ระบบตรวจให้แล้วก่อนถึงคุณ</div>';
+    cs.forEach(c => {
+      const cls = c.ok ? "ok" : c.lv === "block" ? "no" : "wn";
+      h += '<div class="ck ' + cls + '"><span class="m">' + (c.ok ? "✓" : c.lv === "block" ? "✕" : "!") +
+        "</span><span>" + esc(c.t) + (c.who && !c.ok ? " — ต้องแก้ที่ " + esc(c.who) : "") + "</span></div>";
+    });
+
+    if (stt === "APPROVED")
+      h += '<div class="ck ok" style="margin-top:12px"><span class="m">✓</span><span><b>อนุมัติโดย ' +
+        esc(x.apvBy || "—") + "</b> " + esc(x.apvAt || "") + " — บัญชีบันทึกการจ่ายได้แล้ว</span></div>";
+    if (stt === "REJECTED")
+      h += '<div class="ck no" style="margin-top:12px"><span class="m">✕</span><span><b>ตีกลับโดย ' +
+        esc(x.rejBy || "—") + "</b> " + esc(x.rejAt || "") + "<br>เหตุผล: " + esc(x.rejWhy || "—") +
+        "</span></div>";
+
+    if (canAct)
+      h += '<div class="acts"><button class="btn ok" data-payact="apv" data-seq="' + x.seq + '">' +
+        "อนุมัติจ่าย " + baht(x.amount) + "</button>" +
+        '<button class="btn bad" data-payact="rej" data-seq="' + x.seq + '">ตีกลับพร้อมเหตุผล</button></div>';
+    else if (stt === "PENDING")
+      h += '<div class="acts"><span class="hint">รอ ' +
+        esc(x.reqTo === "GM" ? person("GM") : person("AC")) + " กดอนุมัติ — คุณดูได้แต่กดแทนไม่ได้</span></div>";
+
+    return h + "</div></div>";
   }
 
   function paymentCard(p) {
@@ -1633,7 +1792,7 @@
   /* ================= ตรวจสอบก่อนบันทึก ================= */
   function checksOf(p) {
     const miss = missing(p), out = [];
-    const add = (ok, lv, t, who) => out.push({ok:ok, lv:lv, t:t, who:who || ""});
+    const add = (ok, lv, t, who, tag) => out.push({ok:ok, lv:lv, t:t, who:who || "", tag:tag || ""});
 
     // รายการซื้อเงินสดไม่มี PO ใน B1 ตามนิยาม — ใช้เกณฑ์คนละชุด ไม่งั้นปิดบัญชีไม่ได้ตลอดไป
     if (p.entry === "CASH")
@@ -1677,7 +1836,8 @@
       } else add(false, "warn", "ยังไม่ได้รับใบแจ้งหนี้", "AC");
 
       add(unpaid(p).length === 0, "block",
-          unpaid(p).length ? "ยังจ่ายไม่ครบ " + unpaid(p).length + " งวด" : "จ่ายครบทุกงวดและมีสลิปครบ", "AC");
+          unpaid(p).length ? "ยังจ่ายไม่ครบ " + unpaid(p).length + " งวด" : "จ่ายครบทุกงวดและมีสลิปครบ",
+          "AC", "paid");
     }
     return out;
   }
@@ -2453,8 +2613,37 @@
     toast("เปิดใบเคลม " + cid + " (" + bad + ") และล็อกการจ่ายเงินให้แล้ว");
   }
 
+  /* ตีกลับคำขอจ่าย — บังคับเหตุผล เพราะผู้ขอต้องรู้ว่าต้องแก้อะไรถึงจะขอใหม่ได้ */
+  const REJ_WHY = ["ยอดไม่ตรงกับใบแจ้งหนี้", "เอกสารไม่ครบ", "ของยังรับไม่ครบ",
+                   "วันที่มีผลจ่ายเร็วเกินไป", "ต้องต่อรองเงื่อนไขกับผู้ขายก่อน"];
+  function rejModal() {
+    const el = $("#modal");
+    if (!rejOpen) { el.innerHTML = ""; return; }
+    const p = POS.filter(x => x.no === rejOpen.po)[0];
+    const x = p ? p.payments.filter(y => y.seq === rejOpen.seq)[0] : null;
+    if (!x) { rejOpen = null; el.innerHTML = ""; return; }
+    el.innerHTML = '<div class="bugwrap" data-rej="close"></div>' +
+      '<div class="bugpanel" role="dialog" aria-label="ตีกลับคำขอจ่าย">' +
+      "<h3>ตีกลับ " + esc(x.reqNo || "คำขอจ่าย") +
+        '<button data-rej="close" aria-label="ปิด">✕</button></h3>' +
+      '<div class="bugbody">' +
+      '<div class="ctxbox">' + esc(p.no) + " · " + esc(p.sup) + "<br>ผู้ขอ <b>" + esc(x.reqBy || "—") +
+        "</b> · ยอด <b>" + baht(x.amount) + "</b><br>" +
+        "เหตุผลที่กรอกจะขึ้นบนหน้าจอของผู้ขอทันที และเก็บไว้ในประวัติถาวร</div>" +
+      '<div class="fld"><span class="lbl">เหตุผลที่ตีกลับ <span class="req">*</span></span>' +
+      '<select id="rj_why"><option value="">— เลือกเหตุผล —</option>' +
+      REJ_WHY.map(w => '<option value="' + esc(w) + '">' + esc(w) + "</option>").join("") +
+      '<option value="อื่น ๆ">อื่น ๆ (พิมพ์เอง)</option></select></div>' +
+      '<div class="fld"><span class="lbl">รายละเอียดที่ผู้ขอต้องแก้</span>' +
+      '<textarea id="rj_note" rows="3" placeholder="เช่น ใบแจ้งหนี้ 122,500 แต่ของรับจริง 340 KG ให้เช็คกับคลังก่อน"></textarea></div>' +
+      '<div class="errbox" id="rj_err"></div>' +
+      '<div class="fl2"><button class="btn" data-rej="close">ยกเลิก</button>' +
+      '<button class="btn bad" data-rej="send">ตีกลับพร้อมเหตุผล</button></div></div></div>';
+  }
+
   /* ป๊อปอัปทั้งหมดใช้ช่อง #modal ร่วมกัน — ตัวจ่ายงานตัวเดียว กันไม่ให้ล้างของกันเอง */
   function modals() {
+    if (rejOpen) { rejModal(); return; }
     if (payOpen) { payModal(); return; }
     if (quoteOpen) { quoteModal(); return; }
     if (upOpen) { uploadModal(); return; }
@@ -2725,6 +2914,35 @@
     if (!p) return;
     const s = st(p) || {c:"", n:"", o:"", sla:0};
 
+    const rj = ev.target.closest("[data-rej]");
+    if (rj) {
+      const act = rj.dataset.rej;
+      if (act === "close") { rejOpen = null; modals(); return; }
+      if (act === "send") {
+        const why = valOf("rj_why"), note = valOf("rj_note").trim();
+        if (!why) {
+          const eb = document.getElementById("rj_err");
+          if (eb) eb.innerHTML = '<div class="e1">ต้องเลือกเหตุผล — ผู้ขอต้องรู้ว่าต้องแก้อะไร</div>';
+          toast("ตีกลับไม่ได้ — ต้องระบุเหตุผล"); return;
+        }
+        const y = p.payments.filter(z => z.seq === rejOpen.seq)[0];
+        if (!y) { rejOpen = null; modals(); return; }
+        y.status = "PENDING"; y.reqSt = "REJECTED";
+        y.rejBy = ROLES[role].person; y.rejAt = "วันนี้";
+        y.rejWhy = why + (note ? " — " + note : "");
+        p.tl.push(["วันนี้", ROLES[role].person,
+          "ตีกลับ " + (y.reqNo || "คำขอจ่าย") + " งวดที่ " + y.seq + " · เหตุผล: " + y.rejWhy]);
+        p.tl.push(["วันนี้", "ระบบ", "แจ้ง " + esc(y.reqBy || "ผู้ขอ") + " ทาง Lark พร้อมเหตุผลที่ตีกลับ"]);
+        notify(y.reqRole || "SR", "warn", p.no, "คำขอจ่ายถูกตีกลับ",
+          (y.reqNo || "คำขอจ่าย") + " " + p.no + " — " + y.rejWhy +
+          " · ตีกลับโดย " + ROLES[role].person);
+        rejOpen = null; modals();
+        toast("ตีกลับให้ " + (y.reqBy || "ผู้ขอ") + " แล้ว พร้อมเหตุผล");
+        render(); return;
+      }
+      return;
+    }
+
     const pa = ev.target.closest("[data-payact]");
     if (pa) {
       const act = pa.dataset.payact;
@@ -2773,14 +2991,23 @@
                                    : "ส่งให้หัวหน้าบัญชีอนุมัติแล้ว");
       }
       if (act === "apv") {
+        // ผู้อนุมัติต้องไม่ใช่ผู้ขอ — กันเซ็นอนุมัติงานของตัวเอง
+        if (x.reqBy && x.reqBy === ROLES[role].person) {
+          toast("อนุมัติคำขอของตัวเองไม่ได้ — ต้องให้คนอื่นอนุมัติ"); render(); return;
+        }
         x.status = "APPROVED"; x.apvBy = ROLES[role].person;
-        p.tl.push(["วันนี้", ROLES[role].person, "อนุมัติจ่ายงวดที่ " + x.seq]);
+        x.reqSt = "APPROVED"; x.apvAt = "วันนี้";
+        p.tl.push(["วันนี้", ROLES[role].person,
+          "อนุมัติ " + (x.reqNo || "คำขอจ่าย") + " งวดที่ " + x.seq + " " + baht(x.amount) +
+          " · มีผล " + esc(x.due || "—")]);
+        notify("AC", "act", p.no, "อนุมัติแล้ว — บันทึกการจ่ายได้",
+          (x.reqNo || "คำขอจ่าย") + " " + p.no + " " + baht(x.amount) +
+          " · อนุมัติโดย " + ROLES[role].person + " · ต้องจ่ายภายใน " + (x.due || "—"));
         toast("อนุมัติแล้ว — บัญชีบันทึกการจ่ายได้ (คนละคนกับผู้อนุมัติ)");
       }
       if (act === "rej") {
-        x.status = "PENDING"; x.reqBy = "";
-        p.tl.push(["วันนี้", ROLES[role].person, "ตีกลับคำขอจ่ายงวดที่ " + x.seq + " พร้อมเหตุผล"]);
-        toast("ตีกลับให้บัญชีแล้ว");
+        // ตีกลับต้องมีเหตุผล ไม่งั้นผู้ขอไม่รู้ว่าต้องแก้อะไร
+        rejOpen = {po:p.no, seq:x.seq}; modals(); return;
       }
       if (act === "void") {
         // ไม่ลบ — ปิดรายการเดิมเป็น VOID แล้วเปิดงวดใหม่ให้ตั้งเรื่องอีกครั้ง
@@ -2842,8 +3069,17 @@
         const txt = valOf("pr_text").trim();
         const dc = DOCS.filter(y => y.c === valOf("pr_doc"))[0];
         const x = t.x;
+        // บันทึกคำขอให้ครบ เพื่อให้ผู้อนุมัติมีอะไรอ้างอิงตอนกด ไม่ใช่กดลอย ๆ
+        const rnums = POS.reduce((a, q) => a.concat(q.payments.map(y =>
+          parseInt(String(y.reqNo || "").split("-")[2], 10)).filter(n => !isNaN(n))), []);
+        x.reqNo = "PRQ-26-" + String((rnums.length ? Math.max.apply(null, rnums) : 0) + 1).padStart(4, "0");
         x.amount = amt; x.due = isoToTH(eff); x.status = "REQUESTED";
-        x.reqBy = ROLES[role].person; x.effNote = txt;
+        x.reqBy = ROLES[role].person; x.reqRole = role; x.reqAt = "วันนี้";
+        x.reqTo = amt > APV_LIMIT ? "GM" : "AC_HEAD";
+        x.reqDocs = reqDocs(t.p);
+        x.stampOn = stamp && dc ? dc.n : "";
+        x.reqSt = "PENDING"; x.rejWhy = ""; x.rejBy = ""; x.apvAt = "";
+        x.effNote = txt;
         t.p.tl.push(["วันนี้", ROLES[role].person,
           "ขออนุมัติทำจ่าย " + baht(amt) + " · มีผลวันที่ " + isoToTH(eff)]);
         if (stamp) t.p.tl.push(["วันนี้", "ระบบ",
@@ -2851,6 +3087,10 @@
           (valOf("pr_size") || "13") + "pt) แล้วเก็บเป็นเวอร์ชันใหม่ — ต้นฉบับยังอยู่"]);
         t.p.tl.push(["วันนี้", "ระบบ", "แนบเอกสารทั้งชุดจากไดรฟ์กลางไปกับคำขอ และแจ้ง " +
           (amt > APV_LIMIT ? "ผู้บริหาร" : "หัวหน้าบัญชี") + " ทาง Lark"]);
+        notify(x.reqTo === "GM" ? "GM" : "AC", "act", t.p.no,
+          "รออนุมัติจ่าย " + x.reqNo,
+          t.p.no + " " + t.p.sup + " — " + baht(amt) + " มีผล " + isoToTH(eff) +
+          " · ขอโดย " + ROLES[role].person + " · เอกสารแนบ " + x.reqDocs.length + " ใบ");
         payReqOpen = null; modals();
         advance(t.p, "ส่งมอบเอกสารครบชุด + ขออนุมัติทำจ่าย");
         toast(amt > APV_LIMIT ? "ส่งให้ผู้บริหารอนุมัติแล้ว (เกิน " + baht(APV_LIMIT) + ")"
