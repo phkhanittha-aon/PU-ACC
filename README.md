@@ -61,7 +61,9 @@ flowchart ให้เป็นระบบจริง — แต่ละแ�
 
 | ไฟล์ | ใช้ทำอะไร |
 |---|---|
-| [`apps-script/traceability/`](apps-script/traceability/) | **ระบบทวนสอบสินค้าและเรียกคืน** — Apps Script 9 ไฟล์ + เว็บแอปไฟล์เดียว + ตัวส่งข้อมูลจาก SAP B1 ([คู่มือ](docs/16-traceability-module.md)) |
+| [`apps-script/traceability/dist/`](apps-script/traceability/dist/) | **ไฟล์ที่เอาไปวางใน Apps Script ได้เลย** — `Code.gs` (รวม 9 ไฟล์) + `index.html` |
+| [`apps-script/traceability/`](apps-script/traceability/) | ซอร์สแยก 9 ไฟล์ + ตัวส่งข้อมูลจาก SAP B1 — ใช้ตอนดูแลระยะยาว ([คู่มือ](docs/16-traceability-module.md)) |
+| [`presentation/MGS-Traceability-Schema.xlsx`](presentation/MGS-Traceability-Schema.xlsx) | **โครงสร้างฐานข้อมูล 23 ตาราง · 325 คอลัมน์** — พจนานุกรมข้อมูลพร้อมที่มาของทุกฟิลด์ใน SAP B1 · นำเข้า Google Sheets ได้เลย |
 | [`presentation/traceability-prototype.html`](presentation/traceability-prototype.html) | **ตัวอย่างระบบทวนสอบที่กดเล่นได้** — เปิดในเบราว์เซอร์ได้เลย ไม่ต้องติดตั้งอะไร · **รันโค้ดหลังบ้านตัวจริง** กฎตรวจสอบทุกข้อจึงทำงานเหมือนของจริง · สลับบทบาทได้ 7 แบบ |
 | [`tools/traceability-test.js`](tools/traceability-test.js) | ชุดทดสอบ 81 ข้อของระบบทวนสอบ — รันได้โดยไม่ต้องแตะข้อมูลจริง |
 
@@ -109,7 +111,10 @@ node tools/walkthrough.js   # เดินทั้งกระบวนกา�
 node tools/smoke.js         # ชุดทดสอบ 273 การเรนเดอร์ (7 บทบาท) + เคสของทุกฟีเจอร์
 python3 tools/build-schema-xlsx.py   # สร้างไฟล์ Excel โครงสร้างหลังบ้านใหม่ (ต้องมี openpyxl)
 node tools/traceability-test.js     # ชุดทดสอบระบบทวนสอบสินค้าและเรียกคืน 81 ข้อ
-node tools/build-traceability-prototype.js   # สร้างตัวอย่างระบบทวนสอบใหม่หลังแก้โค้ด
+node tools/build-traceability-prototype.js    # สร้างตัวอย่างระบบทวนสอบใหม่หลังแก้โค้ด
+node tools/build-traceability-codegs.js      # รวม .gs 9 ไฟล์เป็น dist/Code.gs
+TRACE_SRC=dist node tools/traceability-test.js   # ทดสอบไฟล์รวมที่เอาไปวางจริง
+python3 tools/build-traceability-schema-xlsx.py  # สร้างไฟล์โครงสร้างฐานข้อมูลใหม่
 ```
 
 ## Stack

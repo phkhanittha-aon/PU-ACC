@@ -302,7 +302,9 @@ Apps Script อยู่บนคลาวด์ เรียกเข้าเ�
 ## 9. การติดตั้ง
 
 ```
-1. สร้างโปรเจกต์ Apps Script ใหม่ วางไฟล์จาก apps-script/traceability/ ทั้ง 10 ไฟล์
+1. สร้างโปรเจกต์ Apps Script ใหม่ วาง 2 ไฟล์จาก apps-script/traceability/dist/
+      Code.gs      (รวม .gs ทั้ง 9 ไฟล์ไว้แล้ว)
+      index.html   (ต้องตั้งชื่อว่า index พอดี ไม่งั้น doGet หาไม่เจอ)
 2. รัน setupCreateWorkbook()        สร้างสเปรดชีตและ 23 แท็บ
 3. ใส่รายชื่อผู้ใช้ในแท็บ Users      (ต้องมี ADMIN อย่างน้อย 1 คน)
 4. รัน setupGeneratePushSecret()     คัดลอกกุญแจไปใส่ในตัวส่งข้อมูล
@@ -321,7 +323,20 @@ Apps Script อยู่บนคลาวด์ เรียกเข้าเ�
 > ⚠️ **การกด Save ในตัวแก้ไขไม่ทำให้ผู้ใช้ได้โค้ดใหม่** ต้อง Deploy > Manage deployments >
 > แก้ > Version: **New version** ทุกครั้ง — เลขเวอร์ชันมุมล่างของหน้าจอคือตัวยืนยัน
 
-### 9.1 ห้ามแชร์สเปรดชีตให้ผู้ใช้ทั่วไป
+### 9.1 สองทางในการสร้างฐานข้อมูล
+
+| | วิธี | เมื่อไหร่ใช้ |
+|---|---|---|
+| ① ⭐ | รัน `setupCreateWorkbook()` ใน Apps Script | **ค่าปกติ** — สร้างครบ 23 แท็บ header ตรงกับโค้ด 100% ไม่มีทางพิมพ์ชื่อคอลัมน์ผิด |
+| ② | นำเข้า `presentation/MGS-Traceability-Schema.xlsx` เข้า Google Sheets | อยากให้ทีมเห็นและตรวจโครงสร้างก่อน · ต้องลบแท็บที่ขึ้นต้นด้วย `_` ออกก่อนใช้จริง แล้วเอา ID ของชีตไปใส่ใน Script Property `SS_ID` |
+
+ไฟล์ `.xlsx` ถูกสร้างจาก `00_Config.gs` ตัวจริงผ่าน `tools/dump-traceability-schema.js`
+จึงไม่มีวันเพี้ยนจากโค้ด และมี 3 แท็บเอกสารประกอบ: วิธีใช้ · **พจนานุกรมข้อมูลทุกคอลัมน์
+พร้อมที่มาของฟิลด์ใน B1** · ค่า enum ที่ระบบยอมรับทั้งหมด
+
+ไม่ว่าเลือกทางไหน ให้จบด้วย `runSelfTest()` — มันเทียบ header ทุกแท็บกับโค้ดทีละคอลัมน์
+
+### 9.2 ห้ามแชร์สเปรดชีตให้ผู้ใช้ทั่วไป
 
 ถ้าผู้ใช้เปิดชีตตรงได้ กฎตรวจสอบทั้ง 13 ข้อและระบบสิทธิ์ทั้งหมดเป็นโมฆะทันที
 ทุกคนต้องเข้าผ่านเว็บแอปเท่านั้น (deployment ตั้ง Execute as: Me จึงทำแบบนี้ได้)
@@ -437,7 +452,12 @@ _______________________________________________________________
 | `apps-script/traceability/08_Setup.gs` | ~410 | ติดตั้ง · trigger · สำรองข้อมูล · `runSelfTest` |
 | `apps-script/traceability/index.html` | ~1,690 | เว็บแอปไฟล์เดียว 4 หน้าจอ |
 | `apps-script/traceability/sap-push-agent.ps1` | ~300 | ตัวส่งข้อมูลฝั่งออฟฟิศ |
-| `tools/traceability-test.js` | ~730 | ชุดทดสอบ 81 ข้อ |
+| `apps-script/traceability/dist/Code.gs` | 3,940 | ไฟล์รวมที่เอาไปวางใน Apps Script (สร้างอัตโนมัติ) |
+| `tools/traceability-test.js` | ~730 | ชุดทดสอบ 81 ข้อ (`TRACE_SRC=dist` ทดสอบไฟล์รวม) |
+| `tools/build-traceability-codegs.js` | ~70 | รวม .gs 9 ไฟล์เป็น Code.gs เดียว |
+| `tools/dump-traceability-schema.js` | ~35 | พิมพ์โครงตารางและ enum เป็น JSON |
+| `tools/build-traceability-schema-xlsx.py` | ~440 | สร้างไฟล์โครงสร้างฐานข้อมูลจากโค้ดจริง |
+| `presentation/MGS-Traceability-Schema.xlsx` | สร้างอัตโนมัติ | โครงสร้าง 23 ตาราง 325 คอลัมน์ + พจนานุกรมข้อมูล |
 | `tools/gas-mocks.js` | ~230 | ตัวจำลองบริการของ Google — ใช้ร่วมกันระหว่างชุดทดสอบและตัวอย่างระบบ |
 | `tools/build-traceability-prototype.js` | ~200 | สร้างตัวอย่างระบบที่กดเล่นได้จากซอร์สตัวจริง |
 | `presentation/traceability-prototype.html` | สร้างอัตโนมัติ | ตัวอย่างระบบสำหรับที่ประชุม |

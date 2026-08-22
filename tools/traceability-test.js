@@ -23,7 +23,12 @@ const sandbox = M.sandbox;
 const store = M.store;
 
 vm.createContext(sandbox);
-const FILES = fs.readdirSync(SRC_DIR).filter(f => f.endsWith('.gs')).sort();
+// ปกติทดสอบจากไฟล์แยก 9 ไฟล์ · ตั้ง TRACE_SRC=dist เพื่อทดสอบไฟล์ Code.gs ที่รวมแล้ว
+// (ต้องทดสอบทั้งสองแบบ เพราะสิ่งที่ผู้ใช้เอาไปวางจริงคือไฟล์รวม)
+const USE_DIST = process.env.TRACE_SRC === 'dist';
+const FILES = USE_DIST
+  ? ['dist/Code.gs']
+  : fs.readdirSync(SRC_DIR).filter(f => f.endsWith('.gs')).sort();
 const bundle = FILES.map(f => '/* ===== ' + f + ' ===== */\n' + fs.readFileSync(path.join(SRC_DIR, f), 'utf8')).join('\n');
 vm.runInContext(bundle, sandbox, { filename: 'traceability-bundle.js' });
 
