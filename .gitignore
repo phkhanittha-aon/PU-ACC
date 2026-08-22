@@ -2,3 +2,6 @@
 node_modules/
 .DS_Store
 *.log
+sap-push-config.json
+apps-script/traceability/sap-push-config.json
+apps-script/traceability/logs/

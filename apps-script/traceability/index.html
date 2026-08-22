@@ -1,0 +1,1685 @@
+<!--
+  MGS Traceability & Recall — index.html
+  ─────────────────────────────────────────────────────────────────────────────
+  เว็บแอปไฟล์เดียว: HTML + CSS + JS ไม่มี build step ไม่มี CDN
+  (ไวไฟโรงงานบล็อก CDN เป็นเรื่องปกติ — พึ่งพาไฟล์ภายนอกไม่ได้)
+
+  แอปนี้ใช้อะไร
+    · สเปรดชีต  MGS-TRACEABILITY-<ปี>   (ผู้ใช้ทั่วไปต้องไม่มีสิทธิ์เปิดตรง)
+    · โฟลเดอร์  MGS Traceability Evidence  (หลักฐานแนบ)
+    · Script Properties: SS_ID · DRIVE_ROOT_ID · SAP_PUSH_SECRET · LARK_*
+
+  การ deploy ใหม่
+    แก้โค้ดแล้วต้อง Deploy > Manage deployments > แก้ > Version: New version
+    การกด Save เฉย ๆ ไม่ทำให้ผู้ใช้ได้โค้ดใหม่ — เลขเวอร์ชันมุมล่างคือตัวยืนยัน
+-->
+<style>
+  :root{
+    --paper:#fff; --surface:#f6f7f6; --surface-2:#eaece9; --bar:#17211d;
+    --ink:#17211d; --ink-2:#48544c; --ink-3:#79857c; --line:#dde3dc; --line-2:#c3cbc0;
+    --gold:#96731c; --gold-bg:#faf3df;
+    --go:#2c6e49; --go-bg:#e6f1ea; --warn:#a4501d; --warn-bg:#fbefe4;
+    --stop:#a02b30; --stop-bg:#fdeaea; --cold:#276456; --cold-bg:#e6f0ec;
+    --sans:"Leelawadee UI","Noto Sans Thai","Sarabun","IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+    --r-sm:5px; --r-md:8px; --r-lg:12px;
+    --sh-1:0 1px 2px rgba(23,33,29,.06);
+    --sh-2:0 8px 24px rgba(23,33,29,.12), 0 2px 6px rgba(23,33,29,.07);
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --paper:#111815; --surface:#161f1b; --surface-2:#202b25; --bar:#0a100d;
+    --ink:#eaf0ec; --ink-2:#aab8b0; --ink-3:#7c8b83; --line:#28352e; --line-2:#3a4a41;
+    --gold:#dcb35e; --gold-bg:#2a2010;
+    --go:#68c095; --go-bg:#12261c; --warn:#e29a67; --warn-bg:#2c2013;
+    --stop:#ea8f8f; --stop-bg:#301a1a; --cold:#69b39e; --cold-bg:#112722;
+    --sh-1:0 1px 2px rgba(0,0,0,.3);
+    --sh-2:0 10px 28px rgba(0,0,0,.45), 0 3px 10px rgba(0,0,0,.3);
+  }}
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--surface);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  @media (prefers-reduced-motion:reduce){*{transition-duration:0ms!important;animation-duration:0ms!important}}
+
+  /* ── แถบบน ─────────────────────────────────────────────────────────── */
+  header{background:var(--bar);color:#e6ede9;position:sticky;top:0;z-index:40;box-shadow:var(--sh-1)}
+  .hrow{display:flex;align-items:center;gap:12px;padding:11px 16px;max-width:1280px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand .mk{width:30px;height:30px;flex:none;border-radius:var(--r-sm);
+    background:linear-gradient(155deg,#dcb35e,#6f5514);display:grid;place-items:center;
+    color:#17211d;font-weight:800;font-size:12px;font-family:var(--mono)}
+  .brand b{display:block;font-size:15px;line-height:1.2;color:#fff}
+  .brand span{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:#8a9a92;font-family:var(--mono)}
+  .who{margin-left:auto;text-align:right;font-size:12px;color:#9fb0a7;line-height:1.35}
+  .who b{display:block;color:#e6ede9;font-size:13px}
+  @media(max-width:560px){ .who{display:none} }
+
+  nav{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:52px;z-index:39}
+  .nrow{display:flex;gap:2px;padding:0 10px;max-width:1280px;margin:0 auto;overflow-x:auto}
+  nav button{background:none;border:0;border-bottom:2.5px solid transparent;padding:12px 14px;
+    color:var(--ink-2);font-size:14.5px;white-space:nowrap;min-height:46px}
+  nav button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--gold);font-weight:700}
+  nav .badge{margin-left:6px;background:var(--stop);color:#fff;border-radius:9px;
+    padding:1px 6px;font-size:11px;font-weight:700;font-family:var(--mono)}
+
+  main{max-width:1280px;margin:0 auto;padding:16px 14px 64px}
+
+  /* ── แถบสถานะข้อมูล SAP ─────────────────────────────────────────────── */
+  .syncbar{padding:9px 14px;font-size:13px;border-radius:var(--r-md);margin-bottom:14px;
+    display:flex;gap:8px;align-items:flex-start;border:1px solid transparent}
+  .syncbar.ok{background:var(--cold-bg);color:var(--cold);border-color:var(--line)}
+  .syncbar.stale{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+
+  /* ── การ์ด ──────────────────────────────────────────────────────────── */
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);
+    padding:16px;margin-bottom:14px;box-shadow:var(--sh-1)}
+  .card>h2{margin:0 0 4px;font-size:16.5px}
+  .card>h2+p.sub{margin:0 0 14px;color:var(--ink-3);font-size:13px}
+  h3{font-size:14.5px;margin:18px 0 8px;color:var(--ink-2)}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 13px}
+  .kpi .n{font-size:26px;font-weight:800;font-family:var(--mono);line-height:1.1}
+  .kpi .l{font-size:12.5px;color:var(--ink-3);margin-top:3px}
+  .kpi.alarm{background:var(--stop-bg);border-color:var(--stop)} .kpi.alarm .n{color:var(--stop)}
+  .kpi.warn{background:var(--warn-bg);border-color:var(--warn)} .kpi.warn .n{color:var(--warn)}
+  .kpi.good{background:var(--go-bg);border-color:var(--line)} .kpi.good .n{color:var(--go)}
+
+  /* ── ป้ายสถานะ ──────────────────────────────────────────────────────── */
+  .tag{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:99px;
+    font-size:12px;font-weight:700;border:1px solid transparent;white-space:nowrap}
+  .tag.stop{background:var(--stop-bg);color:var(--stop);border-color:var(--stop)}
+  .tag.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+  .tag.go{background:var(--go-bg);color:var(--go);border-color:var(--go)}
+  .tag.cold{background:var(--cold-bg);color:var(--cold);border-color:var(--line-2)}
+  .tag.mute{background:var(--surface-2);color:var(--ink-2);border-color:var(--line)}
+
+  /* ── ตาราง ──────────────────────────────────────────────────────────── */
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--r-md)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:560px}
+  th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--surface-2);font-size:12px;color:var(--ink-2);position:sticky;top:0;
+    text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr.click{cursor:pointer}
+  tbody tr.click:hover{background:var(--surface)}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  /* ── ฟอร์ม ──────────────────────────────────────────────────────────── */
+  .fg{margin-bottom:13px}
+  .fg label{display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--ink-2)}
+  .fg label .req{color:var(--stop)}
+  .fg input,.fg select,.fg textarea{width:100%;padding:11px 12px;border:1px solid var(--line-2);
+    border-radius:var(--r-md);background:var(--paper);min-height:46px}
+  .fg textarea{min-height:88px;resize:vertical}
+  .fg input:focus,.fg select:focus,.fg textarea:focus{outline:2px solid var(--gold);outline-offset:-1px}
+  .fg .hint{font-size:12px;color:var(--ink-3);margin-top:4px}
+  .fg .bad{font-size:12.5px;color:var(--stop);margin-top:4px;font-weight:600}
+  .fg input[aria-invalid="true"],.fg textarea[aria-invalid="true"]{border-color:var(--stop)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    padding:11px 18px;border-radius:var(--r-md);border:1px solid var(--line-2);
+    background:var(--paper);font-size:14.5px;font-weight:600;min-height:46px}
+  .btn:hover{background:var(--surface)}
+  .btn.primary{background:var(--bar);color:#fff;border-color:var(--bar)}
+  .btn.primary:hover{opacity:.9}
+  .btn.danger{background:var(--stop);color:#fff;border-color:var(--stop)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btnrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .searchrow{display:flex;gap:9px}
+  .searchrow input{flex:1}
+
+  /* ── สถานะหน้าจอ ───────────────────────────────────────────────────── */
+  .state{padding:34px 18px;text-align:center;color:var(--ink-3);font-size:14px}
+  .state b{display:block;color:var(--ink);font-size:15.5px;margin-bottom:5px}
+  .spin{width:20px;height:20px;border:2.5px solid var(--line-2);border-top-color:var(--gold);
+    border-radius:50%;animation:sp .8s linear infinite;display:inline-block;vertical-align:-4px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .errbox{background:var(--stop-bg);border:1px solid var(--stop);color:var(--stop);
+    padding:13px 15px;border-radius:var(--r-md);font-size:13.5px;margin-bottom:14px}
+
+  /* ── modal ─────────────────────────────────────────────────────────── */
+  .ov{position:fixed;inset:0;background:rgba(15,22,19,.55);display:none;z-index:60;
+    padding:16px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .ov.on{display:block}
+  .modal{background:var(--paper);border-radius:var(--r-lg);max-width:720px;margin:24px auto;
+    box-shadow:var(--sh-2);overflow:hidden}
+  .modal .mh{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .modal .mh b{font-size:16px}
+  .modal .mh button{margin-left:auto;background:none;border:0;font-size:24px;color:var(--ink-3);
+    line-height:1;padding:0 4px;min-height:36px}
+  .modal .mb{padding:18px}
+  .modal .mf{padding:14px 18px;border-top:1px solid var(--line);background:var(--surface);
+    display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+
+  /* ── toast ─────────────────────────────────────────────────────────── */
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:80;
+    background:var(--bar);color:#fff;padding:12px 18px;border-radius:var(--r-md);
+    font-size:14px;box-shadow:var(--sh-2);display:none;max-width:92vw;text-align:center}
+  #toast.on{display:block}
+  #toast.bad{background:var(--stop)}
+
+  /* ── รายละเอียดการทวนสอบ ──────────────────────────────────────────── */
+  .chain{display:grid;gap:10px}
+  @media(min-width:900px){.chain{grid-template-columns:1fr 1fr}}
+  .leg{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+  .leg>.lh{padding:10px 13px;font-size:13px;font-weight:700;background:var(--surface-2)}
+  .leg.back>.lh{background:var(--cold-bg);color:var(--cold)}
+  .leg.fwd>.lh{background:var(--gold-bg);color:var(--gold)}
+  .step{padding:11px 13px;border-top:1px solid var(--line);font-size:13.5px}
+  .step .t{font-weight:700;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .step .m{color:var(--ink-3);font-size:12.5px;margin-top:2px}
+  dl.kv{display:grid;grid-template-columns:minmax(120px,auto) 1fr;gap:5px 14px;margin:0;font-size:13.5px}
+  dl.kv dt{color:var(--ink-3);font-size:12.5px}
+  dl.kv dd{margin:0;font-weight:600}
+  .bar{height:9px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-top:6px}
+  .bar>i{display:block;height:100%;background:var(--go);border-radius:99px}
+  .bar.warn>i{background:var(--warn)} .bar.stop>i{background:var(--stop)}
+
+  footer{max-width:1280px;margin:0 auto;padding:20px 14px 30px;color:var(--ink-3);font-size:12px;
+    display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+</style>
+
+<header>
+  <div class="hrow">
+    <div class="brand">
+      <div class="mk">MGS</div>
+      <div>
+        <b>ทวนสอบสินค้าและเรียกคืน</b>
+        <span>traceability &amp; recall</span>
+      </div>
+    </div>
+    <div class="who" id="who"></div>
+  </div>
+</header>
+
+<nav><div class="nrow" id="nav"></div></nav>
+
+<main id="main">
+  <div class="state"><span class="spin"></span>กำลังเปิดระบบ...</div>
+</main>
+
+<footer>
+  <span>MGS Traceability &amp; Recall</span>
+  <span class="mono" id="ver"></span>
+  <span id="footsync"></span>
+</footer>
+
+<div class="ov" id="ov"><div class="modal" id="modal"></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   1. สถานะกลาง — เก็บไว้ที่เดียว ไม่กระจายเป็นตัวแปรลอย
+   ═══════════════════════════════════════════════════════════════════════════ */
+var S = {
+  boot: null,          // ผลจาก apiBootstrap
+  page: 'home',
+  data: {},            // ข้อมูลของหน้าปัจจุบัน
+  busy: false,
+  formKey: null,       // clientKey ต่อการกรอกฟอร์ม 1 รอบ (ไม่ใช่ต่อการคลิก)
+  draft: {},           // ร่างของฟอร์มที่เปิดอยู่ — กันข้อมูลหายตอนหมุนจอ
+  lastQuery: ''
+};
+
+var PAGES = [
+  { id:'home',  label:'หน้าหลัก' },
+  { id:'trace', label:'ทวนสอบสินค้า' },
+  { id:'cases', label:'เคสเรียกคืน' },
+  { id:'mock',  label:'ทดสอบทวนสอบ' }
+];
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2. ตัวช่วยพื้นฐาน
+   ═══════════════════════════════════════════════════════════════════════════ */
+function $(id){ return document.getElementById(id); }
+
+/** ทุกค่าที่มาจากชีตต้องผ่านตัวนี้ก่อนเข้าไปใน innerHTML */
+function esc(s){
+  return String(s===null||s===undefined?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function n(v){ var x=Number(v); return isFinite(x)?x:0; }
+function fmtN(v){
+  var x=n(v);
+  return (Math.round(x*1000)/1000).toLocaleString('en-US',{maximumFractionDigits:3});
+}
+function pct(v){ return Math.round(n(v)*100)+'%'; }
+function uuid(){
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){
+    var r=Math.random()*16|0, v=c==='x'?r:(r&0x3|0x8); return v.toString(16);
+  });
+}
+function newFormKey(){ S.formKey = uuid(); return S.formKey; }
+
+function toast(msg, bad){
+  var t=$('toast');
+  t.textContent = msg;
+  t.className = 'on' + (bad?' bad':'');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ t.className=''; }, bad?6500:3800);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3. เรียกเซิร์ฟเวอร์
+   ทุกการเรียกต้องมีทั้ง success และ failure handler
+   และมีตัวจับเวลา — ผู้ใช้ต้องไม่เจอหน้าจอค้างโดยไม่รู้ว่าเกิดอะไร
+   ═══════════════════════════════════════════════════════════════════════════ */
+function rpc(fnName, args, onOk, onErr){
+  var done=false;
+  var timer=setTimeout(function(){
+    if(done) return;
+    done=true;
+    var m='ยังไม่ทราบผลภายใน 45 วินาที — กรุณาโหลดหน้าใหม่แล้วตรวจก่อนกดซ้ำ ระบบกันการบันทึกซ้ำไว้ให้แล้ว';
+    if(onErr) onErr(m); else toast(m,true);
+  }, 45000);
+
+  function finish(fn,payload){
+    if(done) return;
+    done=true; clearTimeout(timer);
+    fn(payload);
+  }
+
+  var runner = google.script.run
+    .withSuccessHandler(function(res){
+      finish(function(){
+        if(!res || !res.ok){
+          var m=(res && res.error) || 'ทำรายการไม่สำเร็จ';
+          if(onErr) onErr(m); else toast(m,true);
+          return;
+        }
+        onOk(res.data);
+      });
+    })
+    .withFailureHandler(function(e){
+      finish(function(){
+        var m='เชื่อมต่อไม่สำเร็จ: ' + ((e && e.message) || 'ไม่ทราบสาเหตุ') +
+              ' — ตรวจสัญญาณอินเทอร์เน็ตแล้วลองใหม่';
+        if(onErr) onErr(m); else toast(m,true);
+      });
+    });
+
+  runner[fnName].apply(runner, args || []);
+}
+
+/** ปุ่มที่ส่งข้อมูล: ปิดตอนกด และเปิดคืนทั้งตอนสำเร็จและตอนล้มเหลว */
+function submitting(btn, on, labelWhenBusy){
+  if(!btn) return;
+  if(on){
+    btn.dataset.label = btn.dataset.label || btn.textContent;
+    btn.disabled = true;
+    btn.textContent = labelWhenBusy || 'กำลังบันทึก...';
+  } else {
+    btn.disabled = false;
+    if(btn.dataset.label) btn.textContent = btn.dataset.label;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4. เปิดแอป
+   ═══════════════════════════════════════════════════════════════════════════ */
+function boot(){
+  rpc('apiBootstrap', [], function(d){
+    S.boot = d;
+    $('ver').textContent = d.app_version;
+    $('who').innerHTML = '<b>'+esc(d.user.name)+'</b>'+esc(d.user.role_th||d.user.role);
+    renderNav();
+    if(d.user.unlisted){
+      toast('บัญชีนี้ยังไม่ถูกกำหนดสิทธิ์ — ดูได้อย่างเดียว แจ้งผู้ดูแลระบบเพื่อเพิ่มสิทธิ์', true);
+    }
+    go('home');
+  }, function(m){
+    $('main').innerHTML = '<div class="errbox"><b>เปิดระบบไม่สำเร็จ</b><br>'+esc(m)+'</div>'+
+      '<button class="btn primary" onclick="location.reload()">ลองใหม่</button>';
+  });
+}
+
+function renderNav(){
+  $('nav').innerHTML = PAGES.map(function(p){
+    return '<button data-nav="'+p.id+'"'+(S.page===p.id?' aria-current="page"':'')+'>'+
+           esc(p.label)+'<span class="badge" id="bdg-'+p.id+'" style="display:none"></span></button>';
+  }).join('');
+}
+
+function setBadge(pageId, count){
+  var el=$('bdg-'+pageId);
+  if(!el) return;
+  if(count>0){ el.textContent=count; el.style.display=''; } else { el.style.display='none'; }
+}
+
+function go(page, arg){
+  S.page = page;
+  S.draft = {};
+  renderNav();
+  window.scrollTo(0,0);
+  loading();
+  if(page==='home')  return loadHome();
+  if(page==='trace') return renderTrace(arg||null);
+  if(page==='cases') return arg ? loadCase(arg) : loadCases();
+  if(page==='mock')  return arg ? loadMock(arg) : loadMocks();
+  $('main').innerHTML='';
+}
+
+function loading(msg){
+  $('main').innerHTML = '<div class="state"><span class="spin"></span>'+esc(msg||'กำลังโหลดข้อมูล...')+'</div>';
+}
+function pageError(msg, retryPage){
+  $('main').innerHTML = '<div class="errbox"><b>โหลดข้อมูลไม่สำเร็จ</b><br>'+esc(msg)+'</div>'+
+    '<button class="btn" data-nav="'+esc(retryPage||'home')+'">ลองใหม่</button>';
+}
+
+function syncBar(sync){
+  if(!sync) return '';
+  var cls = sync.stale ? 'stale' : 'ok';
+  var icon = sync.stale ? '⚠️' : '🔄';
+  var extra = sync.stale ? ' ตัวเลขที่เห็นอาจไม่ทันปัจจุบัน — แจ้งผู้ดูแลระบบให้ตรวจตัวส่งข้อมูล' : '';
+  $('footsync').textContent = sync.last_sync_at ? ('ข้อมูล SAP: '+sync.last_sync_at) : '';
+  return '<div class="syncbar '+cls+'"><span>'+icon+'</span><span>'+esc(sync.message)+esc(extra)+'</span></div>';
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   5. หน้าหลัก — ตอบคำถามเดียว: "วันนี้ฉันต้องทำอะไร"
+   ═══════════════════════════════════════════════════════════════════════════ */
+function loadHome(){
+  rpc('apiDashboard', [], function(d){
+    S.data.home = d;
+    setBadge('cases', d.counts.cases_active);
+    setBadge('home', d.counts.tasks_pending);
+
+    var h = [];
+    h.push(syncBar(d.sync));
+
+    h.push('<div class="card"><div class="kpis">'+
+      kpi(d.counts.tasks_pending, 'งานติดตามที่ค้างอยู่', d.counts.tasks_pending>0?'warn':'good')+
+      kpi(d.counts.cases_active, 'เคสที่ยังไม่ปิด', d.counts.cases_critical>0?'alarm':'')+
+      kpi(fmtN(d.counts.qty_unaccounted), 'หน่วยที่ยังระบุที่อยู่ไม่ได้', d.counts.qty_unaccounted>0?'alarm':'good')+
+      kpi(fmtN(d.counts.held_qty), 'หน่วยที่ถูกกักในคลัง', d.counts.held_qty>0?'warn':'')+
+    '</div></div>');
+
+    // งานที่ต้องทำ — เรียงงานเสี่ยงสูงขึ้นก่อนเสมอ
+    h.push('<div class="card"><h2>งานที่ต้องทำ</h2>');
+    if(!d.tasks.length){
+      h.push('<div class="state"><b>ไม่มีงานค้าง</b>ระบบจะแจ้งทาง Lark เมื่อมีเคสใหม่ ไม่ต้องเปิดมานั่งเช็ค</div>');
+    } else {
+      h.push('<p class="sub">เรียงจากเคสเสี่ยงสูงและจำนวนค้างมากที่สุด — กดที่แถวเพื่อบันทึกผล</p>');
+      h.push('<div class="tw"><table><thead><tr>'+
+        '<th>เคส</th><th>ปลายทาง</th><th>ต้องทำ</th><th class="num">ค้าง</th><th>สถานะ</th>'+
+        '</tr></thead><tbody>');
+      d.tasks.forEach(function(t){
+        h.push('<tr class="click" data-task="'+esc(t.track_id)+'" data-case="'+esc(t.case_no)+'">'+
+          '<td>'+riskDot(t.risk_class)+' <span class="mono">'+esc(t.case_no)+'</span></td>'+
+          '<td><b>'+esc(t.party_name||'-')+'</b>'+
+            (t.project?'<div class="m" style="font-size:12px;color:var(--ink-3)">'+esc(t.project)+'</div>':'')+
+            (t.doc_num?'<div style="font-size:12px;color:var(--ink-3)" class="mono">'+esc(t.doc_num)+'</div>':'')+'</td>'+
+          '<td>'+esc(t.required_action_th)+'</td>'+
+          '<td class="num"><b>'+fmtN(t.qty_pending)+'</b></td>'+
+          '<td>'+trackTag(t.status, t.status_th)+'</td></tr>');
+      });
+      h.push('</tbody></table></div>');
+    }
+    h.push('</div>');
+
+    // เคสที่เปิดอยู่
+    h.push('<div class="card"><h2>เคสเรียกคืนที่ยังไม่ปิด</h2>');
+    h.push(casesTable(d.cases));
+    h.push('</div>');
+
+    // การทดสอบทวนสอบ
+    h.push('<div class="card"><h2>การทดสอบทวนสอบย้อนกลับ</h2>');
+    if(d.open_mocks && d.open_mocks.length){
+      h.push('<p class="sub">กำลังทดสอบอยู่ '+d.open_mocks.length+' รายการ</p>');
+      d.open_mocks.forEach(function(m){
+        h.push('<button class="btn" data-mock="'+esc(m.test_no)+'">'+esc(m.test_no)+' — '+esc(m.item_code)+' / '+esc(m.dist_number)+'</button> ');
+      });
+    } else if(d.last_mock){
+      var lm=d.last_mock;
+      h.push('<dl class="kv">'+
+        '<dt>ครั้งล่าสุด</dt><dd class="mono">'+esc(lm.test_no)+' · '+esc(lm.test_date)+'</dd>'+
+        '<dt>ผล</dt><dd>'+(lm.result==='PASS'?'<span class="tag go">ผ่าน</span>':'<span class="tag stop">ไม่ผ่าน</span>')+
+          ' หาเจอ '+pct(lm.completion_pct)+' · ใช้เวลา '+fmtN(lm.duration_min)+'/'+fmtN(lm.target_min)+' นาที</dd>'+
+        '</dl>');
+    } else {
+      h.push('<div class="state"><b>ยังไม่เคยทดสอบ</b>ควรทดสอบอย่างน้อยปีละ 2 ครั้งเพื่อพิสูจน์ว่าระบบทวนสอบใช้ได้จริง</div>');
+    }
+    if(S.boot.perm.startMockRecall){
+      h.push('<div class="btnrow"><button class="btn" data-act="mock-new">เริ่มทดสอบใหม่</button>'+
+             '<button class="btn" data-nav="mock">ดูประวัติทั้งหมด</button></div>');
+    }
+    h.push('</div>');
+
+    $('main').innerHTML = h.join('');
+  }, function(m){ pageError(m,'home'); });
+}
+
+function kpi(value,label,cls){
+  return '<div class="kpi '+(cls||'')+'"><div class="n">'+esc(value)+'</div><div class="l">'+esc(label)+'</div></div>';
+}
+function riskDot(r){
+  if(r==='CRITICAL') return '<span title="วิกฤต">🔴</span>';
+  if(r==='MAJOR') return '<span title="สูง">🟠</span>';
+  return '<span title="ต่ำ">🟡</span>';
+}
+function trackTag(st, th){
+  var cls = st==='COMPLETED'?'go' : st==='NOT_REACHED'?'stop' : st==='PENDING'?'warn':'cold';
+  return '<span class="tag '+cls+'">'+esc(th||st)+'</span>';
+}
+function caseTag(st, th){
+  var cls = st==='CLOSED'?'go' : st==='CANCELLED'?'mute' : st==='OPEN'?'stop':'cold';
+  return '<span class="tag '+cls+'">'+esc(th||st)+'</span>';
+}
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   6. หน้าทวนสอบสินค้า
+   คนหน้างานพิมพ์อะไรมาก็ต้องเจอ: ซีเรียล เลขล็อต เลข DO เลข PO ชื่อลูกค้า โครงการ
+   ═══════════════════════════════════════════════════════════════════════════ */
+function renderTrace(lotKey){
+  var h=[];
+  h.push(syncBar(S.boot.sync));
+  h.push('<div class="card"><h2>ทวนสอบสินค้า</h2>'+
+    '<p class="sub">พิมพ์ได้ทุกอย่างที่มีในมือ — ซีเรียล เลขล็อต เลขใบส่งของ เลข PO ชื่อลูกค้า หรือชื่อโครงการ</p>'+
+    '<div class="searchrow">'+
+      '<input id="q" type="search" inputmode="search" autocomplete="off" '+
+        'placeholder="เช่น SG50R-A001 หรือ DO-260812" value="'+esc(S.lastQuery)+'">'+
+      '<button class="btn primary" data-act="search">ค้นหา</button>'+
+    '</div>'+
+    '<div class="hint" style="font-size:12px;color:var(--ink-3);margin-top:6px">'+
+      'ไม่ต้องใส่ขีดให้ตรงเป๊ะ ระบบตัดขีดและช่องว่างให้เอง</div>'+
+    '<div id="sr"></div></div>');
+  h.push('<div id="lotpane"></div>');
+  $('main').innerHTML = h.join('');
+
+  var qEl=$('q');
+  qEl.addEventListener('keydown', function(e){ if(e.key==='Enter') doSearch(); });
+  if(!lotKey) qEl.focus();
+  if(S.data.searchResult) renderSearchResult(S.data.searchResult);
+  if(lotKey) openLot(lotKey);
+}
+
+function doSearch(){
+  var q = ($('q').value||'').trim();
+  if(q.length<2){ toast('พิมพ์อย่างน้อย 2 ตัวอักษร', true); return; }
+  S.lastQuery = q;
+  $('sr').innerHTML = '<div class="state"><span class="spin"></span>กำลังค้นหา...</div>';
+  $('lotpane').innerHTML='';
+  rpc('apiSearch', [q], function(d){
+    S.data.searchResult = d;
+    renderSearchResult(d);
+    if(d.results.length===1) openLot(d.results[0].lot_key);
+  }, function(m){
+    $('sr').innerHTML = '<div class="errbox">'+esc(m)+'</div>';
+  });
+}
+
+function renderSearchResult(d){
+  if(!d.results.length){
+    $('sr').innerHTML = '<div class="state"><b>ไม่พบข้อมูล</b>'+
+      'ลองพิมพ์เฉพาะบางส่วนของเลข หรือใช้เลขใบส่งของแทน<br>'+
+      'ถ้าเพิ่งรับของเข้าวันนี้ ข้อมูลอาจยังไม่ถูก sync จาก SAP</div>';
+    return;
+  }
+  var h=['<h3>พบ '+d.total+' รายการ'+(d.shown<d.total?(' · แสดง '+d.shown+' รายการแรก'):'')+'</h3>'];
+  h.push('<div class="tw"><table><thead><tr>'+
+    '<th>สินค้า</th><th>ล็อต / ซีเรียล</th><th class="num">รับเข้า</th>'+
+    '<th class="num">ส่งออก</th><th class="num">คงคลัง</th><th>ตรงกับ</th>'+
+    '</tr></thead><tbody>');
+  d.results.forEach(function(r){
+    var warn = Math.abs(n(r.unaccounted))>0;
+    h.push('<tr class="click" data-lot="'+esc(r.lot_key)+'">'+
+      '<td><b>'+esc(r.item_code)+'</b><div style="font-size:12px;color:var(--ink-3)">'+esc(r.item_name)+'</div></td>'+
+      '<td class="mono">'+esc(r.dist_number)+
+        (r.supplier_lot&&r.supplier_lot!==r.dist_number?'<div style="font-size:12px;color:var(--ink-3)">ผู้ขาย: '+esc(r.supplier_lot)+'</div>':'')+'</td>'+
+      '<td class="num">'+fmtN(r.received)+'</td>'+
+      '<td class="num">'+fmtN(r.shipped_out)+'</td>'+
+      '<td class="num">'+fmtN(r.on_hand)+(warn?' <span class="tag stop">ต่าง '+fmtN(r.unaccounted)+'</span>':'')+'</td>'+
+      '<td style="font-size:12px;color:var(--ink-3)">'+esc(r.matched_on)+'</td></tr>');
+  });
+  h.push('</tbody></table></div>');
+  $('sr').innerHTML = h.join('');
+}
+
+function openLot(lotKey){
+  $('lotpane').innerHTML = '<div class="card"><div class="state"><span class="spin"></span>กำลังดึงประวัติของล็อตนี้...</div></div>';
+  rpc('apiTraceLot', [lotKey], function(d){
+    S.data.lot = d;
+    renderLot(d);
+    $('lotpane').scrollIntoView({behavior:'smooth', block:'start'});
+  }, function(m){
+    $('lotpane').innerHTML = '<div class="errbox">'+esc(m)+'</div>';
+  });
+}
+
+function renderLot(d){
+  var L=d.lot, R=d.reconcile;
+  var h=[];
+
+  h.push('<div class="card">');
+  h.push('<h2>'+esc(L.item_code)+' <span class="mono" style="color:var(--ink-3)">'+esc(L.dist_number)+'</span></h2>');
+  h.push('<p class="sub">'+esc(L.item_name)+(L.brand?' · '+esc(L.brand):'')+
+         ' · '+(L.kind==='SERIAL'?'ติดตามด้วยหมายเลขซีเรียล':'ติดตามด้วยเลขล็อต')+'</p>');
+
+  if(d.holds.length){
+    h.push('<div class="errbox">🔒 <b>ของล็อตนี้ถูกกักอยู่</b> — ห้ามจ่ายออกจนกว่าผู้จัดการคุณภาพจะปลด<br>'+
+      d.holds.map(function(x){
+        return esc(x.whs_name)+' จำนวน '+fmtN(x.qty_hold)+' (เคส '+esc(x.case_no)+')';
+      }).join('<br>')+'</div>');
+  }
+  if(d.recall_cases.length){
+    h.push('<div class="syncbar stale">⚠️<span>ล็อตนี้อยู่ในเคสเรียกคืน: '+
+      d.recall_cases.map(function(c){
+        return '<button class="btn" style="padding:2px 10px;min-height:auto" data-case="'+esc(c)+'">'+esc(c)+'</button>';
+      }).join(' ')+'</span></div>');
+  }
+
+  // กระทบยอด — ตัวเลขชุดนี้คือคำตอบของ "ของหายไปไหนหรือเปล่า"
+  var okRec = R.pass;
+  h.push('<h3>กระทบยอด</h3>');
+  h.push('<div class="kpis">'+
+    kpi(fmtN(R.received),'รับเข้าทั้งหมด','')+
+    kpi(fmtN(R.shipped_out),'ส่งลูกค้าแล้ว','')+
+    kpi(fmtN(R.on_hand),'คงเหลือในคลัง','')+
+    kpi(fmtN(R.unaccounted), okRec?'กระทบยอดลงตัว':'ระบุที่อยู่ไม่ได้', okRec?'good':'alarm')+
+  '</div>');
+  if(R.returned_in>0 || R.returned_to_supplier>0 || R.other_out>0){
+    h.push('<dl class="kv" style="margin-top:10px">'+
+      (R.returned_in>0?'<dt>ลูกค้าคืนกลับ</dt><dd>'+fmtN(R.returned_in)+'</dd>':'')+
+      (R.returned_to_supplier>0?'<dt>คืนผู้ขาย</dt><dd>'+fmtN(R.returned_to_supplier)+'</dd>':'')+
+      (R.other_out>0?'<dt>ตัดออก/ทำลาย</dt><dd>'+fmtN(R.other_out)+'</dd>':'')+
+      '</dl>');
+  }
+  if(!okRec){
+    h.push('<div class="errbox" style="margin-top:10px">ตัวเลขไม่ลงตัว '+fmtN(R.unaccounted)+' หน่วย — '+
+      'ถ้าเกิดเคสเรียกคืน ของจำนวนนี้จะตามไม่ได้ ควรตรวจกับคลังและ SAP ก่อน</div>');
+  }
+
+  // สายโซ่ย้อนหลัง / ไปข้างหน้า
+  h.push('<h3>เส้นทางของสินค้า</h3><div class="chain">');
+
+  h.push('<div class="leg back"><div class="lh">◀ มาจากไหน</div>');
+  if(!d.backward.length){
+    h.push('<div class="step"><div class="m">ไม่พบรายการรับเข้าในข้อมูลที่ sync มา</div></div>');
+  }
+  d.backward.forEach(function(b){
+    h.push('<div class="step"><div class="t"><span>'+esc(b.doc_type_th)+'</span>'+
+      '<span class="mono">'+esc(b.doc_num)+'</span><span class="tag mute">'+fmtN(b.qty)+'</span></div>'+
+      '<div class="m">'+esc(b.doc_date)+' · '+esc(b.party_name||b.party_code||'-')+' → '+esc(b.whs_name)+'</div>'+
+      (b.supplier_po_no||b.supplier_invoice_no
+        ? '<div class="m">PO ผู้ขาย: '+esc(b.supplier_po_no||'-')+' · ใบกำกับ: '+esc(b.supplier_invoice_no||'-')+'</div>'
+        : '')+
+      '</div>');
+  });
+  if(L.supplier_lot){
+    h.push('<div class="step"><div class="m">ล็อตของผู้ขาย: <b class="mono">'+esc(L.supplier_lot)+'</b>'+
+      (L.in_date?' · รับเข้า '+esc(L.in_date):'')+(L.exp_date?' · หมดอายุ '+esc(L.exp_date):'')+'</div></div>');
+  }
+  h.push('</div>');
+
+  h.push('<div class="leg fwd"><div class="lh">▶ ไปอยู่ที่ไหน</div>');
+  d.forward.on_hand.forEach(function(s){
+    h.push('<div class="step"><div class="t"><span>คงคลัง</span>'+
+      '<span class="tag cold">'+fmtN(s.qty)+'</span></div>'+
+      '<div class="m">'+esc(s.whs_name)+' ('+esc(s.whs_code)+')'+
+      (s.is_customer_site?' · คลังหน้างานลูกค้า':'')+'</div></div>');
+  });
+  d.forward.shipments.forEach(function(s){
+    h.push('<div class="step"><div class="t"><span>'+esc(s.doc_type_th)+'</span>'+
+      '<span class="mono">'+esc(s.doc_num)+'</span><span class="tag mute">'+fmtN(s.qty)+'</span></div>'+
+      '<div class="m">'+esc(s.doc_date)+' · '+esc(s.party_name||s.party_code||'-')+
+      (s.project?' · โครงการ '+esc(s.project):'')+'</div></div>');
+  });
+  if(!d.forward.on_hand.length && !d.forward.shipments.length){
+    h.push('<div class="step"><div class="m">ยังไม่มีการจ่ายออกและไม่มีของคงเหลือ</div></div>');
+  }
+  h.push('</div></div>');
+
+  // หมายเหตุของ QC
+  h.push('<h3>หมายเหตุของ MGS</h3>');
+  var nt = d.mgs_note || {};
+  if(S.boot.perm.saveTraceNote){
+    h.push('<div class="grid2">'+
+      '<div class="fg"><label>เลขล็อตรับเข้าของ MGS</label>'+
+        '<input id="nt_lot" value="'+esc(nt.mgs_receiving_lot||'')+'" placeholder="เช่น MGS-INV-260807-01"></div>'+
+      '<div class="fg"><label>สถานะจาก QC</label><select id="nt_status">'+
+        ['','ผ่าน','ผ่านแบบมีเงื่อนไข','ไม่ผ่าน','รอตรวจ'].map(function(v){
+          return '<option'+(String(nt.qc_status||'')===v?' selected':'')+'>'+esc(v)+'</option>';
+        }).join('')+'</select></div></div>'+
+      '<div class="fg"><label>บันทึกเพิ่มเติม</label>'+
+        '<textarea id="nt_note" placeholder="สิ่งที่คนอ่านทีหลังต้องรู้ เช่น พบรอยที่กล่อง 3 ใบตอนรับเข้า">'+esc(nt.note||'')+'</textarea></div>'+
+      '<div class="btnrow"><button class="btn" data-act="save-note" data-lot="'+esc(L.lot_key)+'">บันทึกหมายเหตุ</button></div>');
+    if(nt.updated_at){
+      h.push('<div class="hint" style="font-size:12px;color:var(--ink-3);margin-top:8px">'+
+        'แก้ไขล่าสุดโดย '+esc(nt.updated_by)+' เมื่อ '+esc(nt.updated_at)+'</div>');
+    }
+  } else if(nt.note){
+    h.push('<dl class="kv"><dt>เลขล็อต MGS</dt><dd class="mono">'+esc(nt.mgs_receiving_lot||'-')+'</dd>'+
+      '<dt>สถานะ QC</dt><dd>'+esc(nt.qc_status||'-')+'</dd>'+
+      '<dt>บันทึก</dt><dd>'+esc(nt.note)+'</dd></dl>');
+  } else {
+    h.push('<div class="state">ยังไม่มีหมายเหตุ</div>');
+  }
+
+  h.push('<div class="btnrow">');
+  if(S.boot.perm.openCase){
+    h.push('<button class="btn danger" data-act="open-case" data-item="'+esc(L.item_code)+
+           '" data-lot="'+esc(L.lot_key)+'">เปิดเคสเรียกคืนจากล็อตนี้</button>');
+  }
+  h.push('<button class="btn" data-act="export-master" data-lot="'+esc(L.lot_key)+'">ออกรายงาน FM-QC-TR-01</button>');
+  if(S.boot.perm.startMockRecall){
+    h.push('<button class="btn" data-act="mock-from-lot" data-item="'+esc(L.item_code)+
+           '" data-dist="'+esc(L.dist_number)+'">ใช้ล็อตนี้ทดสอบทวนสอบ</button>');
+  }
+  h.push('</div>');
+  h.push('</div>');
+
+  $('lotpane').innerHTML = h.join('');
+}
+
+function saveNote(lotKey, btn){
+  var payload = {
+    clientKey: S.formKey || newFormKey(),
+    lot_key: lotKey,
+    mgs_receiving_lot: ($('nt_lot')||{}).value || '',
+    qc_status: ($('nt_status')||{}).value || '',
+    note: ($('nt_note')||{}).value || ''
+  };
+  submitting(btn, true);
+  rpc('apiSaveTraceNote', [payload], function(){
+    submitting(btn, false);
+    S.formKey = null;
+    toast('บันทึกหมายเหตุแล้ว');
+    openLot(lotKey);
+  }, function(m){
+    submitting(btn, false);
+    toast(m, true);
+  });
+}
+
+function exportMaster(lotKey, btn){
+  submitting(btn, true, 'กำลังสร้างรายงาน...');
+  rpc('apiExportTraceMaster', [[lotKey]], function(d){
+    submitting(btn, false);
+    toast('สร้างแท็บ "'+d.sheet_name+'" แล้ว ('+d.rows+' แถว)');
+    openModal('รายงานพร้อมแล้ว',
+      '<p>ระบบสร้างแท็บ <b>'+esc(d.sheet_name)+'</b> ในไฟล์ฐานข้อมูล จำนวน '+d.rows+' แถว '+
+      'ตามรูปแบบฟอร์ม FM-QC-TR-01 พิมพ์และเซ็นได้เลย</p>'+
+      '<p style="font-size:13px;color:var(--ink-3)">ผู้ที่มีสิทธิ์เปิดไฟล์ฐานข้อมูลเท่านั้นจึงจะเห็นลิงก์นี้</p>',
+      '<a class="btn primary" href="'+esc(d.url)+'" target="_blank" rel="noopener">เปิดรายงาน</a>');
+  }, function(m){
+    submitting(btn, false);
+    toast(m, true);
+  });
+}
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   7. เคสเรียกคืน — รายการ
+   ═══════════════════════════════════════════════════════════════════════════ */
+function loadCases(filter){
+  S.data.caseFilter = filter || S.data.caseFilter || 'ACTIVE';
+  rpc('apiListCases', [S.data.caseFilter], function(d){
+    S.data.cases = d;
+    setBadge('cases', d.filter(function(c){
+      return ['CLOSED','CANCELLED'].indexOf(c.status)===-1;
+    }).length);
+    var h=[syncBar(S.boot.sync)];
+    h.push('<div class="card"><h2>เคสเรียกคืน</h2>'+
+      '<p class="sub">เรียงจากความเสี่ยงสูงสุดขึ้นก่อน</p>'+
+      '<div class="btnrow" style="margin-top:0">'+
+        ['ACTIVE|ที่ยังไม่ปิด','CLOSED|ปิดแล้ว','ALL|ทั้งหมด'].map(function(v){
+          var p=v.split('|');
+          return '<button class="btn'+(S.data.caseFilter===p[0]?' primary':'')+'" data-cfilter="'+p[0]+'">'+p[1]+'</button>';
+        }).join('')+
+        (S.boot.perm.openCase?'<button class="btn danger" data-act="open-case" style="margin-left:auto">เปิดเคสใหม่</button>':'')+
+      '</div>');
+    h.push(casesTable(d));
+    h.push('</div>');
+    $('main').innerHTML = h.join('');
+  }, function(m){ pageError(m,'cases'); });
+}
+
+function casesTable(list){
+  if(!list || !list.length){
+    return '<div class="state"><b>ไม่มีเคส</b>เมื่อผู้ขายแจ้งปัญหา ลูกค้าร้องเรียน หรือ QC ตรวจพบเอง ให้กด "เปิดเคสใหม่"</div>';
+  }
+  var h=['<div class="tw"><table><thead><tr>'+
+    '<th>เคส</th><th>สินค้า</th><th>ปัญหา</th><th class="num">กระทบ</th>'+
+    '<th class="num">ตามไม่ได้</th><th>ประสิทธิผล</th><th>สถานะ</th>'+
+    '</tr></thead><tbody>'];
+  list.forEach(function(c){
+    var eff = n(c.effectiveness_pct);
+    var barCls = eff>=1?'':(eff>=0.5?'warn':'stop');
+    h.push('<tr class="click" data-case="'+esc(c.case_no)+'">'+
+      '<td>'+riskDot(c.risk_class)+' <span class="mono">'+esc(c.case_no)+'</span>'+
+        '<div style="font-size:12px;color:var(--ink-3)">'+esc(c.opened_at)+'</div></td>'+
+      '<td><b>'+esc(c.item_code)+'</b><div style="font-size:12px;color:var(--ink-3)">'+esc(c.model||'')+'</div></td>'+
+      '<td style="max-width:280px">'+esc(c.problem)+'</td>'+
+      '<td class="num">'+fmtN(c.qty_affected)+'</td>'+
+      '<td class="num">'+(n(c.qty_unaccounted)>0?'<b style="color:var(--stop)">'+fmtN(c.qty_unaccounted)+'</b>':'0')+'</td>'+
+      '<td style="min-width:110px">'+pct(eff)+'<div class="bar '+barCls+'"><i style="width:'+Math.min(100,eff*100)+'%"></i></div></td>'+
+      '<td>'+caseTag(c.status, c.status_th)+'</td></tr>');
+  });
+  h.push('</tbody></table></div>');
+  return h.join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   8. เคสเรียกคืน — รายละเอียด
+   ลำดับบนหน้าจอตั้งใจให้ตอบตามนี้: ของอยู่ไหน → ต้องทำอะไรต่อ → เอกสารประกอบ
+   ═══════════════════════════════════════════════════════════════════════════ */
+function loadCase(caseNo){
+  rpc('apiGetCase', [caseNo], function(d){
+    S.data.case = d;
+    renderCase(d);
+  }, function(m){ pageError(m,'cases'); });
+}
+
+function renderCase(d){
+  var H=d.header, h=[];
+  h.push('<div class="btnrow" style="margin:0 0 12px"><button class="btn" data-nav="cases">← กลับรายการเคส</button></div>');
+
+  h.push('<div class="card">');
+  h.push('<h2>'+riskDot(H.risk_class)+' '+esc(H.case_no)+' '+caseTag(H.status,H.status_th)+'</h2>');
+  h.push('<p class="sub">'+esc(H.item_code)+' '+esc(H.model)+(H.brand?' · '+esc(H.brand):'')+
+         ' · เปิดเมื่อ '+esc(H.opened_at)+' โดย '+esc(H.opened_by)+'</p>');
+
+  h.push('<dl class="kv">'+
+    '<dt>ปัญหา</dt><dd>'+esc(H.problem)+'</dd>'+
+    '<dt>ที่มา</dt><dd>'+esc(H.source_th)+(H.source_ref?' — '+esc(H.source_ref):'')+'</dd>'+
+    '<dt>ระดับความเสี่ยง</dt><dd>'+esc(H.risk_th)+'</dd>'+
+    '<dt>ดำเนินการทันที</dt><dd>'+esc(H.immediate_action)+'</dd>'+
+    '<dt>ผู้รับผิดชอบ</dt><dd>'+esc(H.case_owner)+'</dd>'+
+  '</dl>');
+
+  h.push('<h3>ของอยู่ที่ไหน</h3>');
+  h.push('<div class="kpis">'+
+    kpi(fmtN(H.qty_affected),'กระทบทั้งหมด','')+
+    kpi(fmtN(H.qty_in_stock),'อยู่ในคลัง (กักแล้ว)', H.qty_in_stock>0?'warn':'')+
+    kpi(fmtN(H.qty_delivered),'ส่งลูกค้าไปแล้ว','')+
+    kpi(fmtN(H.qty_unaccounted),'ยังระบุที่อยู่ไม่ได้', H.qty_unaccounted>0?'alarm':'good')+
+  '</div>');
+
+  var eff=n(H.effectiveness_pct);
+  h.push('<h3>ความคืบหน้าการเรียกคืน — '+pct(eff)+'</h3>'+
+    '<div class="bar '+(eff>=1?'':(eff>=0.5?'warn':'stop'))+'"><i style="width:'+Math.min(100,eff*100)+'%"></i></div>'+
+    '<dl class="kv" style="margin-top:10px">'+
+      '<dt>รับคืนแล้ว</dt><dd>'+fmtN(H.qty_returned)+'</dd>'+
+      '<dt>เปลี่ยนของใหม่</dt><dd>'+fmtN(H.qty_replaced)+'</dd>'+
+      '<dt>ตรวจ/แก้ไขแล้ว</dt><dd>'+fmtN(H.qty_corrected)+'</dd>'+
+    '</dl>');
+
+  // ปุ่มเดินสถานะ — บอกล่วงหน้าเสมอว่ากดแล้วเกิดอะไร
+  if(H.next_status.length && S.boot.perm.advanceCaseStatus){
+    h.push('<div class="btnrow">');
+    H.next_status.forEach(function(st){
+      if(st==='CLOSED' && !S.boot.perm.closeCase) return;
+      if(st==='CANCELLED' && !S.boot.perm.cancelCase) return;
+      var label = st==='CLOSED'?'ปิดเคส' : st==='CANCELLED'?'ยกเลิกเคส' :
+                  ('เปลี่ยนเป็น "'+(S.boot.enums.case_status[st]||{}).th+'"');
+      var act = st==='CLOSED'?'close-case' : st==='CANCELLED'?'cancel-case' : 'advance-case';
+      h.push('<button class="btn'+(st==='CANCELLED'?' danger':'')+'" data-act="'+act+
+             '" data-to="'+esc(st)+'">'+esc(label)+'</button>');
+    });
+    h.push('</div>');
+    h.push('<div class="hint" style="font-size:12px;color:var(--ink-3);margin-top:6px">'+
+      nextStepHint(H.status)+'</div>');
+  }
+  if(H.status==='CLOSED' || H.status==='CANCELLED'){
+    h.push('<div class="syncbar ok">✔<span>'+esc(H.status==='CLOSED'?'ปิดเคสแล้ว':'ยกเลิกแล้ว')+
+      ' เมื่อ '+esc(H.closed_at)+' โดย '+esc(H.closed_by)+'<br>'+esc(H.closure_note)+'</span></div>');
+  }
+  h.push('</div>');
+
+  // ── ตารางติดตาม (FM-QC-RC-02) ────────────────────────────────────────
+  h.push('<div class="card"><h2>ติดตามปลายทาง (FM-QC-RC-02)</h2>'+
+    '<p class="sub">หนึ่งแถว = หนึ่งลูกค้า/โครงการ/คลัง — ปิดได้เมื่อจำนวนครบเท่านั้น</p>');
+  if(!d.tracking.length){
+    h.push('<div class="state"><b>ยังไม่มีปลายทาง</b>กด "สร้างรายการติดตามใหม่" เพื่อให้ระบบไล่จากข้อมูล SAP</div>');
+  } else {
+    h.push('<div class="tw"><table><thead><tr>'+
+      '<th>ปลายทาง</th><th>เอกสาร</th><th class="num">กระทบ</th><th class="num">คืน</th>'+
+      '<th class="num">เปลี่ยน</th><th class="num">แก้ไข</th><th class="num">ค้าง</th><th>สถานะ</th>'+
+      '</tr></thead><tbody>');
+    d.tracking.forEach(function(t){
+      var canEdit = S.boot.perm.updateTracking && ['CLOSED','CANCELLED'].indexOf(H.status)===-1;
+      h.push('<tr'+(canEdit?' class="click" data-track="'+esc(t.track_id)+'"':'')+'>'+
+        '<td><b>'+esc(t.party_name)+'</b>'+
+          '<div style="font-size:12px;color:var(--ink-3)">'+esc(locTypeTh(t.location_type))+
+          (t.project?' · '+esc(t.project):'')+'</div>'+
+          (t.sn_display?'<div class="mono" style="font-size:12px;color:var(--ink-3)">'+esc(t.sn_display)+'</div>':'')+'</td>'+
+        '<td class="mono">'+esc(t.doc_num||'-')+'<div style="font-size:12px;color:var(--ink-3)">'+esc(t.doc_date||'')+'</div></td>'+
+        '<td class="num">'+fmtN(t.qty_affected)+'</td>'+
+        '<td class="num">'+fmtN(t.qty_returned)+'</td>'+
+        '<td class="num">'+fmtN(t.qty_replaced)+'</td>'+
+        '<td class="num">'+fmtN(t.qty_corrected)+'</td>'+
+        '<td class="num">'+(n(t.qty_pending)>0?'<b style="color:var(--warn)">'+fmtN(t.qty_pending)+'</b>':'0')+'</td>'+
+        '<td>'+trackTag(t.status,t.status_th)+
+          '<div style="font-size:12px;color:var(--ink-3)">'+esc(t.required_action_th)+'</div></td></tr>');
+    });
+    h.push('</tbody></table></div>');
+  }
+  if(S.boot.perm.buildTracking && ['CLOSED','CANCELLED'].indexOf(H.status)===-1){
+    h.push('<div class="btnrow"><button class="btn" data-act="rebuild-tracking">สร้างรายการติดตามใหม่จาก SAP</button></div>'+
+      '<div class="hint" style="font-size:12px;color:var(--ink-3);margin-top:6px">'+
+      'กดเมื่อมีการส่งของเพิ่มหลังเปิดเคส — ระบบเพิ่มเฉพาะปลายทางใหม่ ไม่ทับของเดิม</div>');
+  }
+  h.push('</div>');
+
+  // ── การกักของ ────────────────────────────────────────────────────────
+  h.push('<div class="card"><h2>การกักสินค้าในคลัง</h2>');
+  if(!d.holds.length){
+    h.push('<div class="state">ไม่มีของของล็อตนี้อยู่ในคลังตอนเปิดเคส</div>');
+  } else {
+    h.push('<div class="tw"><table><thead><tr><th>คลัง</th><th>ล็อต/ซีเรียล</th>'+
+      '<th class="num">จำนวน</th><th>สถานะ</th><th></th></tr></thead><tbody>');
+    d.holds.forEach(function(x){
+      var held = x.status==='HOLD';
+      h.push('<tr><td>'+esc(x.whs_name)+'</td><td class="mono">'+esc(x.dist_number)+'</td>'+
+        '<td class="num">'+fmtN(x.qty_hold)+'</td>'+
+        '<td>'+(held?'<span class="tag stop">🔒 กักอยู่</span>':'<span class="tag mute">ปลดแล้ว</span>')+
+          (!held?'<div style="font-size:12px;color:var(--ink-3)">'+esc(x.released_at)+' · '+esc(x.release_reason)+'</div>':'')+'</td>'+
+        '<td>'+(held && S.boot.perm.releaseHold
+          ? '<button class="btn" style="padding:5px 12px;min-height:auto" data-act="release-hold" data-hold="'+esc(x.hold_id)+
+            '" data-ver="'+esc(x.row_version)+'">ปลดการกัก</button>' : '')+'</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+  }
+  h.push('</div>');
+
+  // ── การสอบสวนและ CAPA ────────────────────────────────────────────────
+  h.push('<div class="card"><h2>การสอบสวน · CAPA · การตัดสินใจ (FM-QC-RC-01)</h2>');
+  ['INVESTIGATION','DECISION'].forEach(function(grp){
+    var rows = d.actions.filter(function(a){ return a.section_type===grp; });
+    if(!rows.length) return;
+    h.push('<h3>'+(grp==='INVESTIGATION'?'การสอบสวนและการแก้ไข':'การตัดสินใจ')+'</h3>');
+    h.push('<div class="tw"><table><thead><tr><th>หัวข้อ</th><th>รายละเอียด</th>'+
+      '<th>ผู้รับผิดชอบ</th><th>กำหนด</th><th>สถานะ</th></tr></thead><tbody>');
+    rows.forEach(function(a){
+      var canEdit = S.boot.perm.updateAction && ['CLOSED','CANCELLED'].indexOf(H.status)===-1;
+      h.push('<tr'+(canEdit?' class="click" data-action="'+esc(a.action_id)+'"':'')+'>'+
+        '<td><b>'+esc(a.section_th)+'</b></td>'+
+        '<td style="max-width:320px">'+(a.details?esc(a.details):'<span style="color:var(--ink-3)">— ยังไม่กรอก —</span>')+'</td>'+
+        '<td>'+esc(a.responsible||'-')+'</td>'+
+        '<td class="mono">'+esc(a.target_date||'-')+'</td>'+
+        '<td>'+actionTag(a)+'</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+  });
+  h.push('</div>');
+
+  // ── ขอบเขต ───────────────────────────────────────────────────────────
+  h.push('<div class="card"><h2>ขอบเขตของเคส</h2>'+
+    '<p class="sub">'+d.scope.length+' ล็อต/ซีเรียล</p><div class="tw"><table><thead><tr>'+
+    '<th>ล็อต / ซีเรียล</th><th>ชนิด</th><th class="num">จำนวนที่กระทบ</th><th></th>'+
+    '</tr></thead><tbody>');
+  d.scope.forEach(function(s){
+    h.push('<tr><td class="mono">'+esc(s.dist_number)+'</td>'+
+      '<td>'+(s.kind==='SERIAL'?'ซีเรียล':'ล็อต')+'</td>'+
+      '<td class="num">'+fmtN(s.qty_affected)+'</td>'+
+      '<td><button class="btn" style="padding:4px 11px;min-height:auto" data-lot="'+esc(s.lot_key)+
+        '" data-goto="trace">ดูเส้นทาง</button></td></tr>');
+  });
+  h.push('</tbody></table></div></div>');
+
+  $('main').innerHTML = h.join('');
+}
+
+function locTypeTh(t){
+  return t==='WAREHOUSE'?'คลังของเรา' : t==='CUSTOMER_SITE'?'คลังหน้างานลูกค้า' : 'ลูกค้า';
+}
+function actionTag(a){
+  if(a.approved_by) return '<span class="tag go">อนุมัติแล้ว</span><div style="font-size:12px;color:var(--ink-3)">'+esc(a.approved_by)+'</div>';
+  if(a.status==='DONE') return '<span class="tag cold">เสร็จ รออนุมัติ</span>';
+  if(a.status==='IN_PROGRESS') return '<span class="tag warn">กำลังทำ</span>';
+  if(a.status==='NA') return '<span class="tag mute">ไม่เกี่ยวข้อง</span>';
+  return '<span class="tag stop">ยังไม่เริ่ม</span>';
+}
+function nextStepHint(status){
+  var m = {
+    OPEN:'ขั้นต่อไป: ยืนยันว่าของในคลังถูกกักครบแล้ว จึงเปลี่ยนเป็น "กักของแล้ว"',
+    CONTAINED:'ขั้นต่อไป: เริ่มติดต่อลูกค้าและโครงการตามตารางด้านล่าง',
+    TRACKING:'ปิดรายการติดตามให้ครบทุกแถวก่อน จึงเข้าสู่ขั้นตรวจประสิทธิผลได้',
+    VERIFYING:'ตรวจว่าจำนวนครบและปลดการกักเรียบร้อย จึงปิดเคสได้'
+  };
+  return m[status] || '';
+}
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   9. Modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+function openModal(title, bodyHtml, footerHtml){
+  $('modal').innerHTML =
+    '<div class="mh"><b>'+esc(title)+'</b><button data-act="close-modal" aria-label="ปิด">×</button></div>'+
+    '<div class="mb">'+bodyHtml+'</div>'+
+    '<div class="mf">'+(footerHtml||'<button class="btn" data-act="close-modal">ปิด</button>')+'</div>';
+  $('ov').className='ov on';
+  document.body.style.overflow='hidden';
+}
+function closeModal(){
+  $('ov').className='ov';
+  $('modal').innerHTML='';
+  document.body.style.overflow='';
+  S.formKey=null;
+}
+function mErr(msg){
+  var b=$('m_err');
+  if(b){ b.innerHTML = msg?('<div class="errbox">'+esc(msg)+'</div>'):''; }
+  else toast(msg,true);
+}
+
+/** ยืนยันการกระทำที่ย้อนกลับยาก — ต้องบอกชื่อรายการและผลที่จะเกิด */
+function confirmAction(title, warning, confirmLabel, onYes){
+  openModal(title,
+    '<div id="m_err"></div><p>'+warning+'</p>',
+    '<button class="btn" data-act="close-modal">ยกเลิก</button>'+
+    '<button class="btn danger" id="m_yes">'+esc(confirmLabel)+'</button>');
+  $('m_yes').onclick = function(){ onYes($('m_yes')); };
+}
+
+/* ── เปิดเคสใหม่ ─────────────────────────────────────────────────────── */
+function modalOpenCase(preItem, preLotKey){
+  newFormKey();
+  var items = S.boot.items;
+  var preDist = preLotKey ? preLotKey.split('|')[1] : '';
+  var body =
+    '<div id="m_err"></div>'+
+    '<div class="fg"><label>สินค้า <span class="req">*</span></label>'+
+      '<select id="c_item">'+
+        '<option value="">— เลือกสินค้า —</option>'+
+        items.map(function(i){
+          return '<option value="'+esc(i.item_code)+'" data-mng="'+esc(i.mng_method)+'"'+
+                 (preItem===i.item_code?' selected':'')+'>'+
+                 esc(i.item_code)+' — '+esc(i.item_name)+' ('+(i.mng_method==='SERIAL'?'ซีเรียล':'ล็อต')+')</option>';
+        }).join('')+
+      '</select></div>'+
+    '<div class="grid2">'+
+      '<div class="fg"><label>ที่มาของเคส <span class="req">*</span></label><select id="c_source">'+
+        Object.keys(S.boot.enums.case_source).map(function(k){
+          return '<option value="'+esc(k)+'">'+esc(S.boot.enums.case_source[k])+'</option>';
+        }).join('')+'</select></div>'+
+      '<div class="fg"><label>เลขที่อ้างอิง</label>'+
+        '<input id="c_ref" placeholder="เช่น เลขหนังสือแจ้งของผู้ขาย"></div>'+
+    '</div>'+
+    '<div class="fg"><label>ปัญหาที่พบ <span class="req">*</span></label>'+
+      '<textarea id="c_problem" placeholder="อธิบายให้คนที่ไม่ได้อยู่หน้างานเข้าใจ เช่น ผู้ขายแจ้งว่า PCB ล็อตนี้อาจมีจุดบัดกรีไม่สมบูรณ์ เสี่ยงหยุดทำงานหลังใช้งาน 6 เดือน"></textarea>'+
+      '<div class="hint">ข้อความนี้จะถูกส่งเข้ากลุ่ม Lark ทันทีที่กดเปิดเคส</div></div>'+
+    '<div class="grid2">'+
+      '<div class="fg"><label>ระดับความเสี่ยง <span class="req">*</span></label><select id="c_risk">'+
+        Object.keys(S.boot.enums.risk_class).map(function(k){
+          return '<option value="'+esc(k)+'">'+esc(S.boot.enums.risk_class[k].th)+'</option>';
+        }).join('')+'</select>'+
+        '<div class="hint">วิกฤต/สูง = ระบบแจ้งผู้บริหารอัตโนมัติ</div></div>'+
+      '<div class="fg"><label>ผู้รับผิดชอบเคส</label>'+
+        '<input id="c_owner" value="'+esc(S.boot.user.email)+'"></div>'+
+    '</div>'+
+    '<div class="fg"><label>ดำเนินการทันที</label>'+
+      '<input id="c_imm" value="กักของที่ยังอยู่ในคลัง และตามหาของที่ส่งออกไปแล้ว"></div>'+
+    '<h3 style="margin-top:6px">ขอบเขตที่กระทบ</h3>'+
+    '<div id="c_scopefields"></div>'+
+    '<div id="c_preview"></div>';
+
+  openModal('เปิดเคสเรียกคืนใหม่', body,
+    '<button class="btn" data-act="close-modal">ยกเลิก</button>'+
+    '<button class="btn danger" id="c_submit">เปิดเคสและกักของทันที</button>');
+
+  $('c_item').addEventListener('change', renderScopeFields);
+  renderScopeFields();
+  if(preDist){
+    setTimeout(function(){
+      var mng = selMng();
+      if(mng==='SERIAL'){ if($('c_from')) $('c_from').value = preDist; if($('c_to')) $('c_to').value = preDist; }
+      else if($('c_dist')) $('c_dist').value = preDist;
+      previewScope();
+    }, 0);
+  }
+  $('c_submit').onclick = function(){ submitOpenCase(this); };
+}
+
+function selMng(){
+  var s=$('c_item');
+  if(!s || !s.value) return '';
+  return s.options[s.selectedIndex].getAttribute('data-mng') || '';
+}
+
+function renderScopeFields(){
+  var mng = selMng();
+  var el = $('c_scopefields');
+  if(!mng){ el.innerHTML = '<div class="state">เลือกสินค้าก่อน</div>'; $('c_preview').innerHTML=''; return; }
+  if(mng==='SERIAL'){
+    el.innerHTML = '<div class="grid2">'+
+      '<div class="fg"><label>ซีเรียลเริ่มต้น <span class="req">*</span></label>'+
+        '<input id="c_from" placeholder="SG50R-A001" autocomplete="off"></div>'+
+      '<div class="fg"><label>ซีเรียลสิ้นสุด</label>'+
+        '<input id="c_to" placeholder="SG50R-A020 (เว้นว่าง = ตัวเดียว)" autocomplete="off"></div>'+
+      '</div>'+
+      '<div class="btnrow" style="margin-top:0"><button class="btn" id="c_prev">ตรวจดูก่อนว่าเข้าข่ายกี่หน่วย</button></div>';
+  } else {
+    el.innerHTML = '<div class="grid2">'+
+      '<div class="fg"><label>เลขล็อต / Batch <span class="req">*</span></label>'+
+        '<input id="c_dist" placeholder="SUP-260705-A" autocomplete="off"></div>'+
+      '<div class="fg"><label>จำนวนที่กระทบ</label>'+
+        '<input id="c_qty" type="number" min="0" step="any" placeholder="เว้นว่าง = ทั้งล็อต"></div>'+
+      '</div>'+
+      '<div class="btnrow" style="margin-top:0"><button class="btn" id="c_prev">ตรวจดูก่อนว่าเข้าข่ายกี่หน่วย</button></div>';
+  }
+  $('c_prev').onclick = previewScope;
+  $('c_preview').innerHTML='';
+}
+
+function previewScope(){
+  var item = $('c_item').value, mng = selMng();
+  if(!item){ mErr('เลือกสินค้าก่อน'); return; }
+  var btn=$('c_prev');
+  submitting(btn, true, 'กำลังตรวจ...');
+  var args = mng==='SERIAL'
+    ? [item, 'SERIAL', '', ($('c_from')||{}).value||'', ($('c_to')||{}).value||'']
+    : [item, 'BATCH', ($('c_dist')||{}).value||'', '', ''];
+  rpc('apiPreviewScope', args, function(d){
+    submitting(btn,false);
+    mErr('');
+    S.draft.preview = d;
+    $('c_preview').innerHTML =
+      '<div class="syncbar ok"><span>✔</span><span>'+
+      'เข้าข่าย <b>'+esc(d.display)+'</b> รวม '+fmtN(d.qty_affected)+' หน่วย — '+
+      'อยู่ในคลัง '+fmtN(d.qty_in_stock)+' · ส่งลูกค้าไปแล้ว '+fmtN(d.qty_delivered)+
+      '</span></div>';
+  }, function(m){
+    submitting(btn,false);
+    S.draft.preview=null;
+    $('c_preview').innerHTML='';
+    mErr(m);
+  });
+}
+
+function submitOpenCase(btn){
+  var item=$('c_item').value, mng=selMng();
+  if(!item) return mErr('กรุณาเลือกสินค้า');
+  var problem=($('c_problem').value||'').trim();
+  if(problem.length<10) return mErr('กรุณาอธิบายปัญหาอย่างน้อย 10 ตัวอักษร');
+
+  var scope;
+  if(mng==='SERIAL'){
+    var from=($('c_from')||{}).value||'';
+    if(!from.trim()) return mErr('กรุณาระบุซีเรียลเริ่มต้น');
+    scope=[{kind:'SERIAL', sn_from:from.trim(), sn_to:(($('c_to')||{}).value||'').trim()}];
+  } else {
+    var dist=(($('c_dist')||{}).value||'').trim();
+    if(!dist) return mErr('กรุณาระบุเลขล็อต');
+    var q=(($('c_qty')||{}).value||'').trim();
+    scope=[{kind:'BATCH', dist_number:dist, qty_affected: q===''?'':Number(q)}];
+  }
+
+  var payload={
+    clientKey: S.formKey || newFormKey(),
+    item_code:item, source:$('c_source').value, source_ref:$('c_ref').value,
+    problem:problem, risk_class:$('c_risk').value,
+    immediate_action:$('c_imm').value, case_owner:$('c_owner').value,
+    scope:scope
+  };
+  mErr('');
+  submitting(btn,true,'กำลังเปิดเคส...');
+  rpc('apiOpenCase',[payload],function(d){
+    submitting(btn,false);
+    closeModal();
+    toast('เปิดเคส '+d.case_no+' แล้ว · กักของ '+d.holds+' รายการ · ปลายทางที่ต้องติดตาม '+d.tracking_rows+' รายการ');
+    go('cases', d.case_no);
+  },function(m){
+    submitting(btn,false);
+    mErr(m);
+  });
+}
+
+/* ── แก้ไขรายการติดตาม ───────────────────────────────────────────────── */
+function modalTracking(trackId){
+  var t=null;
+  (S.data.case ? S.data.case.tracking : []).forEach(function(x){ if(x.track_id===trackId) t=x; });
+  if(!t){ toast('ไม่พบรายการ กรุณาโหลดหน้าใหม่', true); return; }
+  newFormKey();
+
+  var actions = S.boot.enums.required_action;
+  var statuses = S.boot.enums.track_status;
+  var body =
+    '<div id="m_err"></div>'+
+    '<dl class="kv" style="margin-bottom:14px">'+
+      '<dt>ปลายทาง</dt><dd>'+esc(t.party_name)+' ('+esc(locTypeTh(t.location_type))+')</dd>'+
+      (t.project?'<dt>โครงการ</dt><dd>'+esc(t.project)+'</dd>':'')+
+      (t.doc_num?'<dt>เอกสาร</dt><dd class="mono">'+esc(t.doc_num)+' · '+esc(t.doc_date)+'</dd>':'')+
+      '<dt>ล็อต/ซีเรียล</dt><dd class="mono">'+esc(t.sn_display||t.dist_number)+'</dd>'+
+      '<dt>จำนวนที่กระทบ</dt><dd><b>'+fmtN(t.qty_affected)+'</b></dd>'+
+    '</dl>'+
+    '<div class="fg"><label>ต้องดำเนินการอย่างไร</label><select id="t_act">'+
+      Object.keys(actions).map(function(k){
+        return '<option value="'+esc(k)+'"'+(t.required_action===k?' selected':'')+'>'+esc(actions[k])+'</option>';
+      }).join('')+'</select></div>'+
+    '<div class="grid2">'+
+      '<div class="fg"><label>รับคืนแล้ว</label><input id="t_ret" type="number" min="0" step="any" value="'+n(t.qty_returned)+'"></div>'+
+      '<div class="fg"><label>เปลี่ยนของใหม่แล้ว</label><input id="t_rep" type="number" min="0" step="any" value="'+n(t.qty_replaced)+'"></div>'+
+      '<div class="fg"><label>ตรวจ/แก้ไขแล้ว</label><input id="t_cor" type="number" min="0" step="any" value="'+n(t.qty_corrected)+'"></div>'+
+      '<div class="fg"><label>สถานะ</label><select id="t_st">'+
+        Object.keys(statuses).map(function(k){
+          return '<option value="'+esc(k)+'"'+(t.status===k?' selected':'')+'>'+esc(statuses[k])+'</option>';
+        }).join('')+'</select></div>'+
+    '</div>'+
+    '<div id="t_calc" class="syncbar ok"></div>'+
+    '<div class="fg"><label>หลักฐาน / หมายเหตุ</label>'+
+      '<textarea id="t_remark" placeholder="เช่น ใบส่งของเปลี่ยนสินค้า DO-260901 · รายงานเข้าหน้างานวันที่ 25 ส.ค.">'+esc(t.remark||'')+'</textarea></div>';
+
+  openModal('บันทึกผลการติดตาม', body,
+    '<button class="btn" data-act="close-modal">ยกเลิก</button>'+
+    '<button class="btn primary" id="t_save">บันทึก</button>');
+
+  function recalc(){
+    var done = n($('t_ret').value)+n($('t_rep').value)+n($('t_cor').value);
+    var pend = n(t.qty_affected)-done;
+    var box=$('t_calc');
+    if(pend<0){
+      box.className='syncbar stale';
+      box.innerHTML='<span>⚠️</span><span>จำนวนที่กรอกรวม '+fmtN(done)+' เกินจำนวนที่กระทบ '+fmtN(t.qty_affected)+'</span>';
+    } else if(pend===0){
+      box.className='syncbar ok';
+      box.innerHTML='<span>✔</span><span>ครบแล้ว — บันทึกแล้วระบบจะตั้งสถานะเป็น "เสร็จสิ้น" ให้เอง</span>';
+    } else {
+      box.className='syncbar stale';
+      box.innerHTML='<span>•</span><span>ยังค้างอีก <b>'+fmtN(pend)+'</b> หน่วย — ปิดรายการนี้ยังไม่ได้</span>';
+    }
+  }
+  ['t_ret','t_rep','t_cor'].forEach(function(id){ $(id).addEventListener('input', recalc); });
+  recalc();
+
+  $('t_save').onclick = function(){
+    var btn=this;
+    var payload={
+      clientKey:S.formKey||newFormKey(), track_id:trackId, row_version:t.row_version,
+      required_action:$('t_act').value, status:$('t_st').value,
+      qty_returned:n($('t_ret').value), qty_replaced:n($('t_rep').value),
+      qty_corrected:n($('t_cor').value), remark:$('t_remark').value
+    };
+    mErr('');
+    submitting(btn,true);
+    rpc('apiUpdateTracking',[payload],function(d){
+      submitting(btn,false);
+      closeModal();
+      toast('บันทึกแล้ว · ประสิทธิผลรวม '+pct(d.case_totals.effectiveness_pct));
+      loadCase(S.data.case.header.case_no);
+    },function(m){
+      submitting(btn,false);
+      mErr(m);
+    });
+  };
+}
+
+/* ── แก้ไขหัวข้อสอบสวน/ตัดสินใจ ──────────────────────────────────────── */
+function modalAction(actionId){
+  var a=null;
+  (S.data.case ? S.data.case.actions : []).forEach(function(x){ if(x.action_id===actionId) a=x; });
+  if(!a){ toast('ไม่พบหัวข้อ กรุณาโหลดหน้าใหม่', true); return; }
+  newFormKey();
+
+  var sts=[['OPEN','ยังไม่เริ่ม'],['IN_PROGRESS','กำลังทำ'],['DONE','เสร็จ'],['NA','ไม่เกี่ยวข้อง']];
+  var body='<div id="m_err"></div>'+
+    '<div class="fg"><label>รายละเอียด</label>'+
+      '<textarea id="a_det" placeholder="เขียนให้คนที่มาอ่านตอนตรวจ audit เข้าใจได้โดยไม่ต้องถามใคร">'+esc(a.details||'')+'</textarea></div>'+
+    '<div class="grid2">'+
+      '<div class="fg"><label>ผู้รับผิดชอบ</label><input id="a_resp" value="'+esc(a.responsible||'')+'"></div>'+
+      '<div class="fg"><label>วันที่กำหนดเสร็จ</label><input id="a_due" type="date" value="'+esc(a.target_date||'')+'"></div>'+
+      '<div class="fg"><label>สถานะ</label><select id="a_st">'+
+        sts.map(function(s){ return '<option value="'+s[0]+'"'+(a.status===s[0]?' selected':'')+'>'+s[1]+'</option>'; }).join('')+
+        '</select></div>'+
+      '<div class="fg"><label>หมายเหตุ</label><input id="a_rem" value="'+esc(a.remark||'')+'"></div>'+
+    '</div>'+
+    (a.approved_by?'<div class="syncbar ok"><span>✔</span><span>อนุมัติแล้วโดย '+esc(a.approved_by)+' เมื่อ '+esc(a.approved_at)+'</span></div>':'');
+
+  var footer='<button class="btn" data-act="close-modal">ยกเลิก</button>';
+  if(S.boot.perm.approveAction && a.status==='DONE' && !a.approved_by){
+    footer+='<button class="btn" id="a_approve">อนุมัติหัวข้อนี้</button>';
+  }
+  footer+='<button class="btn primary" id="a_save">บันทึก</button>';
+
+  openModal(a.section_th, body, footer);
+
+  $('a_save').onclick=function(){
+    var btn=this;
+    var payload={clientKey:S.formKey||newFormKey(), action_id:actionId, row_version:a.row_version,
+      details:$('a_det').value, responsible:$('a_resp').value,
+      target_date:$('a_due').value, status:$('a_st').value, remark:$('a_rem').value};
+    mErr(''); submitting(btn,true);
+    rpc('apiUpdateAction',[payload],function(){
+      submitting(btn,false); closeModal(); toast('บันทึกแล้ว');
+      loadCase(S.data.case.header.case_no);
+    },function(m){ submitting(btn,false); mErr(m); });
+  };
+  if($('a_approve')){
+    $('a_approve').onclick=function(){
+      var btn=this;
+      mErr(''); submitting(btn,true,'กำลังอนุมัติ...');
+      rpc('apiApproveAction',[{clientKey:newFormKey(), action_id:actionId, row_version:a.row_version}],
+        function(){ submitting(btn,false); closeModal(); toast('อนุมัติแล้ว'); loadCase(S.data.case.header.case_no); },
+        function(m){ submitting(btn,false); mErr(m); });
+    };
+  }
+}
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   10. ปลดการกัก · ปิดเคส · ยกเลิกเคส · เดินสถานะ
+   ═══════════════════════════════════════════════════════════════════════════ */
+function modalReleaseHold(holdId, rowVersion){
+  newFormKey();
+  openModal('ปลดการกักสินค้า',
+    '<div id="m_err"></div>'+
+    '<p>หลังปลดแล้ว ของล็อตนี้จะจ่ายออกได้ตามปกติ และการปลดจะถูกบันทึกถาวรพร้อมชื่อผู้ปลด</p>'+
+    '<div class="fg"><label>เหตุผลที่ปลด <span class="req">*</span></label>'+
+      '<textarea id="h_reason" placeholder="เช่น ตรวจซ้ำแล้วไม่พบปัญหาตามที่ผู้ขายแจ้ง อ้างอิงผลตรวจ IIR-2026-0142"></textarea></div>',
+    '<button class="btn" data-act="close-modal">ยกเลิก</button>'+
+    '<button class="btn danger" id="h_yes">ยืนยันปลดการกัก</button>');
+  $('h_yes').onclick=function(){
+    var btn=this, reason=($('h_reason').value||'').trim();
+    if(reason.length<5) return mErr('กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร');
+    mErr(''); submitting(btn,true);
+    rpc('apiReleaseHold',[{clientKey:S.formKey||newFormKey(), hold_id:holdId, row_version:rowVersion, reason:reason}],
+      function(){ submitting(btn,false); closeModal(); toast('ปลดการกักแล้ว'); loadCase(S.data.case.header.case_no); },
+      function(m){ submitting(btn,false); mErr(m); });
+  };
+}
+
+function modalCloseCase(){
+  var H=S.data.case.header;
+  var pending = n(H.qty_affected) - (n(H.qty_returned)+n(H.qty_replaced)+n(H.qty_corrected));
+  newFormKey();
+  openModal('ปิดเคส '+H.case_no,
+    '<div id="m_err"></div>'+
+    '<dl class="kv" style="margin-bottom:12px">'+
+      '<dt>ประสิทธิผล</dt><dd>'+pct(H.effectiveness_pct)+'</dd>'+
+      '<dt>ยังค้าง</dt><dd>'+fmtN(pending)+' หน่วย</dd>'+
+    '</dl>'+
+    '<p>ระบบจะตรวจก่อนปิดว่า: จำนวนครบทุกแถว · ไม่มีของถูกกักค้าง · หัวข้อการตัดสินใจสรุปครบ<br>'+
+    '<b>ปิดแล้วแก้ไขไม่ได้</b> ถ้าพบปัญหาเพิ่มต้องเปิดเคสใหม่</p>'+
+    '<div class="fg"><label>สรุปผลการปิดเคส <span class="req">*</span></label>'+
+      '<textarea id="cl_note" placeholder="สรุปว่าเกิดอะไร แก้อย่างไร และป้องกันไม่ให้เกิดซ้ำอย่างไร"></textarea></div>',
+    '<button class="btn" data-act="close-modal">ยกเลิก</button>'+
+    '<button class="btn primary" id="cl_yes">ปิดเคส</button>');
+  $('cl_yes').onclick=function(){
+    var btn=this, note=($('cl_note').value||'').trim();
+    if(note.length<10) return mErr('กรุณาสรุปผลอย่างน้อย 10 ตัวอักษร');
+    mErr(''); submitting(btn,true,'กำลังปิดเคส...');
+    rpc('apiCloseCase',[{clientKey:S.formKey||newFormKey(), case_no:H.case_no, row_version:H.row_version, closure_note:note}],
+      function(){ submitting(btn,false); closeModal(); toast('ปิดเคสแล้ว'); loadCase(H.case_no); },
+      function(m){ submitting(btn,false); mErr(m); });
+  };
+}
+
+function modalCancelCase(){
+  var H=S.data.case.header;
+  newFormKey();
+  openModal('ยกเลิกเคส '+H.case_no,
+    '<div id="m_err"></div>'+
+    '<p><b>กดแล้วเกิดอะไร:</b> เคสถูกยกเลิก และ<b>ของที่ถูกกักทั้งหมดจะถูกปลดทันที</b> '+
+    'ใช้เมื่อพิสูจน์แล้วว่าไม่มีปัญหาจริงเท่านั้น ไม่ใช่เมื่อทำเสร็จแล้ว (ทำเสร็จให้ใช้ "ปิดเคส")</p>'+
+    '<div class="fg"><label>เหตุผลที่ยกเลิก <span class="req">*</span></label>'+
+      '<textarea id="cx_reason" placeholder="เช่น ผู้ขายยืนยันเป็นการแจ้งผิดล็อต ล็อตที่มีปัญหาคือ LOT-2607-B ไม่ใช่ล็อตนี้"></textarea></div>',
+    '<button class="btn" data-act="close-modal">ไม่ยกเลิก</button>'+
+    '<button class="btn danger" id="cx_yes">ยืนยันยกเลิกเคสและปลดของทั้งหมด</button>');
+  $('cx_yes').onclick=function(){
+    var btn=this, reason=($('cx_reason').value||'').trim();
+    if(reason.length<10) return mErr('กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร');
+    mErr(''); submitting(btn,true);
+    rpc('apiCancelCase',[{clientKey:S.formKey||newFormKey(), case_no:H.case_no, row_version:H.row_version, reason:reason}],
+      function(){ submitting(btn,false); closeModal(); toast('ยกเลิกเคสแล้ว'); loadCase(H.case_no); },
+      function(m){ submitting(btn,false); mErr(m); });
+  };
+}
+
+function advanceCase(toStatus){
+  var H=S.data.case.header;
+  var th=(S.boot.enums.case_status[toStatus]||{}).th||toStatus;
+  confirmAction('เปลี่ยนสถานะเคส '+H.case_no,
+    'สถานะจะเปลี่ยนจาก <b>'+esc(H.status_th)+'</b> เป็น <b>'+esc(th)+'</b> '+
+    'และระบบจะแจ้งเข้ากลุ่ม Lark ให้ทุกแผนกที่เกี่ยวข้องทราบ',
+    'เปลี่ยนสถานะ',
+    function(btn){
+      submitting(btn,true);
+      rpc('apiAdvanceCase',[{clientKey:newFormKey(), case_no:H.case_no, to_status:toStatus, row_version:H.row_version}],
+        function(){ submitting(btn,false); closeModal(); toast('เปลี่ยนสถานะเป็น "'+th+'" แล้ว'); loadCase(H.case_no); },
+        function(m){ submitting(btn,false); mErr(m); });
+    });
+}
+
+function rebuildTracking(){
+  var H=S.data.case.header;
+  confirmAction('สร้างรายการติดตามใหม่',
+    'ระบบจะไล่ข้อมูลจาก SAP อีกครั้งเพื่อหาปลายทางที่เพิ่งเกิดขึ้นหลังเปิดเคส '+
+    '<b>เพิ่มเฉพาะรายการใหม่</b> ของเดิมที่บันทึกไปแล้วไม่ถูกแตะ',
+    'สร้างรายการใหม่',
+    function(btn){
+      submitting(btn,true,'กำลังไล่ข้อมูล...');
+      rpc('apiRebuildTracking',[{clientKey:newFormKey(), case_no:H.case_no}],
+        function(d){
+          submitting(btn,false); closeModal();
+          toast(d.added>0?('เพิ่มปลายทางใหม่ '+d.added+' รายการ · กักเพิ่ม '+d.holds_added+' รายการ')
+                        :'ไม่พบปลายทางใหม่ ข้อมูลครบอยู่แล้ว');
+          loadCase(H.case_no);
+        },
+        function(m){ submitting(btn,false); mErr(m); });
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   11. ทดสอบทวนสอบย้อนกลับ (FM-QC-TR-02)
+   ═══════════════════════════════════════════════════════════════════════════ */
+function loadMocks(){
+  rpc('apiListMockRecalls',[],function(d){
+    S.data.mocks=d;
+    var h=[syncBar(S.boot.sync)];
+    h.push('<div class="card"><h2>การทดสอบทวนสอบย้อนกลับ</h2>'+
+      '<p class="sub">พิสูจน์ว่าถ้าเกิดเรื่องจริง เราตามของเจอครบภายในเวลาที่กำหนด</p>'+
+      (S.boot.perm.startMockRecall?'<div class="btnrow" style="margin-top:0"><button class="btn primary" data-act="mock-new">เริ่มทดสอบใหม่</button></div>':''));
+    if(!d.length){
+      h.push('<div class="state"><b>ยังไม่เคยทดสอบ</b>เลือกล็อตที่มีทั้งการรับเข้าและการส่งออก แล้วกดเริ่มทดสอบ</div>');
+    } else {
+      h.push('<div class="tw"><table><thead><tr><th>เลขที่</th><th>สินค้า / ล็อต</th>'+
+        '<th>ชนิด</th><th class="num">หาเจอ</th><th class="num">เวลา (นาที)</th><th>ผล</th><th>ผู้ทดสอบ</th>'+
+        '</tr></thead><tbody>');
+      d.forEach(function(m){
+        h.push('<tr class="click" data-mock="'+esc(m.test_no)+'">'+
+          '<td class="mono">'+esc(m.test_no)+'<div style="font-size:12px;color:var(--ink-3)">'+esc(m.test_date)+'</div></td>'+
+          '<td>'+esc(m.item_code)+'<div class="mono" style="font-size:12px;color:var(--ink-3)">'+esc(m.dist_number)+'</div></td>'+
+          '<td>'+esc(m.test_type==='BOTH'?'ย้อนกลับ + ไปข้างหน้า':(m.test_type==='BACKWARD'?'ย้อนกลับ':'ไปข้างหน้า'))+'</td>'+
+          '<td class="num">'+(m.result==='IN_PROGRESS'?'—':pct(m.completion_pct))+'</td>'+
+          '<td class="num">'+(m.result==='IN_PROGRESS'?'—':(fmtN(m.duration_min)+' / '+fmtN(m.target_min)))+'</td>'+
+          '<td>'+(m.result==='PASS'?'<span class="tag go">ผ่าน</span>':
+                  m.result==='FAIL'?'<span class="tag stop">ไม่ผ่าน</span>':
+                  '<span class="tag warn">กำลังทดสอบ</span>')+
+            (m.capa_status==='OPEN'?'<div style="font-size:12px;color:var(--stop)">CAPA ค้าง</div>':'')+'</td>'+
+          '<td style="font-size:12px">'+esc(m.conducted_by)+
+            (m.reviewed_by?'<div style="color:var(--ink-3)">ทบทวน: '+esc(m.reviewed_by)+'</div>':'')+'</td></tr>');
+      });
+      h.push('</tbody></table></div>');
+    }
+    h.push('</div>');
+    $('main').innerHTML=h.join('');
+  }, function(m){ pageError(m,'mock'); });
+}
+
+function loadMock(testNo){
+  rpc('apiGetMockRecall',[testNo],function(d){
+    S.data.mock=d;
+    renderMock(d);
+  }, function(m){ pageError(m,'mock'); });
+}
+
+function renderMock(d){
+  var H=d.header, h=[];
+  h.push('<div class="btnrow" style="margin:0 0 12px"><button class="btn" data-nav="mock">← กลับรายการทดสอบ</button></div>');
+  h.push('<div class="card"><h2>'+esc(H.test_no)+' '+
+    (H.result==='PASS'?'<span class="tag go">ผ่าน</span>':
+     H.result==='FAIL'?'<span class="tag stop">ไม่ผ่าน</span>':'<span class="tag warn">กำลังทดสอบ</span>')+'</h2>');
+  h.push('<p class="sub">'+esc(H.item_code)+' '+esc(H.model)+' · ล็อต/ซีเรียล '+esc(H.dist_number)+
+    ' · เริ่ม '+esc(H.started_at)+' · ผู้ทดสอบ '+esc(H.conducted_by)+'</p>');
+
+  if(H.result!=='IN_PROGRESS'){
+    h.push('<div class="kpis">'+
+      kpi(pct(H.completion_pct),'หาเจอ', n(H.completion_pct)>=1?'good':'alarm')+
+      kpi(pct(H.reconcile_pct),'กระทบยอด', n(H.reconcile_pct)>=1?'good':'alarm')+
+      kpi(fmtN(H.duration_min)+' / '+fmtN(H.target_min),'นาทีที่ใช้ / เป้า', n(H.duration_min)<=n(H.target_min)?'good':'warn')+
+      kpi(fmtN(H.qty_located)+' / '+fmtN(H.qty_affected),'หน่วยที่ยืนยันได้','')+
+    '</div>');
+    if(H.gap_found){
+      h.push('<div class="errbox" style="margin-top:12px"><b>สาเหตุที่ไม่ผ่าน</b><br>'+esc(H.gap_found)+'</div>');
+    }
+  } else {
+    var since = 'เริ่มเมื่อ '+esc(H.started_at)+' · เป้าหมาย '+fmtN(H.target_min)+' นาที';
+    h.push('<div class="syncbar stale"><span>⏱</span><span>'+since+
+      ' — บันทึกผลให้ครบทุกบรรทัดแล้วกด "ปิดผลการทดสอบ"</span></div>');
+  }
+  h.push('</div>');
+
+  ['BACKWARD','FORWARD'].forEach(function(leg){
+    var rows=d.lines.filter(function(l){ return l.leg===leg; });
+    if(!rows.length) return;
+    h.push('<div class="card"><h2>'+(leg==='BACKWARD'?'◀ ย้อนกลับ — ของมาจากไหน':'▶ ไปข้างหน้า — ของไปอยู่ที่ไหน')+'</h2>'+
+      '<p class="sub">ระบบบอกว่า "ควรหาเจอเท่าไร" — ผู้ทดสอบต้องไปยืนยันของจริงว่าเจอกี่หน่วย</p>');
+    h.push('<div class="tw"><table><thead><tr><th>ปลายทาง / ต้นทาง</th><th>เอกสาร</th>'+
+      '<th class="num">ควรเจอ</th><th class="num">เจอจริง</th><th>ผล</th><th>หลักฐาน</th></tr></thead><tbody>');
+    rows.forEach(function(l){
+      var canEdit = H.result==='IN_PROGRESS' && S.boot.perm.startMockRecall;
+      h.push('<tr'+(canEdit?' class="click" data-mline="'+esc(l.line_id)+'"':'')+'>'+
+        '<td><b>'+esc(l.party_or_location)+'</b>'+(l.project?'<div style="font-size:12px;color:var(--ink-3)">'+esc(l.project)+'</div>':'')+'</td>'+
+        '<td>'+esc(l.doc_type)+'<div class="mono" style="font-size:12px;color:var(--ink-3)">'+esc(l.doc_num||'')+' '+esc(l.doc_date||'')+'</div></td>'+
+        '<td class="num">'+fmtN(l.qty_expected)+'</td>'+
+        '<td class="num">'+(l.qty_located===''?'—':fmtN(l.qty_located))+'</td>'+
+        '<td>'+(l.result==='PASS'?'<span class="tag go">เจอครบ</span>':
+                l.result==='PARTIAL'?'<span class="tag warn">เจอบางส่วน</span>':
+                l.result==='FAIL'?'<span class="tag stop">ไม่เจอ</span>':'<span class="tag mute">รอบันทึก</span>')+'</td>'+
+        '<td style="font-size:12.5px">'+esc(l.evidence||'')+'</td></tr>');
+    });
+    h.push('</tbody></table></div></div>');
+  });
+
+  if(H.result==='IN_PROGRESS' && S.boot.perm.finishMockRecall){
+    h.push('<div class="card"><div class="btnrow" style="margin:0">'+
+      '<button class="btn primary" data-act="mock-finish">ปิดผลการทดสอบ</button></div>'+
+      '<div class="hint" style="font-size:12px;color:var(--ink-3);margin-top:8px">'+
+      'ระบบจะคำนวณเวลาที่ใช้ · เปอร์เซ็นต์ที่หาเจอ · การกระทบยอด แล้วตัดสิน ผ่าน/ไม่ผ่าน ให้เอง</div></div>');
+  }
+
+  if(H.result!=='IN_PROGRESS'){
+    h.push('<div class="card"><h2>การทบทวนและการแก้ไข</h2>');
+    if(H.reviewed_by){
+      h.push('<dl class="kv">'+
+        '<dt>ผู้ทบทวน</dt><dd>'+esc(H.reviewed_by)+'</dd>'+
+        '<dt>สาเหตุที่แท้จริง</dt><dd>'+esc(H.root_cause||'-')+'</dd>'+
+        '<dt>การแก้ไข</dt><dd>'+esc(H.corrective_action||'-')+'</dd>'+
+        '<dt>ผู้รับผิดชอบ</dt><dd>'+esc(H.capa_owner||'-')+'</dd>'+
+        '<dt>กำหนดเสร็จ</dt><dd class="mono">'+esc(H.capa_due||'-')+'</dd>'+
+      '</dl>');
+    } else if(S.boot.perm.reviewMockRecall){
+      h.push('<p class="sub">ผู้ทบทวนต้องเป็นคนละคนกับผู้ทดสอบ</p>'+
+        '<div class="btnrow" style="margin-top:0"><button class="btn primary" data-act="mock-review">ทบทวนผล</button></div>');
+    } else {
+      h.push('<div class="state">รอผู้จัดการคุณภาพทบทวนผล</div>');
+    }
+    h.push('</div>');
+  }
+
+  $('main').innerHTML=h.join('');
+}
+
+function modalMockNew(preItem, preDist){
+  newFormKey();
+  openModal('เริ่มทดสอบทวนสอบย้อนกลับ',
+    '<div id="m_err"></div>'+
+    '<p>เลือกล็อตที่<b>มีทั้งการรับเข้าและการส่งออก</b> จึงจะทดสอบได้ครบทั้งสองทิศทาง</p>'+
+    '<div class="fg"><label>สินค้า <span class="req">*</span></label><select id="mk_item">'+
+      '<option value="">— เลือกสินค้า —</option>'+
+      S.boot.items.map(function(i){
+        return '<option value="'+esc(i.item_code)+'"'+(preItem===i.item_code?' selected':'')+'>'+
+               esc(i.item_code)+' — '+esc(i.item_name)+'</option>';
+      }).join('')+'</select></div>'+
+    '<div class="fg"><label>เลขล็อต / ซีเรียล <span class="req">*</span></label>'+
+      '<input id="mk_dist" value="'+esc(preDist||'')+'" placeholder="SG50R-A001 หรือ SUP-260705-A"></div>'+
+    '<div class="grid2">'+
+      '<div class="fg"><label>ชนิดการทดสอบ</label><select id="mk_type">'+
+        '<option value="BOTH">ย้อนกลับ + ไปข้างหน้า (แนะนำ)</option>'+
+        '<option value="BACKWARD">ย้อนกลับอย่างเดียว</option>'+
+        '<option value="FORWARD">ไปข้างหน้าอย่างเดียว</option></select></div>'+
+      '<div class="fg"><label>เวลาเป้าหมาย (นาที)</label>'+
+        '<input id="mk_target" type="number" min="1" step="1" value="120"></div>'+
+    '</div>'+
+    '<div class="syncbar stale"><span>⏱</span><span>ระบบเริ่มจับเวลาทันทีที่กดปุ่ม — เตรียมทีมให้พร้อมก่อน</span></div>',
+    '<button class="btn" data-act="close-modal">ยกเลิก</button>'+
+    '<button class="btn primary" id="mk_go">เริ่มจับเวลาและทดสอบ</button>');
+
+  $('mk_go').onclick=function(){
+    var btn=this;
+    var item=$('mk_item').value, dist=($('mk_dist').value||'').trim();
+    if(!item) return mErr('กรุณาเลือกสินค้า');
+    if(!dist) return mErr('กรุณาระบุเลขล็อต/ซีเรียล');
+    mErr(''); submitting(btn,true,'กำลังเตรียมรายการ...');
+    rpc('apiStartMockRecall',[{clientKey:S.formKey||newFormKey(), item_code:item, dist_number:dist,
+        test_type:$('mk_type').value, target_min:Number($('mk_target').value)||120}],
+      function(d){
+        submitting(btn,false); closeModal();
+        toast('เริ่มทดสอบ '+d.test_no+' แล้ว · ต้องยืนยัน '+d.lines+' รายการ ภายใน '+d.target_min+' นาที');
+        go('mock', d.test_no);
+      },
+      function(m){ submitting(btn,false); mErr(m); });
+  };
+}
+
+function modalMockLine(lineId){
+  var l=null;
+  (S.data.mock?S.data.mock.lines:[]).forEach(function(x){ if(x.line_id===lineId) l=x; });
+  if(!l){ toast('ไม่พบบรรทัด กรุณาโหลดหน้าใหม่',true); return; }
+  newFormKey();
+  openModal('ยืนยันผลการค้นหา',
+    '<div id="m_err"></div>'+
+    '<dl class="kv" style="margin-bottom:14px">'+
+      '<dt>ปลายทาง/ต้นทาง</dt><dd>'+esc(l.party_or_location)+'</dd>'+
+      '<dt>เอกสาร</dt><dd class="mono">'+esc(l.doc_type)+' '+esc(l.doc_num||'')+'</dd>'+
+      '<dt>ควรหาเจอ</dt><dd><b>'+fmtN(l.qty_expected)+'</b> หน่วย</dd>'+
+    '</dl>'+
+    '<div class="fg"><label>หาเจอจริงกี่หน่วย <span class="req">*</span></label>'+
+      '<input id="ml_qty" type="number" min="0" step="any" value="'+(l.qty_located===''?'':n(l.qty_located))+'"></div>'+
+    '<div class="fg"><label>หลักฐานที่ใช้ยืนยัน <span class="req">*</span></label>'+
+      '<input id="ml_ev" value="'+esc(l.evidence||'')+'" placeholder="เช่น ใบส่งของ DO-260812 + รายการซีเรียลแนบ"></div>'+
+    '<div class="fg"><label>หมายเหตุ</label><input id="ml_rm" value="'+esc(l.remark||'')+'"></div>',
+    '<button class="btn" data-act="close-modal">ยกเลิก</button>'+
+    '<button class="btn primary" id="ml_save">บันทึก</button>');
+
+  $('ml_save').onclick=function(){
+    var btn=this, q=($('ml_qty').value||'').trim();
+    if(q==='') return mErr('กรุณากรอกจำนวนที่หาเจอ (ถ้าไม่เจอเลยให้ใส่ 0)');
+    if(Number(q)>0 && !($('ml_ev').value||'').trim()) return mErr('กรุณาระบุหลักฐานที่ใช้ยืนยัน');
+    mErr(''); submitting(btn,true);
+    rpc('apiUpdateMockLine',[{clientKey:S.formKey||newFormKey(), line_id:lineId,
+        qty_located:Number(q), evidence:$('ml_ev').value, remark:$('ml_rm').value}],
+      function(){ submitting(btn,false); closeModal(); toast('บันทึกแล้ว'); loadMock(S.data.mock.header.test_no); },
+      function(m){ submitting(btn,false); mErr(m); });
+  };
+}
+
+function finishMock(){
+  var H=S.data.mock.header;
+  confirmAction('ปิดผลการทดสอบ '+H.test_no,
+    'ระบบจะหยุดจับเวลาและคำนวณผล ผ่าน/ไม่ผ่าน ทันที <b>ปิดแล้วแก้ไขบรรทัดไม่ได้อีก</b>',
+    'ปิดผลการทดสอบ',
+    function(btn){
+      submitting(btn,true,'กำลังคำนวณ...');
+      rpc('apiFinishMockRecall',[{clientKey:newFormKey(), test_no:H.test_no, row_version:H.row_version}],
+        function(d){
+          submitting(btn,false); closeModal();
+          toast(d.result==='PASS'?('ผ่าน — ใช้เวลา '+fmtN(d.duration_min)+' นาที')
+                                 :('ไม่ผ่าน — '+d.gap_found), d.result!=='PASS');
+          loadMock(H.test_no);
+        },
+        function(m){ submitting(btn,false); mErr(m); });
+    });
+}
+
+function modalMockReview(){
+  var H=S.data.mock.header;
+  var failed = H.result==='FAIL';
+  newFormKey();
+  openModal('ทบทวนผลการทดสอบ '+H.test_no,
+    '<div id="m_err"></div>'+
+    (failed?'<div class="errbox">การทดสอบไม่ผ่าน — ต้องระบุสาเหตุ การแก้ไข ผู้รับผิดชอบ และกำหนดเสร็จให้ครบ<br>'+esc(H.gap_found)+'</div>':'')+
+    '<div class="fg"><label>สาเหตุที่แท้จริง'+(failed?' <span class="req">*</span>':'')+'</label>'+
+      '<textarea id="rv_rc" placeholder="เช่น รายการซีเรียลที่แนบใบส่งของไม่ครบ ทำให้ยืนยันของที่ Customer B ไม่ได้">'+esc(H.root_cause||'')+'</textarea></div>'+
+    '<div class="fg"><label>การแก้ไข'+(failed?' <span class="req">*</span>':'')+'</label>'+
+      '<textarea id="rv_ca" placeholder="เช่น บังคับแนบรายการซีเรียลทุกใบส่งของ และตรวจก่อนออกจากคลัง">'+esc(H.corrective_action||'')+'</textarea></div>'+
+    '<div class="grid2">'+
+      '<div class="fg"><label>ผู้รับผิดชอบ'+(failed?' <span class="req">*</span>':'')+'</label>'+
+        '<input id="rv_own" value="'+esc(H.capa_owner||'')+'"></div>'+
+      '<div class="fg"><label>กำหนดเสร็จ'+(failed?' <span class="req">*</span>':'')+'</label>'+
+        '<input id="rv_due" type="date" value="'+esc(H.capa_due||'')+'"></div>'+
+    '</div>',
+    '<button class="btn" data-act="close-modal">ยกเลิก</button>'+
+    '<button class="btn primary" id="rv_save">บันทึกการทบทวน</button>');
+
+  $('rv_save').onclick=function(){
+    var btn=this;
+    mErr(''); submitting(btn,true);
+    rpc('apiReviewMockRecall',[{clientKey:S.formKey||newFormKey(), test_no:H.test_no, row_version:H.row_version,
+        root_cause:$('rv_rc').value, corrective_action:$('rv_ca').value,
+        capa_owner:$('rv_own').value, capa_due:$('rv_due').value}],
+      function(){ submitting(btn,false); closeModal(); toast('บันทึกการทบทวนแล้ว'); loadMock(H.test_no); },
+      function(m){ submitting(btn,false); mErr(m); });
+  };
+}
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   12. การรับคลิกทั้งหน้า — ผูกครั้งเดียว ไม่ต้องผูกใหม่ทุกครั้งที่ render
+   ═══════════════════════════════════════════════════════════════════════════ */
+function handleAct(act, el){
+  switch(act){
+    case 'close-modal':  return closeModal();
+    case 'search':       return doSearch();
+    case 'save-note':    return saveNote(el.getAttribute('data-lot'), el);
+    case 'export-master':return exportMaster(el.getAttribute('data-lot'), el);
+    case 'open-case':    return modalOpenCase(el.getAttribute('data-item'), el.getAttribute('data-lot'));
+    case 'mock-new':     return modalMockNew();
+    case 'mock-from-lot':return modalMockNew(el.getAttribute('data-item'), el.getAttribute('data-dist'));
+    case 'mock-finish':  return finishMock();
+    case 'mock-review':  return modalMockReview();
+    case 'rebuild-tracking': return rebuildTracking();
+    case 'release-hold': return modalReleaseHold(el.getAttribute('data-hold'), Number(el.getAttribute('data-ver')));
+    case 'close-case':   return modalCloseCase();
+    case 'cancel-case':  return modalCancelCase();
+    case 'advance-case': return advanceCase(el.getAttribute('data-to'));
+  }
+}
+
+/** เปิดฟอร์มติดตามจากหน้าหลัก — ต้องโหลดเคสก่อนเพื่อให้ข้อมูลบนฟอร์มเป็นของจริง */
+function openTaskFromHome(caseNo, trackId){
+  loading('กำลังเปิดเคส '+caseNo+'...');
+  rpc('apiGetCase',[caseNo],function(d){
+    S.page='cases'; renderNav();
+    S.data.case=d;
+    renderCase(d);
+    modalTracking(trackId);
+  },function(m){ pageError(m,'home'); });
+}
+
+document.addEventListener('click', function(ev){
+  var t = ev.target;
+  if(!t || !t.closest) return;
+  var el;
+  if((el = t.closest('[data-act]')))     { ev.preventDefault(); return handleAct(el.getAttribute('data-act'), el); }
+  if((el = t.closest('[data-nav]')))     { return go(el.getAttribute('data-nav')); }
+  if((el = t.closest('[data-cfilter]'))) { return loadCases(el.getAttribute('data-cfilter')); }
+  if((el = t.closest('[data-goto]')))    { return go(el.getAttribute('data-goto'), el.getAttribute('data-lot')); }
+  if((el = t.closest('[data-task]')))    { return openTaskFromHome(el.getAttribute('data-case'), el.getAttribute('data-task')); }
+  if((el = t.closest('[data-track]')))   { return modalTracking(el.getAttribute('data-track')); }
+  if((el = t.closest('[data-action]')))  { return modalAction(el.getAttribute('data-action')); }
+  if((el = t.closest('[data-mline]')))   { return modalMockLine(el.getAttribute('data-mline')); }
+  if((el = t.closest('[data-mock]')))    { return go('mock', el.getAttribute('data-mock')); }
+  if((el = t.closest('[data-case]')))    { return go('cases', el.getAttribute('data-case')); }
+  if((el = t.closest('[data-lot]'))) {
+    var key = el.getAttribute('data-lot');
+    return S.page==='trace' ? openLot(key) : go('trace', key);
+  }
+  if(t.id === 'ov') return closeModal();          // คลิกพื้นหลังนอกกล่อง
+});
+
+document.addEventListener('keydown', function(ev){
+  if(ev.key === 'Escape' && $('ov').className.indexOf('on') !== -1) closeModal();
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   13. เริ่มทำงาน
+   ═══════════════════════════════════════════════════════════════════════════ */
+boot();
+</script>

@@ -1,0 +1,17 @@
+{
+  "_comment": "คัดลอกเป็น sap-push-config.json แล้วแก้ค่า — ห้าม commit ไฟล์จริงที่มีรหัสผ่าน",
+
+  "SqlServer": "SAPB1SRV\\SQLEXPRESS",
+  "Database": "MGS_LIVE",
+  "SqlUser": "mgs_trace_reader",
+  "SqlPassword": "",
+  "_SqlUser_note": "ลบ SqlUser/SqlPassword ออกถ้าจะใช้ Windows Authentication ของบัญชีที่รัน task",
+
+  "Endpoint": "https://script.google.com/a/macros/mgs.co.th/s/AKfycb.../exec",
+  "Secret": "",
+  "_Secret_note": "ได้จากการรัน setupGeneratePushSecret() ใน Apps Script — เก็บที่นี่ที่เดียว",
+
+  "ChunkRows": 4000,
+  "YearsBack": 3,
+  "TimeoutSec": 300
+}
