@@ -79,18 +79,68 @@ function userMap_() {
 
 function clearUserCache_() { CacheService.getScriptCache().remove('user_map_v1'); }
 
-/** คืนโปรไฟล์ผู้ใช้ปัจจุบัน — คนที่ไม่อยู่ในตาราง Users ได้ VIEWER */
+/** อีเมลเจ้าของสคริปต์ — คนที่กด deploy ระบบนี้ */
+function ownerEmail_() {
+  if (ownerEmail_._v !== undefined) return ownerEmail_._v;
+  var v = '';
+  try { v = String(Session.getEffectiveUser().getEmail() || '').toLowerCase().trim(); } catch (e) { v = ''; }
+  ownerEmail_._v = v;
+  return v;
+}
+ownerEmail_._v = undefined;
+
+/**
+ * เช็คว่าเป็นอีเมลของบริษัทหรือไม่ — ต้องลงท้ายด้วย @โดเมน พอดี
+ * ห้ามใช้ indexOf: 'a@mglobalsourcing.net.evil.com' จะผ่านทันที
+ */
+function isCompanyEmail_(email) {
+  var d = String(CFG.ALLOWED_DOMAIN || '').toLowerCase().trim();
+  if (!d) return true;                       // ไม่ได้ตั้งโดเมน = ไม่กรอง
+  var suffix = '@' + d;
+  var e = String(email || '').toLowerCase();
+  return e.length > suffix.length && e.slice(-suffix.length) === suffix;
+}
+
+/**
+ * คืนโปรไฟล์ผู้ใช้ปัจจุบัน
+ *
+ * ลำดับการตัดสิน
+ *   1. เจ้าของสคริปต์  -> ADMIN เสมอ
+ *   2. มีชื่อในตาราง Users -> ใช้บทบาทตามที่ระบุ (ใช้ได้แม้อยู่นอกโดเมน เช่น ที่ปรึกษา)
+ *   3. อยู่ในโดเมนบริษัทแต่ยังไม่ลงทะเบียน -> VIEWER ดูได้อย่างเดียว
+ *   4. นอกเหนือจากนั้น -> ปฏิเสธ
+ *
+ * ข้อ 1 มีไว้กันไม่ให้ระบบล็อกคนติดตั้งออกจากระบบตัวเองตอนตาราง Users ยังว่าง
+ * ไม่ได้เพิ่มอำนาจให้ใคร เพราะเจ้าของสคริปต์แก้สเปรดชีตตรงได้อยู่แล้ว
+ */
 function me_() {
   var email = currentUser_();
-  if (CFG.ALLOWED_DOMAIN && email.indexOf('@' + CFG.ALLOWED_DOMAIN) === -1) {
-    // ยังปล่อยผ่านถ้ามีชื่อในตาราง Users (เผื่อที่ปรึกษาภายนอกที่อนุมัติแล้ว)
-    var mm = userMap_()[email];
-    if (!mm || !mm.active) fail_('บัญชี ' + email + ' ไม่มีสิทธิ์ใช้งานระบบนี้');
+  var listed = userMap_()[email];
+
+  if (email && email === ownerEmail_()) {
+    if (listed && listed.active) return listed;
+    return {
+      email: email,
+      name: listed ? listed.name : email,
+      dept: listed ? listed.dept : 'IT',
+      role: 'ADMIN', lark: '', active: true, owner: true
+    };
   }
-  var u = userMap_()[email];
-  if (!u) return { email: email, name: email, dept: '', role: 'VIEWER', lark: '', active: true, unlisted: true };
-  if (!u.active) fail_('บัญชี ' + email + ' ถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
-  return u;
+
+  if (listed) {
+    if (!listed.active) fail_('บัญชี ' + email + ' ถูกปิดการใช้งานแล้ว กรุณาติดต่อผู้ดูแลระบบ');
+    return listed;
+  }
+
+  if (!isCompanyEmail_(email)) {
+    fail_('บัญชี ' + email + ' ไม่มีสิทธิ์ใช้งานระบบนี้\n' +
+          'ระบบรับเฉพาะอีเมลที่ลงท้ายด้วย @' + CFG.ALLOWED_DOMAIN + ' หรือคนที่มีชื่อในตาราง Users\n' +
+          'ถ้าโดเมนของบริษัทไม่ใช่ @' + CFG.ALLOWED_DOMAIN + ' ให้ผู้ดูแลระบบไปที่ ' +
+          'Project Settings > Script Properties แล้วตั้งค่า ALLOWED_DOMAIN เป็นโดเมนที่ถูกต้อง ' +
+          'จากนั้น Deploy เวอร์ชันใหม่');
+  }
+
+  return { email: email, name: email, dept: '', role: 'VIEWER', lark: '', active: true, unlisted: true };
 }
 
 /** เช็คสิทธิ์ตามชื่อฟังก์ชันใน PERM — คืนโปรไฟล์ผู้ใช้เมื่อผ่าน */

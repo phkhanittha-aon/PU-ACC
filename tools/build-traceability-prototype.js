@@ -31,13 +31,13 @@ const apiNames = Array.from(
 if (apiNames.length < 10) throw new Error('หาฟังก์ชัน api* ไม่ครบ — ตรวจ 07_Api.gs');
 
 const DEMO_USERS = [
-  ['qc@mgs.co.th',    'สมหญิง — เจ้าหน้าที่ QC',      'QC'],
-  ['qcm@mgs.co.th',   'คุณวิภา — ผู้จัดการคุณภาพ',    'QCM'],
-  ['wh@mgs.co.th',    'ประเสริฐ — คลังสินค้า',        'WH'],
-  ['ls@mgs.co.th',    'ธนา — ขาย/โลจิสติกส์',         'LS'],
-  ['sr@mgs.co.th',    'มานี — จัดซื้อ',               'SR'],
-  ['gm@mgs.co.th',    'ผู้จัดการทั่วไป',              'GM'],
-  ['admin@mgs.co.th', 'ผู้ดูแลระบบ',                  'ADMIN']
+  ['qc@mglobalsourcing.net',    'สมหญิง — เจ้าหน้าที่ QC',      'QC'],
+  ['qcm@mglobalsourcing.net',   'คุณวิภา — ผู้จัดการคุณภาพ',    'QCM'],
+  ['wh@mglobalsourcing.net',    'ประเสริฐ — คลังสินค้า',        'WH'],
+  ['ls@mglobalsourcing.net',    'ธนา — ขาย/โลจิสติกส์',         'LS'],
+  ['sr@mglobalsourcing.net',    'มานี — จัดซื้อ',               'SR'],
+  ['gm@mglobalsourcing.net',    'ผู้จัดการทั่วไป',              'GM'],
+  ['admin@mglobalsourcing.net', 'ผู้ดูแลระบบ',                  'ADMIN']
 ];
 
 const prelude = `
@@ -71,7 +71,7 @@ ${mocks}
 
 <script>
 /* ── 2. ติดตั้งตัวจำลองเป็น global ให้โค้ด .gs เรียกใช้ได้ ─────────────────── */
-var __MOCK = createGasMocks({ user: 'qc@mgs.co.th' });
+var __MOCK = createGasMocks({ user: 'qc@mglobalsourcing.net' });
 (function () {
   var s = __MOCK.sandbox;
   Object.keys(s).forEach(function (k) {
@@ -100,7 +100,7 @@ ${gsBundle}
   setupSeedDemoData();
 
   // เปิดเคสตัวอย่างไว้ 1 เคส เพื่อให้หน้าหลักมีงานให้ดูตั้งแต่เปิดครั้งแรก
-  __MOCK.setUser('qc@mgs.co.th');
+  __MOCK.setUser('qc@mglobalsourcing.net');
   clearUserCache_();
   apiOpenCase({
     clientKey: 'demo-case',
@@ -108,7 +108,7 @@ ${gsBundle}
     source: 'SUPPLIER_NOTICE',
     source_ref: 'SN-2026-0812',
     risk_class: 'MAJOR',
-    case_owner: 'qc@mgs.co.th',
+    case_owner: 'qc@mglobalsourcing.net',
     problem: 'ผู้ขายแจ้งว่าอินเวอร์เตอร์ล็อต LOT-2607-A อาจมีจุดบัดกรีบนแผงวงจรไม่สมบูรณ์ ' +
              'เสี่ยงหยุดทำงานหลังใช้งานประมาณ 6 เดือน ให้ตรวจและเปลี่ยนเครื่องที่อยู่ในช่วงซีเรียลที่ระบุ',
     immediate_action: 'กักของที่ยังอยู่ในคลัง และตามหาของที่ส่งออกไปแล้วทุกโครงการ',

@@ -11,7 +11,7 @@
  */
 
 /** bump ทุกครั้งที่ deploy — แสดงที่ footer ของแอป ใช้ตอนผู้ใช้แจ้งปัญหา */
-var APP_VERSION = '2026.08.22-1';
+var APP_VERSION = '2026.08.22-2';
 
 var CFG = {
   /** ID ของ Spreadsheet ฐานข้อมูล (ตั้งครั้งเดียวตอน setup — ดู 08_Setup.gs) */
@@ -22,8 +22,13 @@ var CFG = {
 
   TZ: 'Asia/Bangkok',
 
-  /** โดเมนบริษัท — กันคนนอกโดเมนหลุดเข้ามาแม้ deployment ตั้งผิด */
-  ALLOWED_DOMAIN: 'mgs.co.th',
+  /**
+   * โดเมนบริษัท — กันคนนอกโดเมนหลุดเข้ามาแม้ deployment ตั้งผิด
+   * ตั้งทับได้ที่ Script Property ชื่อ ALLOWED_DOMAIN โดยไม่ต้องแก้โค้ด
+   * (ถ้าวันหนึ่งเปลี่ยนโดเมน หรือมีหลายโดเมน จะได้ไม่ต้องแก้ซอร์ส)
+   */
+  ALLOWED_DOMAIN: PropertiesService.getScriptProperties().getProperty('ALLOWED_DOMAIN')
+                  || 'mglobalsourcing.net',
 
   LARK: {
     HOST: 'https://open.larksuite.com',      // tenant สากล; ถ้าใช้ Feishu จีนเปลี่ยนเป็น open.feishu.cn

@@ -139,8 +139,10 @@ function buildSandbox(store, state) {
     getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {}, hasLock: () => true })
   },
   Session: {
+    // active = คนที่กำลังเปิดแอป · effective = เจ้าของสคริปต์ (คนที่ deploy)
+    // สองค่านี้ต่างกันจริงตอนใช้งาน จึงต้องแยกกันในตัวจำลองด้วย
     getActiveUser: () => ({ getEmail: () => state.user }),
-    getEffectiveUser: () => ({ getEmail: () => state.user })
+    getEffectiveUser: () => ({ getEmail: () => state.owner || state.user })
   },
   SpreadsheetApp: {
     openById: () => store.ss,
@@ -217,13 +219,19 @@ function makeFolder(name) {
   function createGasMocks(options) {
     options = options || {};
     var store = { props: {}, cache: {}, ss: null, larkLog: [] };
-    var state = { user: options.user || 'admin@mgs.co.th', uuidSeq: 0 };
+    var state = {
+      user: options.user || 'owner@mglobalsourcing.net',
+      owner: options.owner || null,          // ไม่ระบุ = เจ้าของคือคนเดียวกับผู้ใช้
+      uuidSeq: 0
+    };
     var sandbox = buildSandbox(store, state);
     return {
       sandbox: sandbox,
       store: store,
       setUser: function (email) { state.user = email; },
-      getUser: function () { return state.user; }
+      getUser: function () { return state.user; },
+      setOwner: function (email) { state.owner = email; },
+      getOwner: function () { return state.owner || state.user; }
     };
   }
 

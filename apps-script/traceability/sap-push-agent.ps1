@@ -333,7 +333,7 @@ exit $ExitCode
     "Database":    "MGS_LIVE",
     "SqlUser":     "mgs_trace_reader",
     "SqlPassword": "ใส่รหัสผ่านของ SQL login ที่มีสิทธิ์ db_datareader เท่านั้น",
-    "Endpoint":    "https://script.google.com/a/macros/mgs.co.th/s/AKfycb.../exec",
+    "Endpoint":    "https://script.google.com/a/macros/mglobalsourcing.net/s/AKfycb.../exec",
     "Secret":      "ค่าที่ได้จากการรัน setupGeneratePushSecret() ใน Apps Script",
     "ChunkRows":   4000,
     "YearsBack":   3,

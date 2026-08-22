@@ -7,7 +7,7 @@
   "SqlPassword": "",
   "_SqlUser_note": "ลบ SqlUser/SqlPassword ออกถ้าจะใช้ Windows Authentication ของบัญชีที่รัน task",
 
-  "Endpoint": "https://script.google.com/a/macros/mgs.co.th/s/AKfycb.../exec",
+  "Endpoint": "https://script.google.com/a/macros/mglobalsourcing.net/s/AKfycb.../exec",
   "Secret": "",
   "_Secret_note": "ได้จากการรัน setupGeneratePushSecret() ใน Apps Script — เก็บที่นี่ที่เดียว",
 

@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  *  MGS TRACEABILITY & RECALL — Code.gs
- *  ระบบทวนสอบสินค้าและเรียกคืน · เวอร์ชัน 2026.08.22-1
+ *  ระบบทวนสอบสินค้าและเรียกคืน · เวอร์ชัน 2026.08.22-2
  * ═══════════════════════════════════════════════════════════════════════════
  *
  *  ⚠️  ไฟล์นี้ถูกสร้างอัตโนมัติ — อย่าแก้ที่นี่
@@ -50,7 +50,7 @@
  */
 
 /** bump ทุกครั้งที่ deploy — แสดงที่ footer ของแอป ใช้ตอนผู้ใช้แจ้งปัญหา */
-var APP_VERSION = '2026.08.22-1';
+var APP_VERSION = '2026.08.22-2';
 
 var CFG = {
   /** ID ของ Spreadsheet ฐานข้อมูล (ตั้งครั้งเดียวตอน setup — ดู 08_Setup.gs) */
@@ -61,8 +61,13 @@ var CFG = {
 
   TZ: 'Asia/Bangkok',
 
-  /** โดเมนบริษัท — กันคนนอกโดเมนหลุดเข้ามาแม้ deployment ตั้งผิด */
-  ALLOWED_DOMAIN: 'mgs.co.th',
+  /**
+   * โดเมนบริษัท — กันคนนอกโดเมนหลุดเข้ามาแม้ deployment ตั้งผิด
+   * ตั้งทับได้ที่ Script Property ชื่อ ALLOWED_DOMAIN โดยไม่ต้องแก้โค้ด
+   * (ถ้าวันหนึ่งเปลี่ยนโดเมน หรือมีหลายโดเมน จะได้ไม่ต้องแก้ซอร์ส)
+   */
+  ALLOWED_DOMAIN: PropertiesService.getScriptProperties().getProperty('ALLOWED_DOMAIN')
+                  || 'mglobalsourcing.net',
 
   LARK: {
     HOST: 'https://open.larksuite.com',      // tenant สากล; ถ้าใช้ Feishu จีนเปลี่ยนเป็น open.feishu.cn
@@ -452,18 +457,68 @@ function userMap_() {
 
 function clearUserCache_() { CacheService.getScriptCache().remove('user_map_v1'); }
 
-/** คืนโปรไฟล์ผู้ใช้ปัจจุบัน — คนที่ไม่อยู่ในตาราง Users ได้ VIEWER */
+/** อีเมลเจ้าของสคริปต์ — คนที่กด deploy ระบบนี้ */
+function ownerEmail_() {
+  if (ownerEmail_._v !== undefined) return ownerEmail_._v;
+  var v = '';
+  try { v = String(Session.getEffectiveUser().getEmail() || '').toLowerCase().trim(); } catch (e) { v = ''; }
+  ownerEmail_._v = v;
+  return v;
+}
+ownerEmail_._v = undefined;
+
+/**
+ * เช็คว่าเป็นอีเมลของบริษัทหรือไม่ — ต้องลงท้ายด้วย @โดเมน พอดี
+ * ห้ามใช้ indexOf: 'a@mglobalsourcing.net.evil.com' จะผ่านทันที
+ */
+function isCompanyEmail_(email) {
+  var d = String(CFG.ALLOWED_DOMAIN || '').toLowerCase().trim();
+  if (!d) return true;                       // ไม่ได้ตั้งโดเมน = ไม่กรอง
+  var suffix = '@' + d;
+  var e = String(email || '').toLowerCase();
+  return e.length > suffix.length && e.slice(-suffix.length) === suffix;
+}
+
+/**
+ * คืนโปรไฟล์ผู้ใช้ปัจจุบัน
+ *
+ * ลำดับการตัดสิน
+ *   1. เจ้าของสคริปต์  -> ADMIN เสมอ
+ *   2. มีชื่อในตาราง Users -> ใช้บทบาทตามที่ระบุ (ใช้ได้แม้อยู่นอกโดเมน เช่น ที่ปรึกษา)
+ *   3. อยู่ในโดเมนบริษัทแต่ยังไม่ลงทะเบียน -> VIEWER ดูได้อย่างเดียว
+ *   4. นอกเหนือจากนั้น -> ปฏิเสธ
+ *
+ * ข้อ 1 มีไว้กันไม่ให้ระบบล็อกคนติดตั้งออกจากระบบตัวเองตอนตาราง Users ยังว่าง
+ * ไม่ได้เพิ่มอำนาจให้ใคร เพราะเจ้าของสคริปต์แก้สเปรดชีตตรงได้อยู่แล้ว
+ */
 function me_() {
   var email = currentUser_();
-  if (CFG.ALLOWED_DOMAIN && email.indexOf('@' + CFG.ALLOWED_DOMAIN) === -1) {
-    // ยังปล่อยผ่านถ้ามีชื่อในตาราง Users (เผื่อที่ปรึกษาภายนอกที่อนุมัติแล้ว)
-    var mm = userMap_()[email];
-    if (!mm || !mm.active) fail_('บัญชี ' + email + ' ไม่มีสิทธิ์ใช้งานระบบนี้');
+  var listed = userMap_()[email];
+
+  if (email && email === ownerEmail_()) {
+    if (listed && listed.active) return listed;
+    return {
+      email: email,
+      name: listed ? listed.name : email,
+      dept: listed ? listed.dept : 'IT',
+      role: 'ADMIN', lark: '', active: true, owner: true
+    };
   }
-  var u = userMap_()[email];
-  if (!u) return { email: email, name: email, dept: '', role: 'VIEWER', lark: '', active: true, unlisted: true };
-  if (!u.active) fail_('บัญชี ' + email + ' ถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
-  return u;
+
+  if (listed) {
+    if (!listed.active) fail_('บัญชี ' + email + ' ถูกปิดการใช้งานแล้ว กรุณาติดต่อผู้ดูแลระบบ');
+    return listed;
+  }
+
+  if (!isCompanyEmail_(email)) {
+    fail_('บัญชี ' + email + ' ไม่มีสิทธิ์ใช้งานระบบนี้\n' +
+          'ระบบรับเฉพาะอีเมลที่ลงท้ายด้วย @' + CFG.ALLOWED_DOMAIN + ' หรือคนที่มีชื่อในตาราง Users\n' +
+          'ถ้าโดเมนของบริษัทไม่ใช่ @' + CFG.ALLOWED_DOMAIN + ' ให้ผู้ดูแลระบบไปที่ ' +
+          'Project Settings > Script Properties แล้วตั้งค่า ALLOWED_DOMAIN เป็นโดเมนที่ถูกต้อง ' +
+          'จากนั้น Deploy เวอร์ชันใหม่');
+  }
+
+  return { email: email, name: email, dept: '', role: 'VIEWER', lark: '', active: true, unlisted: true };
 }
 
 /** เช็คสิทธิ์ตามชื่อฟังก์ชันใน PERM — คืนโปรไฟล์ผู้ใช้เมื่อผ่าน */
@@ -3532,7 +3587,7 @@ function statusOfLot_(t) {
  *
  * ลำดับการติดตั้ง (ทำครั้งเดียว)
  *   1. setupCreateWorkbook()      สร้างสเปรดชีตและแท็บทั้งหมด
- *   2. ใส่รายชื่อผู้ใช้ในแท็บ Users
+ *   2. setupAddUser(...)          เพิ่มผู้ใช้ (เจ้าของสคริปต์ถูกใส่เป็น ADMIN ให้แล้ว)
  *   3. setupScriptProperties()    ดูว่ายังขาดค่าอะไร
  *   4. setupTriggers()            ตั้งตัวตั้งเวลา
  *   5. runSelfTest()              ตรวจว่าโครงตารางตรงกับโค้ด
@@ -3582,6 +3637,7 @@ function setupCreateWorkbook() {
 
   seedSettings_(ss);
   seedDriveFolder_();
+  seedOwnerAsAdmin_(ss);
 
   console.log('สร้างแท็บใหม่: ' + (created.join(', ') || '(ไม่มี)'));
   console.log('แท็บที่มีอยู่แล้ว: ' + (kept.join(', ') || '(ไม่มี)'));
@@ -3603,6 +3659,23 @@ function seedSettings_(ss) {
   sh.getRange(2, 1, rows.length, 3).setValues(rows);
 }
 
+/**
+ * ใส่เจ้าของสคริปต์เป็น ADMIN คนแรกเมื่อตาราง Users ยังว่าง
+ * กันปัญหาไก่กับไข่: ไม่มี ADMIN -> ตั้งค่าอะไรผ่านแอปไม่ได้ -> ต้องไปแก้ชีตด้วยมือ
+ */
+function seedOwnerAsAdmin_(ss) {
+  var sh = ss.getSheetByName(TAB.USERS);
+  if (!sh || sh.getLastRow() > 1) return;
+  var email = '';
+  try { email = String(Session.getEffectiveUser().getEmail() || '').toLowerCase().trim(); } catch (e) {}
+  if (!email) return;
+  sh.getRange(2, 1, 1, SCHEMA[TAB.USERS].length).setValues([[
+    email, email, 'IT', 'ADMIN', '', 'TRUE', 'เจ้าของสคริปต์ — ระบบเติมให้ตอนติดตั้ง'
+  ]]);
+  clearUserCache_();
+  console.log('เพิ่ม ' + email + ' เป็น ADMIN คนแรกในตาราง Users');
+}
+
 function seedDriveFolder_() {
   var props = PropertiesService.getScriptProperties();
   if (props.getProperty('DRIVE_ROOT_ID')) return;
@@ -3621,6 +3694,7 @@ function setupScriptProperties() {
   var props = PropertiesService.getScriptProperties();
   var required = [
     ['SS_ID', 'ID ของสเปรดชีตฐานข้อมูล (setupCreateWorkbook ตั้งให้อัตโนมัติ)', true],
+    ['ALLOWED_DOMAIN', 'โดเมนบริษัทที่ยอมให้เข้าใช้ เช่น mglobalsourcing.net (ไม่ตั้ง = ใช้ค่าในโค้ด)', false],
     ['DRIVE_ROOT_ID', 'ID โฟลเดอร์เก็บหลักฐาน (setupCreateWorkbook ตั้งให้อัตโนมัติ)', true],
     ['SAP_PUSH_SECRET', 'กุญแจลับสำหรับเซ็น payload จากตัวส่งข้อมูลในออฟฟิศ', true],
     ['LARK_WEBHOOK', 'URL webhook ของกลุ่ม Lark (ใช้แบบข้อความอย่างเดียว)', false],
@@ -3648,6 +3722,97 @@ function setupGeneratePushSecret() {
   props.setProperty('SAP_PUSH_SECRET', secret);
   console.log('SAP_PUSH_SECRET = ' + secret + '\n★ คัดลอกไปใส่ในตัวส่งข้อมูลฝั่งออฟฟิศ แล้วอย่าเก็บไว้ที่อื่น');
   return secret;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2.5 เครื่องมือแก้ปัญหาสิทธิ์ — ใช้ตอนผู้ใช้เปิดแอปแล้วถูกปฏิเสธ
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ตอบคำถาม "ทำไมเข้าไม่ได้" ในการรันครั้งเดียว
+ * รันจากตัวแก้ไข Apps Script แล้วดูผลใน Execution log
+ */
+function setupWhoAmI() {
+  var active = '', effective = '';
+  try { active = Session.getActiveUser().getEmail() || '(ว่าง)'; } catch (e) { active = '(เรียกไม่ได้: ' + e.message + ')'; }
+  try { effective = Session.getEffectiveUser().getEmail() || '(ว่าง)'; } catch (e) { effective = '(เรียกไม่ได้)'; }
+
+  var lines = [
+    'บัญชีที่กำลังใช้งาน (active user)   : ' + active,
+    'บัญชีเจ้าของสคริปต์ (effective user) : ' + effective,
+    'โดเมนที่ระบบยอมรับ (ALLOWED_DOMAIN) : ' + CFG.ALLOWED_DOMAIN,
+    'ตั้งทับที่ Script Property หรือยัง   : ' +
+      (PropertiesService.getScriptProperties().getProperty('ALLOWED_DOMAIN') ? 'ตั้งแล้ว' : 'ยังไม่ได้ตั้ง (ใช้ค่าในโค้ด)'),
+    ''
+  ];
+
+  try {
+    var u = me_();
+    lines.push('ผลการตรวจสิทธิ์ : ผ่าน');
+    lines.push('  บทบาท        : ' + u.role + (u.owner ? '  (ได้เพราะเป็นเจ้าของสคริปต์)' : ''));
+    lines.push('  ชื่อที่แสดง   : ' + u.name);
+    if (u.unlisted) lines.push('  ⚠️ ยังไม่มีชื่อในตาราง Users จึงได้ VIEWER — ดูได้อย่างเดียว');
+  } catch (e) {
+    lines.push('ผลการตรวจสิทธิ์ : ไม่ผ่าน');
+    lines.push('  เหตุผล : ' + String(e.message).replace('[U] ', ''));
+  }
+
+  lines.push('');
+  try {
+    var users = readTable_(TAB.USERS).rows;
+    lines.push('ผู้ใช้ในตาราง Users : ' + users.length + ' คน');
+    users.forEach(function (r) {
+      lines.push('  ' + String(r.email) + '  ' + String(r.role) +
+                 (isTrue_(r.is_active) ? '' : '  (ปิดใช้งาน)'));
+    });
+    if (!users.length) lines.push('  (ยังไม่มีใครเลย — รัน setupAddUser() เพื่อเพิ่ม)');
+  } catch (e) {
+    lines.push('อ่านตาราง Users ไม่ได้ : ' + String(e.message).replace('[U] ', ''));
+  }
+
+  var out = lines.join('\n');
+  console.log(out);
+  return out;
+}
+
+/**
+ * เพิ่มหรือแก้ผู้ใช้ 1 คน โดยไม่ต้องเปิดสเปรดชีต
+ * ตัวอย่าง: setupAddUser('somchai@mglobalsourcing.net', 'สมชาย', 'QC', 'QC')
+ */
+function setupAddUser(email, fullName, dept, role) {
+  email = String(email || '').toLowerCase().trim();
+  if (!email || email.indexOf('@') === -1) throw new Error('ต้องระบุอีเมลให้ถูกต้อง');
+  role = String(role || 'VIEWER').toUpperCase().trim();
+  if (!ROLES[role]) throw new Error('บทบาทไม่ถูกต้อง — ใช้ได้: ' + Object.keys(ROLES).join(' / '));
+
+  var existing = findRow_(TAB.USERS, 'email', email);
+  if (existing) {
+    updateRow_(TAB.USERS, 'email', email, {
+      full_name: String(fullName || existing.full_name || email),
+      dept: String(dept || existing.dept || ''),
+      role: role, is_active: 'TRUE'
+    }, null);
+    clearUserCache_();
+    console.log('อัปเดต ' + email + ' เป็นบทบาท ' + role + ' แล้ว');
+    return 'updated';
+  }
+
+  appendRows_(TAB.USERS, [{
+    email: email, full_name: String(fullName || email), dept: String(dept || ''),
+    role: role, lark_user_id: '', is_active: 'TRUE', note: ''
+  }]);
+  clearUserCache_();
+  console.log('เพิ่ม ' + email + ' บทบาท ' + role + ' แล้ว');
+  return 'added';
+}
+
+/** ปิดการใช้งานผู้ใช้ (ใช้ตอนพนักงานลาออก) — ไม่ลบแถวเพื่อให้ประวัติยังอ่านได้ */
+function setupDeactivateUser(email) {
+  email = String(email || '').toLowerCase().trim();
+  if (!findRow_(TAB.USERS, 'email', email)) throw new Error('ไม่พบผู้ใช้ ' + email);
+  updateRow_(TAB.USERS, 'email', email, { is_active: 'FALSE' }, null);
+  clearUserCache_();
+  console.log('ปิดการใช้งาน ' + email + ' แล้ว');
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -3742,7 +3907,17 @@ function runSelfTest() {
     var admins = readTable_(TAB.USERS).rows.filter(function (r) {
       return String(r.role).toUpperCase() === 'ADMIN' && isTrue_(r.is_active);
     });
-    if (!admins.length) throw new Error('ยังไม่มี ADMIN ในแท็บ Users');
+    if (!admins.length) throw new Error('ยังไม่มี ADMIN ในแท็บ Users — รัน setupAddUser(อีเมล, ชื่อ, แผนก, "ADMIN")');
+  });
+
+  t('โดเมนที่ตั้งไว้ตรงกับโดเมนของเจ้าของสคริปต์', function () {
+    var owner = ownerEmail_();
+    if (!owner) throw new Error('อ่านอีเมลเจ้าของสคริปต์ไม่ได้');
+    if (!isCompanyEmail_(owner)) {
+      throw new Error('เจ้าของสคริปต์คือ ' + owner + ' แต่ ALLOWED_DOMAIN ตั้งไว้เป็น @' +
+        CFG.ALLOWED_DOMAIN + ' — ผู้ใช้ในบริษัทจะเข้าไม่ได้ทั้งหมด ' +
+        'ให้ตั้ง Script Property ชื่อ ALLOWED_DOMAIN เป็นโดเมนที่ถูกต้อง');
+    }
   });
 
   t('SAP_PUSH_SECRET ถูกตั้งแล้ว', function () { secret_('SAP_PUSH_SECRET'); });

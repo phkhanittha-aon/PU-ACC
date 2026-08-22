@@ -18,7 +18,7 @@ const SRC_DIR = path.join(__dirname, '..', 'apps-script', 'traceability');
    ═════════════════════════════════════════════════════════════════════════ */
 const { createGasMocks } = require('./gas-mocks');
 
-const M = createGasMocks({ user: 'admin@mgs.co.th' });
+const M = createGasMocks({ user: 'admin@mglobalsourcing.net', owner: 'owner@mglobalsourcing.net' });
 const sandbox = M.sandbox;
 const store = M.store;
 
@@ -82,6 +82,7 @@ function accepts(res, what) {
   return res.data;
 }
 function as(email) { M.setUser(email); G.clearUserCache_(); }
+function asOwner(email) { M.setOwner(email); G.ownerEmail_._v = undefined; G.clearUserCache_(); }
 function rows(tab) { return G.readTable_(tab, true).rows; }
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -109,15 +110,19 @@ t('header ของทุกแท็บตรงกับ SCHEMA', () => {
 
 t('เพิ่มผู้ใช้ 5 บทบาท', () => {
   G.appendRows_(G.TAB.USERS, [
-    { email: 'admin@mgs.co.th', full_name: 'ผู้ดูแลระบบ', dept: 'IT', role: 'ADMIN', is_active: 'TRUE' },
-    { email: 'qc@mgs.co.th', full_name: 'สมหญิง (QC)', dept: 'QC', role: 'QC', is_active: 'TRUE' },
-    { email: 'qcm@mgs.co.th', full_name: 'หัวหน้า QC', dept: 'QC', role: 'QCM', is_active: 'TRUE' },
-    { email: 'wh@mgs.co.th', full_name: 'ประเสริฐ (คลัง)', dept: 'WH', role: 'WH', is_active: 'TRUE' },
-    { email: 'view@mgs.co.th', full_name: 'ผู้ดูอย่างเดียว', dept: 'SR', role: 'VIEWER', is_active: 'TRUE' },
-    { email: 'off@mgs.co.th', full_name: 'ลาออกแล้ว', dept: 'QC', role: 'QC', is_active: 'FALSE' }
+    { email: 'admin@mglobalsourcing.net', full_name: 'ผู้ดูแลระบบ', dept: 'IT', role: 'ADMIN', is_active: 'TRUE' },
+    { email: 'qc@mglobalsourcing.net', full_name: 'สมหญิง (QC)', dept: 'QC', role: 'QC', is_active: 'TRUE' },
+    { email: 'qcm@mglobalsourcing.net', full_name: 'หัวหน้า QC', dept: 'QC', role: 'QCM', is_active: 'TRUE' },
+    { email: 'wh@mglobalsourcing.net', full_name: 'ประเสริฐ (คลัง)', dept: 'WH', role: 'WH', is_active: 'TRUE' },
+    { email: 'view@mglobalsourcing.net', full_name: 'ผู้ดูอย่างเดียว', dept: 'SR', role: 'VIEWER', is_active: 'TRUE' },
+    { email: 'off@mglobalsourcing.net', full_name: 'ลาออกแล้ว', dept: 'QC', role: 'QC', is_active: 'FALSE' }
   ]);
   G.clearUserCache_();
-  eq(rows(G.TAB.USERS).length, 6, 'จำนวนผู้ใช้');
+  // 6 คนที่เพิ่ม + เจ้าของสคริปต์ที่ setupCreateWorkbook ใส่ให้เป็น ADMIN คนแรก
+  eq(rows(G.TAB.USERS).length, 7, 'จำนวนผู้ใช้');
+  const seeded = rows(G.TAB.USERS).filter(r => String(r.email) === 'owner@mglobalsourcing.net')[0];
+  truthy(seeded, 'ต้องมีเจ้าของสคริปต์ในตาราง Users');
+  eq(String(seeded.role), 'ADMIN', 'บทบาทของเจ้าของสคริปต์');
 });
 
 t('เติมข้อมูลตัวอย่างจาก SAP', () => {
@@ -143,7 +148,7 @@ t('runSelfTest ผ่านทุกข้อ', () => {
 /* ── B. เครื่องมือทวนสอบ ────────────────────────────────────────────── */
 group('B. การทวนสอบ (backward / forward / กระทบยอด)');
 
-as('qc@mgs.co.th');
+as('qc@mglobalsourcing.net');
 
 t('ค้นหาด้วยหมายเลขซีเรียลเจอ 1 รายการ', () => {
   const d = accepts(G.apiSearch('SG50R-A001'));
@@ -273,18 +278,65 @@ t('ตรวจจับของหายได้ — สร้างล็อ
 group('C. สิทธิ์ — ตรวจที่เซิร์ฟเวอร์ ไม่ใช่แค่ซ่อนปุ่ม');
 
 t('VIEWER เปิดเคสไม่ได้', () => {
-  as('view@mgs.co.th');
+  as('view@mglobalsourcing.net');
   rejects(G.apiOpenCase({ item_code: 'INV-SG5RS' }), 'ใช้งาน "openCase" ไม่ได้', 'VIEWER เปิดเคส');
 });
 
 t('คลังปลดการกักเองไม่ได้ ต้องผู้จัดการคุณภาพ', () => {
-  as('wh@mgs.co.th');
+  as('wh@mglobalsourcing.net');
   rejects(G.apiReleaseHold({ hold_id: 'x', reason: 'ตรวจแล้วไม่มีปัญหา' }), 'ไม่ได้', 'WH ปลดการกัก');
 });
 
 t('บัญชีที่ถูกปิดใช้งานเข้าไม่ได้', () => {
-  as('off@mgs.co.th');
+  as('off@mglobalsourcing.net');
   rejects(G.apiBootstrap(), 'ถูกปิดการใช้งาน', 'บัญชีที่ปิดแล้ว');
+});
+
+t('เจ้าของสคริปต์เข้าได้เป็น ADMIN เสมอ แม้ไม่มีชื่อในตาราง Users', () => {
+  // กันปัญหาไก่กับไข่: ถ้าตาราง Users ว่าง ต้องยังมีคนตั้งค่าระบบได้
+  const saved = rows(G.TAB.USERS).map(r => {
+    const o = {}; G.SCHEMA[G.TAB.USERS].forEach(h => { o[h] = r[h]; }); return o;
+  });
+  const sh = store.ss.getSheetByName(G.TAB.USERS);
+  sh.getRange(2, 1, sh.getMaxRows() - 1, G.SCHEMA[G.TAB.USERS].length).clearContent();
+  G.clearUserCache_();
+
+  as('owner@mglobalsourcing.net');
+  const d = accepts(G.apiBootstrap(), 'เจ้าของสคริปต์เปิดแอป');
+  eq(d.user.role, 'ADMIN', 'บทบาทของเจ้าของสคริปต์ตอนตาราง Users ว่าง');
+  eq(d.perm.runSetup, true, 'ต้องตั้งค่าระบบได้');
+
+  G.appendRows_(G.TAB.USERS, saved);
+  G.clearUserCache_();
+});
+
+t('อีเมลที่แค่มีชื่อโดเมนอยู่ตรงกลางถูกปฏิเสธ', () => {
+  // 'a@mglobalsourcing.net.evil.com' เคยผ่านตอนใช้ indexOf — ต้องเทียบท้ายสตริงเท่านั้น
+  truthy(G.isCompanyEmail_('somchai@mglobalsourcing.net'), 'อีเมลบริษัทจริงต้องผ่าน');
+  truthy(!G.isCompanyEmail_('a@mglobalsourcing.net.evil.com'), 'โดเมนปลอมต่อท้ายต้องไม่ผ่าน');
+  truthy(!G.isCompanyEmail_('a@notmglobalsourcing.net'), 'โดเมนที่ครอบชื่อไว้ต้องไม่ผ่าน');
+  truthy(!G.isCompanyEmail_('@mglobalsourcing.net'), 'อีเมลที่ไม่มีชื่อผู้ใช้ต้องไม่ผ่าน');
+
+  as('a@mglobalsourcing.net.evil.com');
+  rejects(G.apiBootstrap(), 'ไม่มีสิทธิ์ใช้งาน', 'โดเมนปลอม');
+});
+
+t('ข้อความปฏิเสธบอกวิธีแก้ ไม่ใช่แค่บอกว่าเข้าไม่ได้', () => {
+  as('outsider@gmail.com');
+  const res = G.apiBootstrap();
+  rejects(res, 'ALLOWED_DOMAIN', 'ต้องบอกชื่อ Script Property ที่ต้องตั้ง');
+  truthy(String(res.error).indexOf('Script Properties') !== -1, 'ต้องบอกว่าไปตั้งที่ไหน');
+  truthy(String(res.error).indexOf('mglobalsourcing.net') !== -1, 'ต้องบอกโดเมนที่ระบบตั้งไว้ตอนนี้');
+});
+
+t('runSelfTest จับได้เมื่อตั้งโดเมนผิดจนคนทั้งบริษัทเข้าไม่ได้', () => {
+  const real = G.CFG.ALLOWED_DOMAIN;
+  G.CFG.ALLOWED_DOMAIN = 'mgs.co.th';        // โดเมนที่เดาผิดในรอบแรก
+  const out = G.runSelfTest();
+  G.CFG.ALLOWED_DOMAIN = real;
+  const line = out.split('\n').filter(l => l.indexOf('โดเมนที่ตั้งไว้') !== -1)[0] || '';
+  truthy(line.indexOf('FAIL') === 0, 'ต้องรายงานว่าไม่ผ่าน — ได้: ' + line);
+  truthy(line.indexOf('ALLOWED_DOMAIN') !== -1, 'ต้องบอกวิธีแก้ในข้อความ');
 });
 
 t('บัญชีนอกโดเมนที่ไม่มีในทะเบียนเข้าไม่ได้', () => {
@@ -293,7 +345,7 @@ t('บัญชีนอกโดเมนที่ไม่มีในทะ�
 });
 
 t('คนที่ยังไม่ถูกกำหนดสิทธิ์ได้ VIEWER และเข้าดูได้', () => {
-  as('newbie@mgs.co.th');
+  as('newbie@mglobalsourcing.net');
   const d = accepts(G.apiBootstrap());
   eq(d.user.role, 'VIEWER', 'บทบาทเริ่มต้น');
   eq(d.perm.openCase, false, 'สิทธิ์เปิดเคส');
@@ -306,7 +358,7 @@ group('D. เคสเรียกคืน — ตั้งแต่เปิ�
 let CASE_NO = null;
 
 t('ดูขอบเขตก่อนเปิดเคสได้ว่าเข้าข่ายกี่หน่วย', () => {
-  as('qc@mgs.co.th');
+  as('qc@mglobalsourcing.net');
   const d = accepts(G.apiPreviewScope('INV-SG5RS', 'SERIAL', '', 'SG50R-A001', 'SG50R-A020'));
   eq(d.count, 20, 'จำนวนซีเรียลในช่วง');
   near(d.qty_in_stock, 5, 'อยู่ในคลัง');
@@ -364,7 +416,7 @@ t('เปิดเคสสำเร็จ — คำนวณของกระ
   const d = accepts(G.apiOpenCase({
     clientKey: 'CASE-KEY-1',
     item_code: 'INV-SG5RS', source: 'SUPPLIER_NOTICE', source_ref: 'SN-2026-0812',
-    risk_class: 'MAJOR', case_owner: 'qc@mgs.co.th',
+    risk_class: 'MAJOR', case_owner: 'qc@mglobalsourcing.net',
     problem: 'ผู้ขายแจ้งว่า PCB ล็อต LOT-2607-A อาจมีจุดบัดกรีไม่สมบูรณ์ เสี่ยงหยุดทำงานหลังใช้งาน 6 เดือน',
     scope: [{ kind: 'SERIAL', sn_from: 'SG50R-A001', sn_to: 'SG50R-A020' }]
   }));
@@ -493,7 +545,7 @@ t('ปิดรายการติดตามครบทุกแถว → 
 t('ปิดเคสไม่ได้ถ้ายังมีของถูกกักอยู่', () => {
   let H = accepts(G.apiGetCase(CASE_NO)).header;
   accepts(G.apiAdvanceCase({ clientKey: 'ADV-3', case_no: CASE_NO, to_status: 'VERIFYING', row_version: H.row_version }));
-  as('qcm@mgs.co.th');
+  as('qcm@mglobalsourcing.net');
   H = accepts(G.apiGetCase(CASE_NO)).header;
   rejects(G.apiCloseCase({ case_no: CASE_NO, row_version: H.row_version, closure_note: 'ดำเนินการครบถ้วนแล้ว เปลี่ยนของให้ลูกค้าทุกราย' }),
     'ยังมีของถูกกักอยู่', 'ปิดทั้งที่ยังกักอยู่');
@@ -532,14 +584,14 @@ t('ตั้งหัวข้อเป็นเสร็จโดยไม่�
 });
 
 t('กรอกการสอบสวนและการตัดสินใจครบทุกหัวข้อ', () => {
-  as('qc@mgs.co.th');
+  as('qc@mglobalsourcing.net');
   const d = accepts(G.apiGetCase(CASE_NO));
   d.actions.forEach((a, i) => {
     const fresh = accepts(G.apiGetCase(CASE_NO)).actions.filter(x => x.action_id === a.action_id)[0];
     accepts(G.apiUpdateAction({
       clientKey: 'ACT-' + i, action_id: fresh.action_id, row_version: fresh.row_version,
       details: 'สรุปสำหรับหัวข้อ ' + fresh.section_th + ' — ผู้ขายยืนยันปัญหาอยู่เฉพาะล็อต LOT-2607-A',
-      responsible: 'qc@mgs.co.th', target_date: '2026-09-15', status: 'DONE'
+      responsible: 'qc@mglobalsourcing.net', target_date: '2026-09-15', status: 'DONE'
     }), 'กรอกหัวข้อ ' + fresh.section);
   });
   const still = accepts(G.apiGetCase(CASE_NO)).actions.filter(x => x.status === 'OPEN');
@@ -548,16 +600,16 @@ t('กรอกการสอบสวนและการตัดสิน�
 
 t('ผู้กรอกอนุมัติงานตัวเองไม่ได้', () => {
   const a = accepts(G.apiGetCase(CASE_NO)).actions.filter(x => x.section === 'ROOT_CAUSE')[0];
-  as('qc@mgs.co.th');
+  as('qc@mglobalsourcing.net');
   rejects(G.apiApproveAction({ action_id: a.action_id, row_version: a.row_version }), 'ไม่ได้', 'QC อนุมัติเอง');
 });
 
 t('ผู้จัดการคุณภาพอนุมัติหัวข้อได้', () => {
-  as('qcm@mgs.co.th');
+  as('qcm@mglobalsourcing.net');
   const a = accepts(G.apiGetCase(CASE_NO)).actions.filter(x => x.section === 'ROOT_CAUSE')[0];
   accepts(G.apiApproveAction({ clientKey: 'APR-1', action_id: a.action_id, row_version: a.row_version }));
   const after = accepts(G.apiGetCase(CASE_NO)).actions.filter(x => x.section === 'ROOT_CAUSE')[0];
-  eq(after.approved_by, 'qcm@mgs.co.th', 'ผู้อนุมัติ');
+  eq(after.approved_by, 'qcm@mglobalsourcing.net', 'ผู้อนุมัติ');
 });
 
 t('ปิดเคสสำเร็จเมื่อเงื่อนไขครบ', () => {
@@ -582,7 +634,7 @@ t('เคสที่ปิดแล้วเปิดใหม่ไม่ไ�
 });
 
 t('ยกเลิกเคสปลดการกักทั้งหมดให้อัตโนมัติ', () => {
-  as('qc@mgs.co.th');
+  as('qc@mglobalsourcing.net');
   const d = accepts(G.apiOpenCase({
     clientKey: 'CASE-KEY-2',
     item_code: 'RAIL-4200', source: 'INTERNAL_QC', risk_class: 'MINOR',
@@ -595,7 +647,7 @@ t('ยกเลิกเคสปลดการกักทั้งหมด�
   near(d.totals.delivered, 320, 'ส่งไปแล้ว');
   eq(d.holds, 1, 'จำนวนรายการกัก');
 
-  as('qcm@mgs.co.th');
+  as('qcm@mglobalsourcing.net');
   const H = accepts(G.apiGetCase(caseNo)).header;
   accepts(G.apiCancelCase({
     clientKey: 'CANCEL-1', case_no: caseNo, row_version: H.row_version,
@@ -612,7 +664,7 @@ group('E. การทดสอบทวนสอบย้อนกลับ (Mo
 let TEST_NO = null;
 
 t('เริ่มทดสอบจากล็อตที่มีทั้งรับเข้าและส่งออก', () => {
-  as('qc@mgs.co.th');
+  as('qc@mglobalsourcing.net');
   const d = accepts(G.apiStartMockRecall({
     clientKey: 'MR-1', item_code: 'RAIL-4200', dist_number: 'SUP-260705-A',
     test_type: 'BOTH', target_min: 120
@@ -673,15 +725,15 @@ t('ผู้ทดสอบทบทวนผลของตัวเองไ�
 });
 
 t('ผู้จัดการคุณภาพทบทวนผลได้', () => {
-  as('qcm@mgs.co.th');
+  as('qcm@mglobalsourcing.net');
   const H = accepts(G.apiGetMockRecall(TEST_NO)).header;
   accepts(G.apiReviewMockRecall({ clientKey: 'MRV-1', test_no: TEST_NO, row_version: H.row_version,
     note: 'ผลเป็นที่น่าพอใจ ทีมหาของครบภายในเวลา' }));
-  eq(accepts(G.apiGetMockRecall(TEST_NO)).header.reviewed_by, 'qcm@mgs.co.th', 'ผู้ทบทวน');
+  eq(accepts(G.apiGetMockRecall(TEST_NO)).header.reviewed_by, 'qcm@mglobalsourcing.net', 'ผู้ทบทวน');
 });
 
 t('การทดสอบที่หาของไม่ครบ = ไม่ผ่าน และต้องมี CAPA', () => {
-  as('qc@mgs.co.th');
+  as('qc@mglobalsourcing.net');
   const d = accepts(G.apiStartMockRecall({
     clientKey: 'MR-2', item_code: 'RAIL-4200', dist_number: 'GHOST-01', test_type: 'BOTH'
   }));
@@ -699,7 +751,7 @@ t('การทดสอบที่หาของไม่ครบ = ไม�
   truthy(r.gap_found.indexOf('หาของไม่ครบ') !== -1, 'ต้องระบุว่าหาของไม่ครบ: ' + r.gap_found);
   truthy(r.gap_found.indexOf('กระทบยอดไม่ลง') !== -1, 'ต้องระบุว่ากระทบยอดไม่ลง: ' + r.gap_found);
 
-  as('qcm@mgs.co.th');
+  as('qcm@mglobalsourcing.net');
   const H = accepts(G.apiGetMockRecall(no)).header;
   rejects(G.apiReviewMockRecall({ test_no: no, row_version: H.row_version }),
     'สาเหตุที่แท้จริง', 'ทบทวนผลที่ไม่ผ่านโดยไม่ระบุสาเหตุ');
@@ -708,7 +760,7 @@ t('การทดสอบที่หาของไม่ครบ = ไม�
     clientKey: 'MRV-2', test_no: no, row_version: H.row_version,
     root_cause: 'ไม่มีการบันทึกล็อตตอนตัดจ่ายชั่วคราวหน้างาน ทำให้ยอดคงคลังกับของจริงไม่ตรง',
     corrective_action: 'บังคับสแกนล็อตทุกครั้งที่ตัดจ่าย และกระทบยอดล็อตรายเดือน',
-    capa_owner: 'wh@mgs.co.th', capa_due: '2026-09-30'
+    capa_owner: 'wh@mglobalsourcing.net', capa_due: '2026-09-30'
   }));
   eq(accepts(G.apiGetMockRecall(no)).header.capa_status, 'OPEN', 'สถานะ CAPA');
 });
@@ -834,7 +886,7 @@ t('sync ทับข้อมูล SAP แล้วข้อมูลที่ 
   truthy(rows(G.TAB.AUDIT).length > 0, 'audit log ต้องยังอยู่');
 
   // และเคสที่ปิดไปแล้วต้องอ่านได้เหมือนเดิม แม้ข้อมูล SAP ที่อ้างถึงจะถูกทับไปแล้ว
-  as('qc@mgs.co.th');
+  as('qc@mglobalsourcing.net');
   const d = accepts(G.apiGetCase(CASE_NO));
   eq(d.header.status, 'CLOSED', 'สถานะเคสเดิม');
   near(d.header.effectiveness_pct, 1, 'ประสิทธิผลที่บันทึกไว้');
@@ -862,7 +914,7 @@ t('Audit_Log เก็บค่าก่อน-หลัง ไม่ใช่�
 });
 
 t('หน้าหลักโหลดได้และนับงานค้างถูกต้อง', () => {
-  as('qc@mgs.co.th');
+  as('qc@mglobalsourcing.net');
   const d = accepts(G.apiDashboard());
   truthy(d.counts, 'ต้องมีตัวเลขสรุป');
   eq(d.counts.tasks_pending, d.tasks.length, 'จำนวนงานค้างต้องตรงกับรายการ');
