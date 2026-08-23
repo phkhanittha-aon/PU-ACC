@@ -400,6 +400,10 @@
     color:var(--ink-3);margin:14px 0 6px}
   .apv .stamp{border:1px dashed var(--line-2);border-radius:var(--r-sm);padding:10px 14px;
     font-size:13px;line-height:1.7;white-space:pre-wrap;background:var(--surface);color:var(--ink)}
+  /* ตัวอย่างข้อมูลที่สองระบบส่งกัน — ยาวเกินจอให้เลื่อนในกล่องตัวเอง หน้าไม่เลื่อนตาม */
+  .jsonbox{font-family:var(--mono);font-size:11.5px;line-height:1.75;background:var(--sidebar);
+    color:#c7d3cc;border-radius:var(--r-md);padding:14px 16px;overflow-x:auto;margin:0 0 12px;
+    white-space:pre;-webkit-overflow-scrolling:touch}
   .apv .dl{display:flex;justify-content:space-between;gap:12px;padding:5px 0;
     border-bottom:1px solid var(--line);font-size:13px}
   .apv .dl:last-child{border-bottom:0}
@@ -947,6 +951,18 @@
       {o:"เครื่องจักร & โซลาร์ (Mech)", form:"Report No. M-26xxxx · ลงนาม QC + ผู้จัดการจัดซื้อ",
        n:"Con. Condition · Packing · Physical · Quantity (ไม่มีล็อต/วันหมดอายุ)", st:"รอเชื่อม"}
     ],
+    /* วิธีเชื่อมกับแอปตรวจรับซึ่งเป็นเว็บแอปคนละตัว (ดู docs/17)
+       หลัก: แอป QC "ส่งมาเอง" เมื่อกดจบใบ (push) + ระบบนี้ "ไล่เก็บย้อนหลัง" เป็นตาข่ายรอง (pull)
+       ไม่ใช้ push อย่างเดียว เพราะเน็ตหลุดครั้งเดียวใบนั้นหายไปเงียบ ๆ */
+    link:{
+      mode:"PUSH + PULL",
+      push:"POST https://script.google.com/…/exec?fn=qcReport  (แอป QC เรียกเมื่อกดจบใบ)",
+      pull:"GET  https://qc-app…/api/reports?since=…  (ระบบนี้เรียกทุก 30 นาที เก็บใบที่ push หาย)",
+      auth:"ลงลายมือชื่อด้วยกุญแจลับร่วม (HMAC-SHA256) + ประทับเวลา ±5 นาที",
+      idem:"กันซ้ำด้วย (เลขที่ใบตรวจ + เวอร์ชัน) — ส่งซ้ำกี่ครั้งผลเท่าเดิม",
+      retry:"แอป QC ส่งไม่ผ่าน = เข้าคิวส่งใหม่ 1/5/30 นาที แล้วปล่อยให้ pull เก็บ",
+      down:"ระบบนี้ล่มต้องไม่ขวางงาน QC — QC กดจบใบในแอปตัวเองได้ตามปกติเสมอ"
+    },
     // ช่องที่ระบบนี้ขอจากใบตรวจ — ไม่ได้ขอทั้งใบ ขอเฉพาะที่ปลายทางใช้ตัดสินใจ
     pull:[
       {f:"Report No.",       to:"ใช้เป็นเลขอ้างอิงในชุดเอกสารและใบขออนุมัติจ่าย"},
@@ -959,6 +975,71 @@
       {f:"Defect & Remark",  to:"ข้อที่เขียนว่า “รอสรุป” กลายเป็นข้อค้างที่ล็อกการจ่ายจนกว่าจะสรุป"}
     ]
   };
+
+  /* ใบตรวจที่แอป QC ส่งเข้ามาแล้วแต่ยังไม่ได้ผูกกับรายการ
+     จุดตายของการเชื่อมสองระบบคือ "จับคู่ไม่ได้" ไม่ใช่ "ส่งไม่ถึง" —
+     ฝั่งเครื่องจักรใบตรวจอ้างเลขรับของ (RC) ไม่ใช่เลข PO จึงต้องมีคิวให้คนจับคู่ */
+  let QCIN = [
+    {ref:"F-2026055", mod:"FOOD", poRef:"PO-F126050018", at:"วันนี้ 09:12", by:"push",
+     sup:"GLORYHONG FOOD", item:"FROZEN ILLEX SQUID, ROE", place:"ห้องเย็นรักษ์ชัย II",
+     date:"2026-08-22", invQty:"1,200 CTNs", qtyOk:"1,200 CTNs", result:"ผ่าน (Pass)",
+     temp:-19.2, lot:"126005780", expDate:"08-2028", grade:"A",
+     defects:[{t:"พบกล่องมีรอยความชื้นเล็กน้อย 3 กล่อง", blocks:false}],
+     match:null, why:"ไม่พบรายการที่มีเลข PO ตรงกับ PO-F126050018"},
+    {ref:"M-2026099", mod:"MECH", poRef:"M-RC26200093", at:"วันนี้ 10:40", by:"pull",
+     sup:"Sungrow", item:"SG36CX-P2 Sungrow Inverter", place:"CHOD",
+     date:"2026-08-22", invQty:"2 SET", qtyOk:"2 SET", result:"ผ่าน (Pass)",
+     conCond:"ผ่าน (Pass)", defects:[],
+     match:null, why:"ใบฝั่งเครื่องจักรอ้างเลขรับของ (RC) ไม่ใช่เลข PO — ต้องเลือกรายการเอง"}
+  ];
+
+  /* หน้าตาข้อมูลหนึ่งใบที่แอป QC ส่งมา — ช่องกลางเหมือนกันทุกสาย ช่องเฉพาะสายอยู่ใน extra
+     เพิ่มสายสินค้าใหม่จึงไม่ต้องแก้สัญญาระหว่างสองระบบ */
+  const QCPAYLOAD = [
+    "{",
+    '  "reportNo":  "F-2026049",          // เลขที่ใบตรวจ — กันซ้ำด้วยเลขนี้ + version',
+    '  "version":   1,                     // ออกใบแก้ = version 2 ระบบจะทับของเดิมและบันทึกว่าแก้',
+    '  "module":    "FOOD",                // FOOD | MECH',
+    '  "poRef":     "PO-F126050010",       // เลขที่พิมพ์บนใบ (ฝั่ง Mech เป็นเลขรับของ)',
+    '  "docDate":   "2026-08-19",',
+    '  "inspectedAt":"2026-08-14",         // วันตรวจจริง ไม่ใช่วันออกใบ',
+    '  "location":  "Ruxchai Cold Storage II",',
+    '  "supplier":  "GLORYHONG FOOD CO.,LIMITED",',
+    '  "invQty":    "2600 CTN",            // ตัวเลข + หน่วย แยกด้วยช่องว่าง',
+    '  "actualQty": "2600 CTN",',
+    '  "result":    "PASS",                // PASS | FAIL',
+    '  "rejectQty": "",                    // บังคับเมื่อ result = FAIL',
+    '  "extra": { "temp": -20.0, "lot": "126005711",',
+    '             "expiry": "2028-06", "grade": "A" },   // MECH ส่ง { "conCondition": "PASS" }',
+    '  "defects": [                        // ตาราง Defect & Remark ท้ายใบ',
+    '    { "text":"พบกล่องบุบ เสียรูป และมีร่องรอยความชื้น",',
+    '      "remark":"รอสรุปเรื่องเปลี่ยนกล่อง", "blocksPayment": true },',
+    '    { "text":"พบขนาดกล่องไม่เท่ากัน",',
+    '      "remark":"ให้ฝ่ายขายตั้งราคาตามขนาด", "blocksPayment": false }',
+    "  ],",
+    '  "reportUrl": "https://qc-app…/report/F-2026049",   // ลิงก์ใบเต็ม ไม่ก๊อปรูป 24 หน้ามาซ้ำ',
+    '  "signedBy":  { "qc":"Kritiyanee S.", "procurement":"Khanittha P." },',
+    '  "sentAt":    "2026-08-19T10:22:31+07:00"          // ใช้คู่กับลายมือชื่อ กันส่งซ้ำย้อนหลัง',
+    "}"
+  ].join("\n");
+
+  // เรื่องที่ต้องตกลงกับทีมที่ดูแลแอป QC — st: ok = ตกลงได้เอง · warn = ต้องคุย · block = ติดจริง
+  const QCASK = [
+    {st:"block", q:"แอป QC เรียก URL ภายนอกได้ไหม (เพื่อส่งผลมาเอง)",
+     a:"ถ้าเรียกไม่ได้เลย ต้องเปลี่ยนเป็นให้ระบบนี้ไปดึงอย่างเดียว หรือให้แอป QC เขียนลง Google Sheet ที่แชร์กัน แล้วระบบนี้อ่านจากชีต — ไม่ต้องมี API"},
+    {st:"block", q:"ฝั่งเครื่องจักรจะจับคู่ใบตรวจกับรายการด้วยอะไร",
+     a:"ใบ M-2026097 หัวใบเขียน M-RC26200090 แต่ใบรับสินค้าข้างในเขียน PO M-3026064 — ขอให้ส่งทั้งสองเลขมาด้วยกัน ถ้าส่งได้เลขเดียวต้องมีคิวให้คนจับคู่ (ทำไว้แล้วในหน้านี้)"},
+    {st:"warn", q:"ออกใบแก้ย้อนหลังได้ไหม และเราจะรู้ได้อย่างไร",
+     a:"ขอให้ส่ง version เพิ่มขึ้นในเลขใบเดิม · ถ้าใบถูกแก้หลังจ่ายเงินไปแล้ว ระบบจะไม่กลับรายการเอง แต่แจ้งบัญชีกับจัดซื้อให้ตัดสินใจ"},
+    {st:"warn", q:"ตาราง Defect & Remark ส่งออกมาเป็นข้อมูลได้ไหม",
+     a:"ถ้าส่งมาเป็นข้อความก้อนเดียวได้ ระบบตัดเป็นรายบรรทัดให้ แต่ต้องมีคนติ๊กว่าข้อไหนล็อกการจ่าย"},
+    {st:"warn", q:"รูปถ่ายในใบตรวจ",
+     a:"ขอเป็นลิงก์ใบเต็มพอ ไม่ต้องส่งรูป — ใบอาหารใบเดียว 24 หน้า ส่วนใหญ่เป็นรูป ก๊อปมาเก็บซ้ำเปลืองที่โดยไม่ได้ประโยชน์"},
+    {st:"ok", q:"ยืนยันตัวตนระหว่างสองระบบ",
+     a:"กุญแจลับร่วมกัน ลงลายมือชื่อ HMAC-SHA256 บนเนื้อข้อมูล + ประทับเวลา ±5 นาที · ไม่ใส่กุญแจไว้บน URL · เปลี่ยนกุญแจได้โดยไม่ต้องหยุดระบบ"},
+    {st:"ok", q:"แอป QC ต้องรอระบบนี้ตอบไหม",
+     a:"ไม่ต้อง — ส่งแล้วจบ ถ้าระบบนี้ล่ม แอป QC ต้องกดจบใบได้ตามปกติ แล้วค่อยเข้าคิวส่งใหม่"}
+  ];
 
   const SAP = {
     at:"วันนี้ 08:30", ok:true,
@@ -2179,10 +2260,84 @@
     h += '<div class="stabs">' +
       tabBtn("ISSUES", "ปัญหาที่ผู้ใช้แจ้ง", ISSUES.length) +
       tabBtn("SAP", "เชื่อมต่อ SAP", SAP.objs.length) +
+      tabBtn("QCAPP", "เชื่อมแอปตรวจรับ QC", QCIN.filter(x => !x.match).length) +
       tabBtn("STAGES", "ขั้นตอนและ SLA", STAGES.length) +
       tabBtn("DOCS", "เอกสารที่ต้องมี", DOCS.length) +
       tabBtn("FILES", "ไดรฟ์และการรวมไฟล์", "") +
       tabBtn("USERS", "ผู้ใช้และสิทธิ์", Object.keys(ROLES).length) + "</div>";
+
+    /* ================= เชื่อมกับแอปตรวจรับของ QC (เว็บแอปคนละตัว) ================= */
+    if (subtab === "QCAPP") {
+      const L = QCAPP.link, wait = QCIN.filter(x => !x.match), done2 = QCIN.filter(x => x.match);
+      h += '<div class="card"><h3>วิธีเชื่อมสองระบบ<span class="c">' + esc(L.mode) + "</span></h3>" +
+        '<div class="note info"><span class="ic">▸</span><span>' +
+        "แอปตรวจรับเป็นเว็บแอปคนละตัว ไม่ใช้ฐานข้อมูลร่วมกัน จึงเชื่อมด้วย <b>2 ทางคู่กัน</b> — " +
+        "<b>ส่งมาเอง (push)</b> ตอนกดจบใบเพื่อให้เร็ว และ <b>ไล่เก็บย้อนหลัง (pull)</b> " +
+        "ทุก 30 นาทีเพื่อเก็บใบที่ส่งไม่ถึง<br>" +
+        "ใช้ push อย่างเดียวไม่ได้ เพราะเน็ตหลุดครั้งเดียวใบนั้นหายเงียบ ๆ " +
+        "ใช้ pull อย่างเดียวก็ช้าเกินไปสำหรับคลังที่รอรับของ</span></div>" +
+        '<div class="rowline"><span class="nm">ทางที่ 1 · แอป QC ส่งมา</span><span class="droot">' +
+          esc(L.push) + "</span></div>" +
+        '<div class="rowline"><span class="nm">ทางที่ 2 · ระบบนี้ไปเก็บ</span><span class="droot">' +
+          esc(L.pull) + "</span></div>" +
+        '<div class="rowline"><span class="nm">ยืนยันตัวตน</span><span>' + esc(L.auth) + "</span></div>" +
+        '<div class="rowline"><span class="nm">กันข้อมูลซ้ำ</span><span>' + esc(L.idem) + "</span></div>" +
+        '<div class="rowline"><span class="nm">ส่งไม่ผ่าน</span><span>' + esc(L.retry) + "</span></div>" +
+        '<div class="rowline"><span class="nm">ระบบนี้ล่ม</span><span>' + esc(L.down) + "</span></div>" +
+        '<div class="note warn"><span class="ic">!</span><span><b>ถ้าทีมที่ดูแลแอป QC ยังแก้อะไรไม่ได้</b> — ' +
+        "ระบบยังใช้งานได้เต็มรูปแบบด้วยวิธีเดิม คือ QC พิมพ์เลขที่ใบตรวจกับสรุปสั้น ๆ เข้ามาเอง " +
+        "การเชื่อมนี้เป็นการ<b>ลดงานพิมพ์ซ้ำ ไม่ใช่เงื่อนไขว่าระบบจะเดินได้</b></span></div></div>";
+
+      h += '<div class="card"><h3>ใบตรวจที่รับเข้ามาแล้วแต่<b>จับคู่รายการไม่ได้</b>' +
+        '<span class="c">' + wait.length + " ใบรอคน · " + done2.length + " ใบจับคู่แล้ว</span></h3>" +
+        '<div class="note warn"><span class="ic">!</span><span>' +
+        "จุดที่พังจริงของการเชื่อมสองระบบไม่ใช่ “ส่งไม่ถึง” แต่คือ <b>“ส่งถึงแล้วไม่รู้ว่าของใบไหน”</b><br>" +
+        "ระบบจับคู่อัตโนมัติด้วยเลข PO ก่อน ถ้าไม่ตรงจะ<b>ไม่เดา</b> แต่ส่งเข้าคิวนี้ให้คนเลือก " +
+        "แล้ว<b>จำการจับคู่ไว้</b> ครั้งหน้าเลขชุดเดียวกันจับคู่ได้เอง</span></div>";
+      if (!wait.length) h += '<div class="empty">ไม่มีใบตรวจค้างจับคู่</div>';
+      else {
+        h += '<div class="tw"><table><thead><tr><th>เลขที่ใบตรวจ</th><th>สาย</th>' +
+          "<th>PO Ref บนใบ</th><th>ผู้ขาย / สินค้า</th><th>เข้ามาเมื่อ</th><th>จับคู่กับรายการ</th>" +
+          "</tr></thead><tbody>";
+        wait.forEach((x, i) => {
+          const cand = POS.filter(y => isActive(y) && modOf(y) === x.mod);
+          h += '<tr><td class="mono">' + esc(x.ref) + "</td>" +
+            "<td>" + esc(MODULES[x.mod].n) + "</td>" +
+            '<td class="mono">' + esc(x.poRef) + '<div class="sub">' + esc(x.why) + "</div></td>" +
+            "<td>" + esc(x.sup) + '<div class="sub">' + esc(x.item) + "</div></td>" +
+            "<td>" + esc(x.at) + '<div class="sub">' +
+              (x.by === "push" ? "แอป QC ส่งมาเอง" : "ระบบไปเก็บมา") + "</div></td>" +
+            '<td><select id="qm_' + i + '"><option value="">— เลือกรายการ —</option>' +
+              cand.map(y => '<option value="' + esc(y.no) + '">' + esc(y.no) + " · " +
+                esc(y.sup) + " · " + esc(y.item) + "</option>").join("") + "</select>" +
+              '<button class="btn ok" data-qcmatch="' + i + '">ผูกใบนี้</button></td></tr>';
+        });
+        h += "</tbody></table></div>";
+      }
+      h += "</div>";
+
+      h += '<div class="card"><h3>ข้อมูลที่ส่งกันหนึ่งใบ<span class="c">' +
+        "สัญญาระหว่างสองระบบ</span></h3>" +
+        '<div class="note info"><span class="ic">▸</span><span>' +
+        "ส่งเป็น JSON ก้อนเดียวต่อหนึ่งใบตรวจ — <b>ช่องกลางเหมือนกันทุกสาย</b> " +
+        "ส่วนช่องเฉพาะสายอยู่ใน <span class=\"mono\">extra</span> " +
+        "เพิ่มสายใหม่จึงไม่ต้องแก้สัญญา</span></div>" +
+        '<pre class="jsonbox">' + esc(QCPAYLOAD) + "</pre>" +
+        '<div class="tw"><table><thead><tr><th>ช่องบนใบตรวจ</th><th>ปลายทางเอาไปใช้</th>' +
+        "</tr></thead><tbody>" +
+        QCAPP.pull.map(x => "<tr><td><b>" + esc(x.f) + "</b></td><td>" + esc(x.to) + "</td></tr>").join("") +
+        "</tbody></table></div></div>";
+
+      h += '<div class="card"><h3>เรื่องที่ต้องตกลงกับทีมแอป QC<span class="c">' +
+        "ก่อนเริ่มเชื่อม</span></h3>";
+      QCASK.forEach(x => {
+        h += '<div class="chk ' + (x.st === "ok" ? "pass" : x.st) + '"><span class="m">' +
+          (x.st === "ok" ? "✓" : x.st === "block" ? "✕" : "!") + "</span><span><b>" + esc(x.q) +
+          "</b><br>" + esc(x.a) + "</span></div>";
+      });
+      h += "</div>";
+      return h;
+    }
 
     if (subtab === "FILES") {
       const cash = POS.filter(x => x.entry === "CASH");
@@ -3195,6 +3350,44 @@
       }
       render(); return;
     }
+    /* ผูกใบตรวจที่แอป QC ส่งมากับรายการ — จุดที่การเชื่อมสองระบบให้ผลจริง
+       ผูกแล้วช่องทั้งหมดลงให้เอง QC ไม่ต้องพิมพ์ซ้ำ และข้อค้างท้ายใบกลายเป็นข้อค้างในระบบทันที */
+    const qm = ev.target.closest("[data-qcmatch]");
+    if (qm) {
+      const i = parseInt(qm.dataset.qcmatch, 10);
+      const wait = QCIN.filter(x => !x.match), r = wait[i];
+      if (!r) return;
+      const no = valOf("qm_" + i);
+      if (!no) { toast("เลือกรายการที่จะผูกก่อน — ระบบไม่เดาให้"); return; }
+      const tp = POS.filter(x => x.no === no)[0];
+      if (!tp) return;
+      r.match = no;
+      Object.assign(tp.hand, {
+        qcRef:r.ref, qcPoRef:r.poRef, qcDate:r.date, qcPlace:r.place,
+        invQty:r.invQty, qtyOk:r.qtyOk, qcResult:r.result
+      });
+      if (r.mod === "FOOD")
+        Object.assign(tp.hand, {temp:r.temp, lot:r.lot, expDate:r.expDate, grade:r.grade});
+      else if (r.conCond) tp.hand.conCond = r.conCond;
+      // ข้อค้างท้ายใบตรวจตามมาด้วย — ของที่ล็อกเงินก็ล็อกให้เลย
+      (r.defects || []).forEach(dfx => {
+        if ((tp.qcOpen || []).some(y => y.t === dfx.t)) return;
+        tp.qcOpen.push({t:dfx.t, blocks:!!dfx.blocks, st:"OPEN",
+          by:"แอปตรวจรับ " + r.ref, at:"วันนี้", closeBy:"", closeWhy:""});
+      });
+      const hold = qcPayHold(tp);
+      if (hold.length) tp.payments.forEach(x => { if (x.status === "PENDING") x.status = "BLOCKED"; });
+      tp.tl.push(["วันนี้", ROLES[role].person,
+        "ผูกใบตรวจ " + r.ref + " จากแอปตรวจรับเข้ากับรายการนี้ — ข้อมูลลงให้อัตโนมัติ ไม่ได้พิมพ์ซ้ำ"]);
+      // จำการจับคู่ไว้ ครั้งหน้าเลขชุดเดียวกันจับได้เอง
+      tp.qcPoMap = r.poRef;
+      notify("WH", "info", tp.no, "ผลตรวจเข้าระบบแล้ว " + r.ref,
+        tp.no + " " + tp.sup + " — " + r.result + " · " + r.qtyOk + " · ตรวจที่ " + r.place);
+      toast("ผูกใบ " + r.ref + " แล้ว — ช่องทั้งหมดลงให้เอง" +
+        (hold.length ? " และล็อกการจ่ายเพราะมีข้อค้าง " + hold.length + " ข้อ" : ""));
+      render(); return;
+    }
+
     const sb = ev.target.closest("[data-sub]");
     if (sb) { subtab = sb.dataset.sub; openClaim = null; openIC = null; openPR = null; render(); return; }
     const bk = ev.target.closest("[data-back]");

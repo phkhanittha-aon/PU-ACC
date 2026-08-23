@@ -43,7 +43,7 @@ function click(attr, data) {
 }
 const ROLES = ["SR", "QC", "LS", "WH", "AC", "ACH", "GM"];
 const PAGES = { home: [""], po: ["ACTIVE","DONE","CANCELLED","SEARCH"], req: ["PRICE","CLAIM","ITEM"],
-                inbox: [""], admin: ["ISSUES","SAP","STAGES","DOCS","FILES","USERS"], report: [""] };
+                inbox: [""], admin: ["ISSUES","SAP","QCAPP","STAGES","DOCS","FILES","USERS"], report: [""] };
 const POS = ["PO-26-0042","PO-26-0051","CS-26-0007","PO-26-0060","PO-26-0038","PO-26-0029","PO-26-0033","PO-26-0045","PO-26-0031","PO-26-0025","PO-26-0019","PO-26-0012"];
 
 let n = 0, bad = [];
@@ -808,6 +808,57 @@ d = nodes["#main"].innerHTML;
 if (!/หัวหน้าบัญชี/.test(d)) bad.push("ไม่มีบทบาทหัวหน้าบัญชีแยกจากบัญชี");
 if (!/คุณอารีย์/.test(d)) bad.push("บทบาทหัวหน้าบัญชีไม่มีผู้ใช้");
 
+/* ================= เชื่อมกับแอปตรวจรับ QC ซึ่งเป็นเว็บแอปคนละตัว ================= */
+click("data-role", { role: "AC" });
+click("data-page", { page: "admin" });
+click("data-sub", { sub: "QCAPP" });
+d = nodes["#main"].innerHTML;
+if (!/PUSH \+ PULL/.test(d)) bad.push("หน้าเชื่อมแอป QC ไม่บอกวิธีเชื่อม");
+if (!/HMAC/.test(d)) bad.push("ไม่ได้ระบุวิธียืนยันตัวตนระหว่างสองระบบ");
+if (!/reportNo/.test(d)) bad.push("ไม่มีตัวอย่างข้อมูลที่สองระบบส่งกัน");
+if (!/blocksPayment/.test(d)) bad.push("สัญญาข้อมูลไม่ได้ส่งข้อค้างที่ล็อกการจ่ายมาด้วย");
+if (!/F-2026055/.test(d)) bad.push("ไม่มีคิวใบตรวจที่จับคู่รายการไม่ได้");
+if (!/M-2026099/.test(d)) bad.push("ใบฝั่งเครื่องจักรไม่เข้าคิวจับคู่");
+
+// ไม่เลือกรายการแล้วกดผูก → ต้องไม่เดาให้
+setFields({qm_0:"", qm_1:""});
+click("data-qcmatch", { qcmatch: "0" });
+if (!/เลือกรายการที่จะผูกก่อน/.test(nodes["#toast"].textContent))
+  bad.push("ผูกใบตรวจได้โดยไม่ต้องเลือกรายการ — ระบบเดาให้เอง");
+
+// ผูกใบฝั่งเครื่องจักร M-2026099 เข้ากับ PO-26-0060 (กำลังอยู่ขั้น QC)
+// ผลที่ต้องได้คือ QC เปิดป๊อปอัปแล้วช่องกรอกมาเองแล้ว ไม่ต้องพิมพ์ซ้ำจากแอปอีกตัว
+setFields({qm_0:"", qm_1:"PO-26-0060"});
+click("data-qcmatch", { qcmatch: "1" });
+click("data-role", { role: "QC" });
+click("data-po", { po: "PO-26-0060" });
+click("data-act", { act: "qcpass" });
+d = nodes["#modal"].innerHTML;
+if (!/M-2026099/.test(d)) bad.push("ผูกใบแล้วเลขที่ใบตรวจไม่มากรอกให้เอง");
+if (!/2 SET/.test(d)) bad.push("ผูกใบแล้วจำนวนที่ตรวจนับได้ไม่มากรอกให้เอง");
+if (!/CHOD/.test(d)) bad.push("ผูกใบแล้วสถานที่ตรวจไม่มากรอกให้เอง");
+click("data-uact", { uact: "close" });
+
+// ผูกใบฝั่งอาหาร F-2026055 เข้ากับ PO-26-0051 → ข้อค้างท้ายใบต้องตามมาด้วย
+click("data-role", { role: "AC" });
+click("data-page", { page: "admin" });
+click("data-sub", { sub: "QCAPP" });
+setFields({qm_0:"PO-26-0051"});
+click("data-qcmatch", { qcmatch: "0" });
+click("data-po", { po: "PO-26-0051" });
+d = nodes["#main"].innerHTML;
+if (!/F-2026055/.test(d)) bad.push("ผูกใบตรวจแล้วเลขที่ใบไม่ลงในรายการ");
+if (!/ไม่ได้พิมพ์ซ้ำ/.test(d)) bad.push("ไม่บันทึกประวัติว่าข้อมูลมาจากแอปตรวจรับ");
+if (!/ข้อค้างจากใบตรวจ/.test(d)) bad.push("ข้อค้างท้ายใบตรวจไม่ตามมาด้วยตอนผูกใบ");
+if (!/รอยความชื้น/.test(d)) bad.push("ข้อความข้อค้างจากแอปตรวจรับไม่ถูกยกมา");
+
+// คิวต้องว่างแล้ว
+click("data-page", { page: "admin" });
+click("data-sub", { sub: "QCAPP" });
+d = nodes["#main"].innerHTML;
+if (/F-2026055/.test(d) || /M-2026099/.test(d)) bad.push("ผูกใบแล้วยังค้างอยู่ในคิวจับคู่");
+if (!/ไม่มีใบตรวจค้างจับคู่/.test(d)) bad.push("คิวว่างแล้วแต่ไม่ได้บอกว่าว่าง");
+
 /* ================= ใบตรวจ Food กับ Mech ใช้ช่องคนละชุด ================= */
 click("data-role", { role: "QC" });
 click("data-po", { po: "PO-26-0060" });      // สายเครื่องจักร stage 10 = QC ตรวจรับ
@@ -923,6 +974,7 @@ if (!/ไม่ทำฟอร์มตรวจรับซ้ำ/.test(d)) bad
 if (!/Mech/.test(d)) bad.push("ไม่ได้ครอบคลุมสายงาน Mech");
 
 console.log("เรนเดอร์ทั้งหมด " + n + " ครั้ง + จ่าย + ใช้งานง่าย/SAP + ขอราคา→PO + เงินสด/ไดรฟ์กลาง/รวมไฟล์/ป๊อปอัป\n" +
-  "  + ใบตรวจ Food/Mech คนละชุด + ข้อค้างท้ายใบตรวจล็อกจ่าย + เอกสารเรียกเก็บรายงวด");
+  "  + ใบตรวจ Food/Mech คนละชุด + ข้อค้างท้ายใบตรวจล็อกจ่าย + เอกสารเรียกเก็บรายงวด\n" +
+  "  + เชื่อมแอปตรวจรับ QC (คิวจับคู่ใบตรวจ + กรอกให้เอง)");
 if (bad.length) { console.log("พบปัญหา " + bad.length + ":"); bad.slice(0, 30).forEach(b => console.log("  - " + b)); process.exit(1); }
 console.log("ผ่านทั้งหมด");
