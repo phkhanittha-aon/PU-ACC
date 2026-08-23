@@ -85,7 +85,11 @@ for (let guard=0; guard<40; guard++){
   // ทำงานของขั้นนั้น — ดูจากปุ่มจริงในหน้าจอ ไม่ใช่ข้อความในประวัติ
   const HF = {up_file:"doc.pdf", up_note:"", up_none:false,
     hf_shipDate:"2026-09-05", hf_eta:"2026-09-06", hf_etaTime:"08:00", hf_truck:"70-5566 กทม",
-    hf_qcRef:"IIF-26-0300", hf_temp:"-18.7", hf_qtyOk:"300 KG", hf_qtyBad:"—", hf_qtyIn:"300 KG", hf_grNo:"GR-26-0410",
+    hf_qcRef:"F-2026070", hf_qcPoRef:"PO-F126050030", hf_qcDate:"2026-09-06",
+    hf_qcPlace:"ห้องเย็นรักษ์ชัย II", hf_invQty:"300 KG", hf_qcResult:"ผ่าน (Pass)",
+    hf_lot:"126005900", hf_expDate:"08-2028", hf_grade:"A",
+    qo_block:"", qo_note:"",
+    hf_temp:"-18.7", hf_qtyOk:"300 KG", hf_qtyBad:"—", hf_qtyIn:"300 KG", hf_grNo:"GR-26-0410",
     hf_invNo:"INV-AS-0905", hf_invAmt:"63000", hf_rcvBy:"คุณวิภา"};
   const H = nodes["#main"].innerHTML;
   const has = a => H.indexOf('data-act="'+a+'"') >= 0;
@@ -98,7 +102,9 @@ for (let guard=0; guard<40; guard++){
   else if (has("payreq")) {
     click("data-act",{act:"payreq"});
     F({pr_amt:"63000", pr_eff:soon(), pr_stamp:true, pr_doc:"INVOICE", pr_pos:"BR", pr_size:"13",
-       pr_color:"แดง", pr_text:"ขออนุมัติทำจ่าย"});
+       pr_color:"แดง", pr_text:"ขออนุมัติทำจ่าย",
+       // ทุกงวดต้องมีเอกสารเรียกเก็บของตัวเอง
+       pr_bkind:"INVOICE", pr_bno:"INV-AS-0905", pr_bamt:"63000", pr_bfile:"invoice_AS_0905.pdf"});
     click("data-pract",{pract:"send"});
     if (/data-pract/.test(nodes["#modal"].innerHTML)) {
       log.push({role:owner,po:PO,label:"ขอทำจ่ายไม่ผ่าน",full:txt(formFields.pr_err.innerHTML)}); break; }

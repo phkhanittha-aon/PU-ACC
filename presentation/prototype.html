@@ -270,6 +270,15 @@
   .ctxbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px;font-size:11.5px;
     font-family:var(--mono);color:var(--ink-2);line-height:1.7}
   .ctxbox b{color:var(--ink)}
+  /* แถบเลือกงวดจ่ายในป๊อปอัปขออนุมัติ — เห็นทุกงวดพร้อมเอกสารเรียกเก็บของแต่ละงวด */
+  .prtabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .prtabs .prtab{flex:1 1 190px;text-align:left;background:var(--surface);border:1px solid var(--line-2);
+    border-radius:var(--r-md);padding:8px 10px;font-size:12.5px;font-weight:600;color:var(--ink-2);
+    transition:var(--ease)}
+  .prtabs .prtab .s{display:block;font-weight:400;font-size:11px;color:var(--ink-3);margin-top:2px}
+  .prtabs .prtab:hover{border-color:var(--ink-3)}
+  .prtabs .prtab.on{background:var(--paper);border-color:var(--cold);color:var(--ink);box-shadow:var(--sh-1)}
+  .prtabs .prtab.on .s{color:var(--cold)}
   .sev{display:flex;flex-direction:column;gap:6px}
   .sev label{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line-2);border-radius:var(--r-sm);
     padding:8px 10px;font-size:13px;cursor:pointer;transition:border-color var(--ease),background var(--ease)}
@@ -509,11 +518,22 @@
     {c:"RECEIPT",   n:"ใบเสร็จตัวจริง",     o:"AC", at:15, req:true}
   ];
 
+  /* สายสินค้า — ใบตรวจรับของ QC คนละแบบกันจริง ๆ (ดูใบตรวจตัวอย่างใน docs/16)
+     Food  : Temp. / Weight / Label / Physical / Quantity + Goods-Lot + Data Logger
+     Mech  : Con. Condition / Packing / Physical / Quantity  (ไม่มีล็อต ไม่มีวันหมดอายุ)
+     เพิ่มสายใหม่ = เพิ่มแถวที่นี่ + แถวใน HAND[..].byMod ไม่ต้องแก้หน้าจอ */
+  const MODULES = {
+    FOOD: {n:"อาหาร", pfx:"F", place:"ห้องเย็น / คลังผู้ให้บริการ"},
+    MECH: {n:"เครื่องจักร & โซลาร์", pfx:"M", place:"คลังบริษัท"}
+  };
+  const modOf = p => MODULES[p && p.mod] ? p.mod : "FOOD";
+
   /* ============ สัญญาระหว่างขั้น (Stage Contract) ============
      ปัญหาที่แก้: แผนกถัดไปเปิดหน้าจอแล้วไม่รู้ว่าแผนกก่อนหน้าทำอะไรไว้ ต้องไปถามในไลน์
      วิธีแก้: แต่ละขั้น "ประกาศ" ว่าต้องส่งมอบข้อมูลอะไรบ้าง เก็บเป็นข้อมูลเหมือน Stage_Templates
-       f   = ช่องที่ขั้นนี้ต้องกรอกก่อนส่งต่อ (ขึ้นในป๊อปอัปของขั้นนั้นเอง)
-       to  = ใครเอาไปใช้ต่อ — ใช้บอกผู้กรอกว่า "กรอกให้ใคร" ไม่ใช่กรอกให้ระบบ
+       f     = ช่องที่ทุกสายสินค้าต้องกรอกก่อนส่งต่อ (ขึ้นในป๊อปอัปของขั้นนั้นเอง)
+       byMod = ช่องเพิ่มเฉพาะสายสินค้านั้น — ใบตรวจ Food กับ Mech ไม่เหมือนกัน
+       to    = ใครเอาไปใช้ต่อ — ใช้บอกผู้กรอกว่า "กรอกให้ใคร" ไม่ใช่กรอกให้ระบบ
      เพิ่มช่องใหม่ = เพิ่มบรรทัดในตารางนี้ ไม่ต้องแก้หน้าจอ */
   const HAND = {
     SUPPLIER_SIGN: {to:"โลจิสติกส์", f:[
@@ -522,12 +542,25 @@
       {k:"eta",     lb:"ของถึงห้องเย็นวันที่", t:"date", req:true},
       {k:"etaTime", lb:"เวลาโดยประมาณ",       t:"time", req:true},
       {k:"truck",   lb:"ทะเบียนรถ / ผู้ขนส่ง", t:"text", req:false}]},
-    // QC ตรวจในแอป Incoming Inspection ที่มีอยู่แล้ว — ที่นี่แค่อ้างเลขใบตรวจและสรุปผลที่ปลายทางต้องใช้
+    /* QC ตรวจในแอป Incoming Inspection ที่มีอยู่แล้ว — ที่นี่ไม่มีฟอร์มตรวจซ้ำ
+       ช่องด้านล่างคัดมาจากหัวใบตรวจจริงเฉพาะตัวที่คลัง/บัญชี/จัดซื้อ ต้องใช้ต่อ */
     QC_INCOMING: {to:"คลังสินค้า และบัญชี", app:"QCAPP", f:[
-      {k:"qcRef",  lb:"เลขที่ใบตรวจในแอป Incoming Inspection", t:"text", req:true},
-      {k:"temp",   lb:"อุณหภูมิที่วัดได้ (°C)", t:"num",  req:true},
-      {k:"qtyOk",  lb:"จำนวนที่ตรวจแล้วรับได้", t:"text", req:true},
-      {k:"qtyBad", lb:"จำนวนที่ตีกลับ (ถ้ามี)", t:"text", req:false}]},
+      {k:"qcRef",   lb:"เลขที่ใบตรวจ (Report No.)",       t:"text", req:true},
+      {k:"qcPoRef", lb:"PO Ref No. ที่พิมพ์บนใบตรวจ",      t:"text", req:true},
+      {k:"qcDate",  lb:"วันที่ตรวจจริง (Inspection Date)", t:"date", req:true},
+      {k:"qcPlace", lb:"สถานที่ตรวจ / ของอยู่ที่ไหน",      t:"text", req:true},
+      {k:"invQty",  lb:"จำนวนตามใบแจ้งหนี้ (INV QTY)",     t:"text", req:true},
+      {k:"qtyOk",   lb:"จำนวนที่ตรวจนับได้จริง (Actual QTY)", t:"text", req:true},
+      {k:"qcResult",lb:"ผลรวม (Result)", t:"sel", req:true, o:["ผ่าน (Pass)", "ไม่ผ่าน (Fail)"]},
+      {k:"qtyBad",  lb:"จำนวนที่ตีกลับ (ถ้ามี)", t:"text", req:false}],
+      byMod:{
+        FOOD:[{k:"temp",    lb:"อุณหภูมิที่วัดได้ (°C)", t:"num",  req:true},
+              {k:"lot",     lb:"เลขล็อต (Lot)",          t:"text", req:true},
+              {k:"expDate", lb:"วันหมดอายุ (Expiration)", t:"text", req:true},
+              {k:"grade",   lb:"เกรดที่ QC ให้ (QC Grade)", t:"sel", req:true, o:["A", "B", "C"]}],
+        MECH:[{k:"conCond", lb:"สภาพตู้/หีบห่อ (Con. Condition)", t:"sel", req:true,
+               o:["ผ่าน (Pass)", "ไม่ผ่าน (Fail)"]}]
+      }},
     GR: {to:"บัญชี", f:[
       {k:"qtyIn", lb:"จำนวนที่รับเข้าคลังจริง", t:"text", req:true},
       {k:"grNo",  lb:"เลข GRPO ใน B1",          t:"text", req:true}]},
@@ -538,20 +571,36 @@
       {k:"rcvBy", lb:"ใครเป็นผู้รับเอกสารตัวจริง", t:"text", req:true}]}
   };
 
+  // สัญญาของขั้นนี้สำหรับรายการนี้ — รวมช่องกลางกับช่องเฉพาะสายสินค้า
+  function handOf(code, p) {
+    const h = HAND[code];
+    if (!h) return null;
+    const ex = h.byMod ? (h.byMod[modOf(p)] || []) : [];
+    return ex.length ? {to:h.to, app:h.app, f:h.f.concat(ex)} : h;
+  }
+
   // ขั้นไหน "ต้องใช้" ข้อมูลที่ขั้นก่อนหน้าส่งมา — ถ้าไม่มี ระบบเตือนและให้ถามกลับได้ในคลิกเดียว
   const NEEDS = {
     DELIVERY_BOOKING: ["shipDate"],
     QC_INCOMING:      ["eta"],
-    GR:               ["qtyOk", "temp"],
+    GR:               ["qtyOk", "qcResult", "qcPlace"],
     INVOICE_RECEIVED: ["qtyIn"],
     DOC_HANDOVER:     ["invNo", "invAmt"],
     PAYMENT:          ["invNo", "invAmt"],
-    AC_CLOSE:         ["qtyOk", "qtyIn", "invAmt"]
+    AC_CLOSE:         ["qcRef", "qtyOk", "qtyIn", "invAmt"]
   };
+  // ข้อมูลที่ต้องใช้เพิ่มเฉพาะสายสินค้า — ของแช่แข็งไม่มีอุณหภูมิถือว่าใช้ไม่ได้ แต่อินเวอร์เตอร์ไม่ต้องมี
+  const NEEDS_MOD = {FOOD:{GR:["temp"], AC_CLOSE:["lot"]}, MECH:{}};
+  const needsOf = (code, p) =>
+    (NEEDS[code] || []).concat(((NEEDS_MOD[modOf(p)] || {})[code]) || []);
 
-  // ช่องไหนมาจากขั้นไหน (สร้างจาก HAND ไม่ต้องเขียนซ้ำ)
+  // ช่องไหนมาจากขั้นไหน (สร้างจาก HAND ไม่ต้องเขียนซ้ำ — รวมช่องเฉพาะสายสินค้าด้วย)
   const FIELD_AT = {};
-  Object.keys(HAND).forEach(sc => HAND[sc].f.forEach(f => { FIELD_AT[f.k] = {stage:sc, lb:f.lb}; }));
+  Object.keys(HAND).forEach(sc => {
+    const h = HAND[sc];
+    const all = h.f.concat.apply(h.f, Object.keys(h.byMod || {}).map(m => h.byMod[m]));
+    all.forEach(f => { FIELD_AT[f.k] = {stage:sc, lb:f.lb}; });
+  });
 
   // งวดจ่าย — PENDING → REQUESTED → APPROVED → PAID (ดู docs/08)
   const pay = (seq, type, pct, amt, due, st, paid, ext) => Object.assign({
@@ -573,6 +622,22 @@
   // วงเงินซื้อเงินสดต่อรายการ — คนละเรื่องกับสายอนุมัติจ่าย (สายอนุมัติไม่มีเกณฑ์วงเงิน)
   const CASH_LIMIT = 50000;
 
+  /* เอกสารเรียกเก็บของ "แต่ละงวด" — งวดมัดจำกับงวดที่เหลือใช้คนละใบ
+     เดิมคำขอจ่ายแนบเอกสารของทั้ง PO รวม ๆ ผู้อนุมัติจึงไม่รู้ว่างวดนี้เรียกเก็บด้วยใบไหน */
+  const BILLDOC = {
+    DEPOSIT:{n:"ใบเรียกเก็บมัดจำ / Proforma Invoice (PI)", hint:"งวดมัดจำมักเรียกเก็บด้วย PI ไม่ใช่ใบแจ้งหนี้ตัวจริง"},
+    INVOICE:{n:"ใบแจ้งหนี้ตัวจริง (Invoice)",              hint:"งวดที่ส่งของแล้วต้องมีใบแจ้งหนี้ตัวจริง"},
+    DEBIT:  {n:"ใบวางบิล / Debit Note",                    hint:"ใช้เมื่อผู้ขายวางบิลแยกจากใบแจ้งหนี้"}
+  };
+  const isDeposit = x => /มัดจำ|deposit/i.test(String(x && x.type || ""));
+  const billKind = x => x && x.billKind ? x.billKind : (isDeposit(x) ? "DEPOSIT" : "INVOICE");
+  const payDocCode = x => "BILL_" + x.seq;
+  // งวดอื่นที่อ้างเอกสารเรียกเก็บใบเดียวกัน — กันจ่ายซ้ำด้วยใบเดิม
+  const sameBill = (p, x, no) => p.payments.filter(y => y.seq !== x.seq && y.billNo &&
+    y.status !== "VOID" && y.status !== "CANCELLED" &&
+    String(y.billNo).trim().toLowerCase() === String(no).trim().toLowerCase());
+
+
   // ไดรฟ์กลางที่เดียวของทั้งบริษัท — ไม่มีใครสร้างโฟลเดอร์เอง ระบบตั้งชื่อและวางที่ให้
   const DRIVE = {
     root: "MGS-Documents (Shared drive)",
@@ -591,9 +656,19 @@
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"28/07/2026",
      payments:[pay(1,"มัดจำ",30,39000,"05/08/2026","PAID","05/08/2026",
                  {method:"TRANSFER", bank:BANKS[0], ref:"KB26080500123", fee:35, paidAmt:39035,
-                  paidBy:"คุณวิภา", apvBy:"คุณผู้จัดการ", reqBy:"คุณวิภา"}),
+                  paidBy:"คุณวิภา", apvBy:"คุณอารีย์", reqBy:"คุณสมชาย",
+                  // งวดมัดจำเรียกเก็บด้วย PI — ยังไม่มีใบแจ้งหนี้ตัวจริงเพราะของยังไม่ส่ง
+                  billKind:"DEPOSIT", billNo:"PI-ABC-2607", billAmt:39000,
+                  billFile:{n:"PO-26-0042_BILL_1.pdf", orig:"PI_ABC_2607.pdf", by:"คุณสมชาย", at:"03 ส.ค."}}),
                pay(2,"ส่วนที่เหลือ",70,91000,"30/08/2026","APPROVED","",
-                 {reqBy:"คุณวิภา", apvBy:"คุณผู้จัดการ"})],
+                 {reqBy:"คุณสมชาย", apvBy:"คุณอารีย์", reqNo:"PRQ-26-0009", reqSt:"APPROVED",
+                  reqRole:"SR", reqTo:"ACH", reqAt:"08 ส.ค.", apvAt:"08 ส.ค.",
+                  // งวดที่สองเรียกเก็บด้วยใบแจ้งหนี้ตัวจริงหลังส่งของ — คนละใบกับงวดมัดจำ
+                  billKind:"INVOICE", billNo:"INV-ABC-0808", billAmt:91000,
+                  billFile:{n:"PO-26-0042_BILL_2.pdf", orig:"invoice_ABC_0808.pdf", by:"คุณสมชาย", at:"08 ส.ค."},
+                  effNote:"ขออนุมัติทำจ่าย PO-26-0042\nผู้ขาย ABC Foods\nยอดที่ต้องจ่าย 91,000.00 บาท\n" +
+                    "มีผลวันที่ 30/08/2026\nผู้ขอ คุณสมชาย",
+                  stampOn:"ใบแจ้งหนี้ตัวจริง (Invoice) (งวดที่ 2)"})],
      tl:[["28 ก.ค. 09:12","คุณสมชาย","สร้าง PO"],["29 ก.ค. 10:05","คุณสมชาย","ผูกกับ PO ใน B1 เลข 10245"],
          ["29 ก.ค. 11:20","คุณผู้จัดการ","อนุมัติภายใน"],["29 ก.ค. 16:02","คุณสมชาย","อัพโหลด PO ที่เซ็นครบ"],
          ["30 ก.ค. 08:30","คุณอนุชา","จองรถรับของ 31 ก.ค."],["05 ส.ค. 10:00","คุณวิภา","จ่ายมัดจำงวดที่ 1"]]},
@@ -619,11 +694,34 @@
          ["07 ส.ค. 06:41","ระบบ","ข้าม QC ตามที่ระบุ — บันทึกเหตุผลและผู้อนุมัติไว้ถาวร"],
          ["07 ส.ค. 06:45","คุณสมชาย","แนบบิลเงินสดและรูปสินค้าหน้างาน"]]},
 
+    // สายเครื่องจักร/โซลาร์ — ใบตรวจรับคนละชุดกับอาหาร (ไม่มีอุณหภูมิ ไม่มีล็อต มีสภาพตู้/หีบห่อแทน)
+    {no:"PO-26-0060", sap:"10260", mod:"MECH", sup:"Sungrow (ตัวแทนในไทย)",
+     item:"อินเวอร์เตอร์ SG36CX-P2", qty:"1 SET",
+     amt:118000, cur:"THB", term:"มัดจำ 50% / ที่เหลือ 50%", stage:10, age:9, owner:"คุณสมชาย",
+     status:"ACTIVE", claim:false, skip:[1,2,5], date:"12/08/2026",
+     payments:[pay(1,"มัดจำ",50,59000,"18/08/2026","PAID","18/08/2026",
+                 {method:"TRANSFER", bank:BANKS[0], ref:"KB26081800455", fee:35, paidAmt:59035,
+                  paidBy:"คุณวิภา", apvBy:"คุณอารีย์", reqBy:"คุณสมชาย",
+                  billKind:"DEPOSIT", billNo:"PI-SG-2608", billAmt:59000,
+                  billFile:{n:"PO-26-0060_BILL_1.pdf", orig:"PI_Sungrow_2608.pdf", by:"คุณสมชาย", at:"15 ส.ค."}}),
+               pay(2,"ส่วนที่เหลือ",50,59000,"20/09/2026","PENDING")],
+     tl:[["12 ส.ค. 09:20","คุณสมชาย","สร้าง PO"],["13 ส.ค. 11:00","คุณผู้จัดการ","อนุมัติภายใน"],
+         ["18 ส.ค. 14:10","คุณวิภา","จ่ายมัดจำงวดที่ 1 ตาม PI-SG-2608"],
+         ["20 ส.ค. 10:52","คุณประเสริฐ","ของถึงคลัง CHOD — รอ QC ตรวจ"]]},
+
+    /* ใบตรวจ "ผ่าน" แต่ท้ายใบยังเขียนว่ารอสรุป — เคสจริงจากใบตรวจที่ทีมส่งมา
+       ข้อแรกกระทบเงิน (เปลี่ยนกล่อง) ข้อสองไม่กระทบ (ให้ฝ่ายขายตั้งราคาตามขนาด) */
     {no:"PO-26-0038", sap:"10238", sup:"Siam Marine", item:"กุ้งขาว 21/25", qty:"800 KG",
      amt:196000, cur:"THB", term:"เครดิต 30 วัน", stage:11, age:7, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"27/07/2026",
-     payments:[pay(1,"ชำระเต็ม",100,196000,"28/08/2026","PENDING")],
-     tl:[["27 ก.ค. 10:00","คุณสมชาย","สร้าง PO"],["30 ก.ค. 07:40","คุณสมหญิง","ตรวจรับผ่าน"]]},
+     qcOpen:[{t:"พบกล่องบุบ เสียรูป และมีร่องรอยความชื้น", blocks:true, st:"OPEN",
+              by:"คุณสมหญิง", at:"30 ก.ค.", closeBy:"", closeWhy:""},
+             {t:"พบขนาดกล่องไม่เท่ากัน", blocks:false, st:"OPEN",
+              by:"คุณสมหญิง", at:"30 ก.ค.", closeBy:"", closeWhy:""}],
+     payments:[pay(1,"ชำระเต็ม",100,196000,"28/08/2026","BLOCKED")],
+     tl:[["27 ก.ค. 10:00","คุณสมชาย","สร้าง PO"],
+         ["30 ก.ค. 07:40","คุณสมหญิง","ตรวจรับผ่าน — ใบตรวจ F-2026041"],
+         ["30 ก.ค. 07:41","คุณสมหญิง","บันทึกข้อค้างจากใบตรวจ 2 ข้อ — ล็อกการจ่ายไว้จนกว่าจะสรุป"]]},
 
     {no:"PO-26-0029", sap:"10229", sup:"Thai Frozen Foods", item:"หอยเชลล์", qty:"120 KG",
      amt:45000, inv:47000, cur:"THB", term:"เครดิต 30 วัน", stage:12, age:52, owner:"คุณสมชาย",
@@ -691,24 +789,33 @@
   const HANDDATA = {
     "PO-26-0042": {shipDate:"2026-07-30", eta:"2026-07-31", etaTime:"08:30", truck:"70-1234 กทม (ห้องเย็น)"},
     "CS-26-0007": {qtyIn:"60 KG", grNo:"GR-CS-0007"},
-    "PO-26-0038": {qcRef:"IIF-26-0188", shipDate:"2026-07-29", eta:"2026-07-30", etaTime:"07:00", truck:"82-5567 สป.",
-                   temp:-18.5, qtyOk:"800 KG", qtyBad:"—"},
-    "PO-26-0029": {qcRef:"IIF-26-0179", shipDate:"2026-07-28", eta:"2026-07-29", etaTime:"06:30", truck:"70-9981 กทม",
+    "PO-26-0060": {shipDate:"2026-08-19", eta:"2026-08-20", etaTime:"10:30", truck:"3 ฒฆ 7406 (Lalamove)"},
+    "PO-26-0038": {qcRef:"F-2026041", qcPoRef:"PO-F126050004", qcDate:"2026-07-30", qcPlace:"ห้องเย็นรักษ์ชัย II",
+                   shipDate:"2026-07-29", eta:"2026-07-30", etaTime:"07:00", truck:"82-5567 สป.",
+                   temp:-18.5, lot:"126005688", expDate:"05-2028", grade:"A",
+                   invQty:"800 KG", qtyOk:"800 KG", qcResult:"ผ่าน (Pass)", qtyBad:"—"},
+    "PO-26-0029": {qcRef:"F-2026038", qcPoRef:"PO-F126050002", qcDate:"2026-07-29", qcPlace:"ห้องเย็นรักษ์ชัย II",
+                   lot:"126005612", expDate:"03-2028", grade:"B", invQty:"120 KG", qcResult:"ไม่ผ่าน (Fail)", shipDate:"2026-07-28", eta:"2026-07-29", etaTime:"06:30", truck:"70-9981 กทม",
                    temp:-14.2, qtyOk:"80 KG", qtyBad:"40 KG (อุณหภูมิไม่ผ่าน)",
                    qtyIn:"80 KG", grNo:"GR-26-0311"},
-    "PO-26-0033": {qcRef:"IIF-26-0170", shipDate:"2026-07-26", eta:"2026-07-27", etaTime:"09:00", truck:"70-4412 กทม",
+    "PO-26-0033": {qcRef:"F-2026033", qcPoRef:"PO-F126050001", qcDate:"2026-07-27", qcPlace:"ห้องเย็นรักษ์ชัย II",
+                   lot:"126005570", expDate:"02-2028", grade:"A", invQty:"200 KG", qcResult:"ผ่าน (Pass)", shipDate:"2026-07-26", eta:"2026-07-27", etaTime:"09:00", truck:"70-4412 กทม",
                    temp:-19.0, qtyOk:"200 KG", qtyBad:"—", qtyIn:"200 KG", grNo:"GR-26-0298",
                    invNo:"INV-OB-2607", invAmt:310000},
-    "PO-26-0045": {qcRef:"IIF-26-0192", shipDate:"2026-07-31", eta:"2026-08-01", etaTime:"08:00", truck:"70-2210 กทม",
+    "PO-26-0045": {qcRef:"F-2026052", qcPoRef:"PO-F126050012", qcDate:"2026-08-01", qcPlace:"ห้องเย็นรักษ์ชัย II",
+                   lot:"126005744", expDate:"06-2028", grade:"A", invQty:"350 KG", qcResult:"ผ่าน (Pass)", shipDate:"2026-07-31", eta:"2026-08-01", etaTime:"08:00", truck:"70-2210 กทม",
                    temp:-18.8, qtyOk:"350 KG", qtyBad:"—", qtyIn:"350 KG", grNo:"GR-26-0305",
                    invNo:"INV-ABC-0804", invAmt:122500},
-    "PO-26-0031": {qcRef:"IIF-26-0151", shipDate:"2026-07-22", eta:"2026-07-23", etaTime:"08:00", truck:"70-3320 กทม",
+    "PO-26-0031": {qcRef:"F-2026028", qcPoRef:"PO-F126049088", qcDate:"2026-07-23", qcPlace:"ห้องเย็นรักษ์ชัย II",
+                   lot:"126005501", expDate:"01-2028", grade:"A", invQty:"150 KG", qcResult:"ผ่าน (Pass)", shipDate:"2026-07-22", eta:"2026-07-23", etaTime:"08:00", truck:"70-3320 กทม",
                    temp:-18.2, qtyOk:"150 KG", qtyBad:"—", qtyIn:"150 KG", grNo:"GR-26-0271",
                    invNo:"INV-SM-2207", invAmt:84000, rcvBy:"คุณวิภา (รับที่หน้าออฟฟิศ)"},
-    "PO-26-0025": {qcRef:"IIF-26-0144", shipDate:"2026-07-20", eta:"2026-07-21", etaTime:"08:00", truck:"70-1180 กทม",
+    "PO-26-0025": {qcRef:"F-2026021", qcPoRef:"PO-F126049075", qcDate:"2026-07-21", qcPlace:"ห้องเย็นรักษ์ชัย II",
+                   lot:"126005463", expDate:"12-2027", grade:"A", invQty:"400 KG", qcResult:"ผ่าน (Pass)", shipDate:"2026-07-20", eta:"2026-07-21", etaTime:"08:00", truck:"70-1180 กทม",
                    temp:-18.6, qtyOk:"400 KG", qtyBad:"—", qtyIn:"400 KG", grNo:"GR-26-0255",
                    invNo:"INV-OB-2007", invAmt:268000, rcvBy:"คุณวิภา"},
-    "PO-26-0019": {qcRef:"IIF-26-0130", shipDate:"2026-07-12", eta:"2026-07-13", etaTime:"08:00", truck:"70-7745 กทม",
+    "PO-26-0019": {qcRef:"F-2026014", qcPoRef:"PO-F126049060", qcDate:"2026-07-13", qcPlace:"ห้องเย็นรักษ์ชัย II",
+                   lot:"126005390", expDate:"11-2027", grade:"A", invQty:"250 KG", qcResult:"ผ่าน (Pass)", shipDate:"2026-07-12", eta:"2026-07-13", etaTime:"08:00", truck:"70-7745 กทม",
                    temp:-18.4, qtyOk:"250 KG", qtyBad:"—", qtyIn:"250 KG", grNo:"GR-26-0240",
                    invNo:"INV-ABC-1207", invAmt:112000, rcvBy:"คุณวิภา"}
   };
@@ -717,6 +824,7 @@
     "PO-26-0042":"เปลือกใส ไม่มีจุดดำ แช่แข็ง IQF อุณหภูมิใจกลาง ≤ -18°C",
     "PO-26-0051":"ทั้งตัว ไม่ควักไส้ แช่แข็งเดี่ยว IQF",
     "CS-26-0007":"ผักสด ใบไม่เหลือง ไม่ช้ำ — ตรวจด้วยสายตาหน้างาน",
+    "PO-26-0060":"หีบห่อไม่ฉีกขาด ซีลกล่องสมบูรณ์ รุ่นและซีเรียลตรงกับที่สั่ง",
     "PO-26-0038":"ปอกเปลือกไม่ผ่าหลัง IQF ≤ -18°C",
     "PO-26-0029":"เนื้อขาว ไม่มีกลิ่น แช่แข็ง ≤ -18°C",
     "PO-26-0033":"แล่ไม่มีหนัง ไม่มีก้าง แช่แข็ง ≤ -18°C",
@@ -733,6 +841,8 @@
     if (!p.bundle) p.bundle = null;    // ชุดเอกสารรวมเล่ม (สร้างเมื่อปิดรายการ)
     if (!p.hand) p.hand = HANDDATA[p.no] || {};   // ข้อมูลที่แต่ละขั้นส่งมอบต่อกัน
     if (!p.spec) p.spec = SPECS[p.no] || "";      // เกณฑ์ตรวจรับ — QC ต้องเห็น
+    if (!p.mod) p.mod = "FOOD";        // สายสินค้า — ตัดสินว่าใบตรวจของ QC ใช้ชุดช่องไหน
+    if (!p.qcOpen) p.qcOpen = [];      // ข้อค้างท้ายใบตรวจที่ยังไม่สรุป
   });
 
   // ใบขอราคา — จุดเริ่มของ P2P (ก่อนมี PO) ผูกกับใบเสนอราคาที่ SR เทียบจากซัพหลายราย
@@ -828,11 +938,25 @@
   /* แอปตรวจรับของ QC ที่มีอยู่แล้ว — ระบบนี้ไม่สร้างฟอร์มตรวจซ้ำ แต่ดึงผลมาใช้
      ยังไม่ทราบวิธีเชื่อมจริง (API / ส่งออกไฟล์ / ฝังหน้าจอ) — ดูคำถามใน docs/15 */
   const QCAPP = {
-    name:"Incoming Inspection (Food & Mech)",
+    name:"Incoming Inspection Report (Food & Mech)",
     mode:"ยังไม่ได้เชื่อม — ตอนนี้ให้ QC กรอกเลขที่ใบตรวจแล้วระบบดึงผลตามเลขนั้น",
+    // อ่านจากใบตรวจจริงที่ทีมส่งมา (F-2026049 กุ้งหมึกอิลเล็กซ์ · M-2026097 อินเวอร์เตอร์ Sungrow)
     lines:[
-      {o:"อาหาร (Food)", form:"QC-F006 / Incoming Inspection", n:"~40 ใบ/เดือน", st:"รอเชื่อม"},
-      {o:"เครื่องจักร (Mech)", form:"Mech Incoming Inspection", n:"~12 ใบ/เดือน", st:"รอเชื่อม"}
+      {o:"อาหาร (Food)", form:"Report No. F-26xxxx · ลงนาม QC + ผู้จัดการจัดซื้อ",
+       n:"Temp · Weight · Label · Physical · Quantity + Goods/Lot + Data Logger", st:"รอเชื่อม"},
+      {o:"เครื่องจักร & โซลาร์ (Mech)", form:"Report No. M-26xxxx · ลงนาม QC + ผู้จัดการจัดซื้อ",
+       n:"Con. Condition · Packing · Physical · Quantity (ไม่มีล็อต/วันหมดอายุ)", st:"รอเชื่อม"}
+    ],
+    // ช่องที่ระบบนี้ขอจากใบตรวจ — ไม่ได้ขอทั้งใบ ขอเฉพาะที่ปลายทางใช้ตัดสินใจ
+    pull:[
+      {f:"Report No.",       to:"ใช้เป็นเลขอ้างอิงในชุดเอกสารและใบขออนุมัติจ่าย"},
+      {f:"PO Ref No.",       to:"จับคู่กับรายการในระบบ — ฝั่ง Mech เป็นเลขรับของ (RC) คนละชุดกับเลข PO"},
+      {f:"Inspection Date",  to:"วันตรวจจริง มักไม่ใช่วันที่ออกใบ — คลังใช้ดูว่าของค้างมากี่วัน"},
+      {f:"Location",         to:"ของอยู่ที่ห้องเย็นผู้ให้บริการหรือคลังบริษัท — คลังต้องรู้ก่อนไปรับ"},
+      {f:"INV QTY / Actual QTY", to:"เทียบกับจำนวนที่คลังรับเข้าและจำนวนในใบแจ้งหนี้ (ตรวจ 3 ทาง)"},
+      {f:"Result",           to:"ผ่าน/ไม่ผ่าน — ไม่ผ่านคือเปิดใบเคลม"},
+      {f:"Lot / Expiration / QC Grade", to:"เฉพาะอาหาร — คลังใช้จัดเก็บ ฝ่ายขายใช้ตั้งราคาตามเกรด"},
+      {f:"Defect & Remark",  to:"ข้อที่เขียนว่า “รอสรุป” กลายเป็นข้อค้างที่ล็อกการจ่ายจนกว่าจะสรุป"}
     ]
   };
 
@@ -896,8 +1020,13 @@
         parts.push("บันทึกขั้น " + (sg ? sg.n : k.slice(5)));
       }
     });
-    p.payments.filter(x => x.status === "PAID").forEach(x => parts.push("สลิปงวดที่ " + x.seq));
+    // เอกสารเรียกเก็บของแต่ละงวด + สลิปของงวดนั้น เรียงคู่กัน ตรวจย้อนหลังได้ทีละงวด
+    p.payments.forEach(x => {
+      if (x.billNo) parts.push(BILLDOC[billKind(x)].n + " งวดที่ " + x.seq + " (" + x.billNo + ")");
+      if (x.status === "PAID") parts.push("สลิปงวดที่ " + x.seq);
+    });
     if (p.qcBypass) parts.push("ใบอนุมัติข้าม QC");
+    (p.qcOpen || []).forEach(x => parts.push("บันทึกสรุปข้อค้างจากใบตรวจ: " + x.t));
     return {name:p.no + "_ชุดเอกสารครบ.pdf", parts:parts, pages:parts.length * 2,
       mb:(parts.length * 0.32).toFixed(1), at:"วันนี้"};
   }
@@ -1162,7 +1291,7 @@
     const done = [];
     for (let i = p.stage - 1; i >= 0 && done.length < 3; i--) {
       if (p.skip.indexOf(i) >= 0) continue;
-      const sg = STAGES[i], h = HAND[sg.c], f = p.files[sg.c] || p.files["STEP_" + sg.c];
+      const sg = STAGES[i], h = handOf(sg.c, p), f = p.files[sg.c] || p.files["STEP_" + sg.c];
       const kv = h ? h.f.filter(x => p.hand[x.k] !== undefined && p.hand[x.k] !== "") : [];
       if (!kv.length && !f) continue;
       done.push({sg:sg, kv:kv, file:f});
@@ -1186,10 +1315,42 @@
     return h + "</div>";
   }
 
+  /* ข้อค้างจากใบตรวจที่ยังไม่สรุป — เดิมอยู่แต่ในไฟล์ PDF ท้ายใบ ไม่มีใครเห็น
+     ใครสรุปได้: จัดซื้อ (คุยกับผู้ขาย) · QC (เรื่องคุณภาพ) · ผู้จัดการ */
+  const CAN_CLOSE_QC = ["SR", "QC", "GM", "ACH"];
+  function qcOpenCard(p) {
+    const items = p.qcOpen || [];
+    if (!items.length) return "";
+    const left = qcOpenLeft(p), hold = qcPayHold(p);
+    let h = '<div class="hoff"><div class="ht">ข้อค้างจากใบตรวจ' + esc(p.hand.qcRef ? " " + p.hand.qcRef : "") +
+      '<span class="droot">' + (left.length ? "ยังไม่สรุป " + left.length + " ข้อ" : "สรุปครบแล้ว") + "</span></div>";
+    if (hold.length)
+      h += '<div class="miss1"><span>!</span><span class="sp2"><b>ล็อกการจ่ายไว้ ' + hold.length +
+        " ข้อ</b> — งวดที่ยังไม่จ่ายจะขออนุมัติไม่ได้จนกว่าจะสรุปเรื่องกับผู้ขาย</span></div>";
+    items.forEach((x, i) => {
+      const done = x.st !== "OPEN";
+      h += '<div class="grp"><div class="gh">' +
+        (done ? '<span class="pill ok">สรุปแล้ว</span>'
+              : x.blocks ? '<span class="pill late">รอสรุป · ล็อกจ่าย</span>'
+                         : '<span class="pill wait">รอสรุป · ไม่ล็อกจ่าย</span>') +
+        " " + esc(x.t) + "</div>" +
+        '<dl class="kv"><dt>ผู้บันทึก</dt><dd>' + esc(x.by) + " · " + esc(x.at) + "</dd>" +
+        (done ? "<dt>สรุปว่า</dt><dd>" + esc(x.closeWhy || "—") + " · โดย " + esc(x.closeBy) + "</dd>" : "") +
+        "</dl>" +
+        (!done && CAN_CLOSE_QC.indexOf(role) >= 0 && isActive(p)
+          ? '<div class="fl2" style="justify-content:flex-start;gap:8px">' +
+            '<input type="text" id="qc_why_' + i + '" placeholder="สรุปว่าอย่างไร เช่น ผู้ขายยอมเปลี่ยนกล่องให้ล็อตหน้า">' +
+            '<button class="btn ok" data-qcdone="' + i + '">บันทึกว่าสรุปแล้ว</button></div>'
+          : "") +
+        "</div>";
+    });
+    return h + "</div>";
+  }
+
   // ข้อมูลที่ขั้นนี้ "ต้องใช้" แต่ขั้นก่อนหน้าไม่ได้ส่งมา
   function missingIn(p) {
     const s = st(p); if (!s || !isActive(p)) return [];
-    return (NEEDS[s.c] || []).filter(k => p.hand[k] === undefined || p.hand[k] === "");
+    return needsOf(s.c, p).filter(k => p.hand[k] === undefined || p.hand[k] === "");
   }
   function missingCard(p) {
     const ms = missingIn(p);
@@ -1217,7 +1378,7 @@
           esc(nx.n) + "</b> ไม่ได้ส่งไปแผนกอื่น</div>"
       : '<div class="then">กดแล้วงานจะไปที่ <b>' + esc(ROLES[nx.o].name) + " (" + esc(person(nx.o)) +
         ")</b> และระบบแจ้งเตือนให้เอง — ไม่ต้องบอกในไลน์" +
-        (HAND[s.c] ? " · สิ่งที่คุณกรอกจะไปขึ้นบนหน้าจอของเขาเลย" : "") + "</div>";
+        (handOf(s.c, p) ? " · สิ่งที่คุณกรอกจะไปขึ้นบนหน้าจอของเขาเลย" : "") + "</div>";
 
     if (!isActive(p))
       return '<div class="todo calm"><h3>สถานะ</h3><div class="big">PO นี้' +
@@ -1287,6 +1448,8 @@
       (money() ? fld("มูลค่า", baht(p.amt), p.sap ? "B1" : "") : "") +
       fld("เงื่อนไขจ่าย", p.term, p.sap ? "B1" : "") +
       fld("ผู้ดูแล", p.owner) + fld("วันที่เปิด", p.date) +
+      // สายสินค้าเป็นตัวกำหนดว่าใบตรวจของ QC ใช้ชุดช่องไหน — ต้องเห็นบนหัวเอกสาร
+      fld("สายสินค้า", MODULES[modOf(p)].n + " · ใบตรวจขึ้นต้น " + MODULES[modOf(p)].pfx + "-26xxxx") +
       // เกณฑ์ตรวจรับต้องเดินทางมาถึง QC ด้วย ไม่ใช่ค้างอยู่ในใบขอราคา
       (p.spec ? fld("เกณฑ์ตรวจรับ (สเปก)", p.spec, p.fromReq ? "ใบขอราคา" : "") : "") +
       "</div></div>";
@@ -1319,7 +1482,7 @@
 
     // 2) ตอนนี้ต้องทำอะไร — อยู่บนสุดเสมอ ไม่ต้องเลื่อนหา
     //    นำหน้าด้วยใบส่งงานจากแผนกก่อนหน้า และคำเตือนเมื่อข้อมูลที่ต้องใช้ยังไม่มา
-    h += handoffCard(p) + missingCard(p) + todoCard(p);
+    h += handoffCard(p) + qcOpenCard(p) + missingCard(p) + todoCard(p);
 
     // 3) ความคืบหน้า
     h += '<div class="card"><h3>ความคืบหน้า<span class="c">' +
@@ -1437,8 +1600,12 @@
                   REJECTED:{t:"ตีกลับแล้ว", cls:"late"}};
 
   // เอกสารที่แนบไปกับคำขอ — ดึงจากไดรฟ์กลางให้เอง ผู้ขอไม่ต้องแนบทีละใบ
-  function reqDocs(p) {
+  // เอกสารที่แนบไปกับคำขอ — เอกสารเรียกเก็บของงวดนั้นต้องอยู่บนสุดเสมอ ผู้อนุมัติจะได้เห็นก่อน
+  function reqDocs(p, x) {
     const out = [];
+    if (x && x.billFile)
+      out.push({n:"★ " + BILLDOC[billKind(x)].n + " เลขที่ " + x.billNo +
+        " · " + baht(x.billAmt) + " (งวดที่ " + x.seq + ")", fn:x.billFile.n, by:x.billFile.by});
     DOCS.forEach(d => {
       if (docState(p, d) === "na") return;
       const f = p.files[d.c];
@@ -1460,7 +1627,7 @@
     const s = REQ_ST[stt];
     const isApprover = role === (x.reqTo || PAY_APPROVER);
     const canAct = stt === "PENDING" && isApprover && x.reqBy !== ROLES[role].person;
-    const docs = x.reqDocs || [];
+    const docs = x.reqDocs || reqDocs(p, x);
     const cs = checksOf(p).filter(c => c.tag !== "paid" && (c.lv === "block" || !c.ok));
 
     let h = '<div class="apv"><div class="ah"><span class="rno">' + esc(x.reqNo) + "</span>" +
@@ -1479,6 +1646,19 @@
         esc(person(x.reqTo || PAY_APPROVER)) + ")</b> — ทุกยอดต้องผ่านผู้จัดการ ไม่มีเกณฑ์วงเงินยกเว้น" +
         "<br>ผู้บันทึกจ่ายจะเป็น <b>" + esc(person("AC")) +
         "</b> — คนละคนกับผู้อนุมัติ ตามหลักแยกหน้าที่</div>";
+
+    // เอกสารเรียกเก็บของงวดนี้ — สิ่งแรกที่ผู้อนุมัติต้องเห็น ไม่ใช่ต้องไปหาในรายการเอกสาร
+    if (x.billNo)
+      h += '<div class="sec">งวดนี้เรียกเก็บด้วยเอกสารใบไหน</div>' +
+        '<div class="dl"><span><b>' + esc(BILLDOC[billKind(x)].n) + "</b> เลขที่ " +
+          esc(x.billNo) + " · ยอดตามใบ " + baht(x.billAmt) +
+          (x.billAmt > x.amount + 1
+            ? '<br><span class="sub">งวดนี้ขอจ่าย ' + baht(x.amount) + " จากยอดในใบ " + baht(x.billAmt) +
+              " — ที่เหลือเรียกเก็บงวดถัดไป</span>" : "") + "</span>" +
+        '<span class="fn">' + esc(x.billFile ? x.billFile.n : "—") + "</span></div>";
+    else
+      h += '<div class="sec">งวดนี้เรียกเก็บด้วยเอกสารใบไหน</div>' +
+        '<div class="ck no"><span class="m">✕</span><span>ไม่มีเอกสารเรียกเก็บผูกกับงวดนี้ — ไม่ควรอนุมัติ</span></div>';
 
     if (x.effNote)
       h += '<div class="sec">ข้อความที่ผู้ขอประทับลงบน' + esc(x.stampOn || "เอกสารที่แนบ") + "</div>" +
@@ -1526,7 +1706,7 @@
     let h = '<div class="card"><h3>การจ่ายเงิน<span class="c">' + esc(p.term) +
       " · จ่ายแล้ว " + baht(paid) + " จาก " + baht(p.amt) + "</span></h3>" +
       '<div class="tw"><table><thead><tr><th>งวด</th><th>ประเภท</th>' +
-      '<th class="num">จำนวนเงิน</th><th>ครบกำหนด</th><th>วันที่จ่าย</th>' +
+      '<th class="num">จำนวนเงิน</th><th>เอกสารเรียกเก็บ</th><th>ครบกำหนด</th><th>วันที่จ่าย</th>' +
       "<th>อ้างอิงธนาคาร</th><th>สถานะ</th><th></th></tr></thead><tbody>";
 
     p.payments.forEach(x => {
@@ -1537,6 +1717,14 @@
         ? '<span class="mono">' + esc(x.paidAt) + "</span>" +
           (x.valueDate && x.valueDate !== x.paidAt ? '<div class="sub">ตัดเงิน ' + esc(x.valueDate) + "</div>" : "")
         : '<span class="sub">—</span>';
+      // แต่ละงวดต้องมีเอกสารเรียกเก็บของตัวเอง — งวดมัดจำใช้ PI งวดที่เหลือใช้ใบแจ้งหนี้
+      const billCell = x.billNo
+        ? '<span class="mono" style="font-size:12px">' + esc(x.billNo) + "</span>" +
+          '<div class="sub">' + esc(BILLDOC[billKind(x)].n.split(" ")[0]) +
+          (x.billAmt ? " · " + baht(x.billAmt) : "") + "</div>"
+        : x.status === "PAID"
+          ? '<span class="sub">— (จ่ายก่อนใช้ระบบนี้)</span>'
+          : '<span class="pill late">ยังไม่แนบ</span>';
       const refCell = x.ref
         ? '<span class="mono" style="font-size:12px">' + esc(x.ref) + "</span>" +
           '<div class="sub">' + esc(x.bank ? x.bank.split(" ")[0] : "") + (x.slip ? " · มีสลิป" : "") + "</div>"
@@ -1546,6 +1734,7 @@
         "<td>" + esc(x.type) + '<div class="sub">' + x.pct + "%</div></td>" +
         '<td class="num">' + baht(x.amount) +
           (x.wht ? '<div class="sub">หัก ณ ที่จ่าย ' + baht(x.wht) + "</div>" : "") + "</td>" +
+        "<td>" + billCell + "</td>" +
         "<td>" + dueCell + "</td><td>" + payCell + "</td><td>" + refCell + "</td>" +
         '<td><span class="pill ' + s.cls + '">' + esc(s.t) + "</span>" +
           (x.status === "REQUESTED"
@@ -1555,8 +1744,13 @@
     h += "</tbody></table></div>";
 
     if (p.payments.some(x => x.status === "BLOCKED"))
-      h += '<div class="note bad"><span class="ic">!</span><span>งวดนี้ถูกล็อกเพราะมีใบเคลมค้าง — ' +
-        "ตั้งเรื่องขอจ่ายไม่ได้จนกว่าจะบันทึกใบลดหนี้ในหน้าใบคำร้อง</span></div>";
+      h += '<div class="note bad"><span class="ic">!</span><span>' +
+        (qcPayHold(p).length
+          ? "งวดนี้ถูกล็อกเพราะ<b>ข้อค้างจากใบตรวจยังไม่สรุป</b> — " +
+            esc(qcPayHold(p).map(x => x.t).join(" · ")) +
+            "<br>สรุปที่การ์ด “ข้อค้างจากใบตรวจ” ด้านบนแล้วงวดจะปลดล็อกเอง"
+          : "งวดนี้ถูกล็อกเพราะมีใบเคลมค้าง — " +
+            "ตั้งเรื่องขอจ่ายไม่ได้จนกว่าจะบันทึกใบลดหนี้ในหน้าใบคำร้อง") + "</span></div>";
     else if (late)
       h += '<div class="note warn"><span class="ic">▸</span><span>ยังเหลือ ' + late +
         " งวด — ระบบเตือนบัญชีตามวันครบกำหนดของแต่ละงวด และแจ้งผู้ขายให้เองเมื่อจ่ายแล้ว " +
@@ -1818,6 +2012,23 @@
   }
 
   /* ================= ตรวจสอบก่อนบันทึก ================= */
+  /* เทียบจำนวนแบบรู้หน่วย — ใบตรวจอาหารนับเป็น "2,600 CTNs" คลังอาจพิมพ์ "2600 CTN"
+     เทียบด้วยข้อความตรง ๆ จะฟ้องผิดทุกครั้ง แต่ถ้าตัดหน่วยทิ้งก็จะปล่อย KG/CTN ผ่านไปได้ */
+  const UNIT_ALIAS = {ctns:"ctn", cartons:"ctn", carton:"ctn", กล่อง:"ctn", kgs:"kg", กก:"kg",
+    กิโลกรัม:"kg", pcs:"pc", pieces:"pc", piece:"pc", ชิ้น:"pc", ตัว:"pc"};
+  function qtyParts(v) {
+    const s = String(v == null ? "" : v).trim().toLowerCase().replace(/,/g, "");
+    const m = s.match(/-?\d+(\.\d+)?/);
+    const u = s.replace(/-?\d+(\.\d+)?/g, " ").replace(/[()]/g, " ").trim().split(/\s+/)[0] || "";
+    return {n:m ? parseFloat(m[0]) : null, u:UNIT_ALIAS[u] || u};
+  }
+  function cmpQty(a, b) {
+    const x = qtyParts(a), y = qtyParts(b);
+    if (x.n === null || y.n === null)
+      return {same:String(a).trim() === String(b).trim(), unit:true};
+    return {same:x.n === y.n && x.u === y.u, unit:x.n !== y.n};   // unit:false = เลขตรง หน่วยไม่ตรง
+  }
+
   function checksOf(p) {
     const miss = missing(p), out = [];
     const add = (ok, lv, t, who, tag) => out.push({ok:ok, lv:lv, t:t, who:who || "", tag:tag || ""});
@@ -1835,6 +2046,23 @@
         miss.length ? miss[0].o : "");
     add(!p.claim, "block", p.claim ? "มีใบเคลมที่ยังไม่ได้รับใบลดหนี้" : "ไม่มีใบเคลมค้าง", "QC");
 
+    // ข้อค้างท้ายใบตรวจ — ใบผ่านแล้วแต่ยังคุยกับผู้ขายไม่จบ ต้องไม่หลุดไปปิดบัญชี
+    const qLeft = qcOpenLeft(p);
+    if ((p.qcOpen || []).length)
+      add(!qLeft.length, qcPayHold(p).length ? "block" : "warn",
+          qLeft.length ? "ข้อค้างจากใบตรวจยังไม่สรุป " + qLeft.length + " ข้อ — " + esc(qLeft[0].t)
+                       : "ข้อค้างจากใบตรวจสรุปครบแล้วทุกข้อ", "SR");
+
+    // เลข PO ที่พิมพ์บนใบตรวจกับเลขในระบบ — ใบตรวจฝั่งเครื่องจักรใช้เลขรับของ (RC) คนละชุดกับเลข PO
+    const pref = p.hand.qcPoRef;
+    if (pref && (p.sap || p.no)) {
+      const hit = String(pref).indexOf(p.sap || "@@") >= 0 || String(pref).indexOf(p.no) >= 0;
+      add(hit, "warn",
+          hit ? "PO Ref บนใบตรวจตรงกับรายการนี้ (" + esc(pref) + ")"
+              : "PO Ref บนใบตรวจคือ " + esc(pref) + " แต่รายการนี้คือ " +
+                esc(p.sap ? "PO " + p.sap : p.no) + " — ยืนยันว่าเป็นล็อตเดียวกันก่อนตั้งหนี้", "QC");
+    }
+
     if (money()) {
       const sum = p.payments.reduce((s, x) => s + x.amount, 0);
       add(!p.payments.length || sum === p.amt, "block",
@@ -1842,12 +2070,25 @@
 
       // ตรวจ 3 ทางต้องเทียบกับ "จำนวนที่ QC รับได้" ไม่ใช่จำนวนที่ส่งมา
       const qOk = p.hand.qtyOk, qIn = p.hand.qtyIn;
-      if (qOk && qIn)
-        add(String(qOk).trim() === String(qIn).trim(), "block",
-            String(qOk).trim() === String(qIn).trim()
-              ? "จำนวนที่ QC รับได้ตรงกับที่คลังรับเข้า (" + esc(qOk) + ")"
-              : "QC รับได้ " + esc(qOk) + " แต่คลังรับเข้า " + esc(qIn) + " — ต้องตรงกันก่อนตั้งหนี้",
+      if (qOk && qIn) {
+        const c = cmpQty(qOk, qIn);
+        add(c.same, c.unit ? "block" : "warn",
+            c.same ? "จำนวนที่ QC รับได้ตรงกับที่คลังรับเข้า (" + esc(String(qOk).trim()) + ")"
+              : !c.unit
+                ? "จำนวนเท่ากันแต่หน่วยไม่ตรง — QC เขียน " + esc(String(qOk).trim()) +
+                  " คลังเขียน " + esc(String(qIn).trim()) + " ให้ใช้หน่วยเดียวกัน"
+                : "QC รับได้ " + esc(String(qOk).trim()) + " แต่คลังรับเข้า " + esc(String(qIn).trim()) +
+                  " — ต้องตรงกันก่อนตั้งหนี้",
             "WH");
+        // ใบตรวจเทียบจำนวนตามใบแจ้งหนี้กับที่นับได้จริงมาแล้ว — ยกผลมาให้บัญชีเห็นด้วย
+        if (p.hand.invQty) {
+          const ci = cmpQty(p.hand.invQty, qOk);
+          add(ci.same, "warn",
+              ci.same ? "จำนวนตามใบแจ้งหนี้ตรงกับที่ QC นับได้ (" + esc(String(qOk).trim()) + ")"
+                      : "ใบแจ้งหนี้แจ้ง " + esc(String(p.hand.invQty).trim()) + " แต่ QC นับได้ " +
+                        esc(String(qOk).trim()) + " — ตั้งหนี้ตามจำนวนที่นับได้", "AC");
+        }
+      }
       else if (p.qcBypass)
         add(true, "block", "ล็อตนี้ข้าม QC ตามที่อนุมัติไว้ (" + esc(p.qcBypassBy || "—") +
             ") — เทียบกับจำนวนที่คลังรับเข้าแทน", "");
@@ -2026,18 +2267,27 @@
         esc(QCAPP.name) + "</span></h3>" +
         '<div class="note warn"><span class="ic">!</span><span><b>ระบบนี้ไม่ทำฟอร์มตรวจรับซ้ำ</b> — ' +
         "QC ตรวจในแอปเดิมตามที่ใช้อยู่ แล้วเอา<b>เลขที่ใบตรวจ</b>มาผูกกับ PO ที่นี่ " +
-        "พร้อมสรุปเฉพาะตัวเลขที่คลังและบัญชีต้องใช้ต่อ (อุณหภูมิ · จำนวนที่รับได้ · จำนวนที่ตีกลับ)</span></div>" +
-        '<div class="tw"><table><thead><tr><th>สายงาน</th><th>ฟอร์มที่ใช้</th>' +
-        "<th>ปริมาณ</th><th>สถานะการเชื่อม</th></tr></thead><tbody>";
+        "พร้อมยกเฉพาะช่องที่ปลายทางใช้ตัดสินใจออกมา — <b>ไม่ได้ขอทั้งใบ</b></span></div>" +
+        '<div class="tw"><table><thead><tr><th>สายงาน</th><th>เลขที่ใบ / การลงนาม</th>' +
+        "<th>หัวข้อที่ตรวจ</th><th>สถานะการเชื่อม</th></tr></thead><tbody>";
       QCAPP.lines.forEach(l => {
         h += "<tr><td>" + esc(l.o) + "</td><td>" + esc(l.form) + "</td><td>" + esc(l.n) + "</td>" +
           '<td><span class="pill due">' + esc(l.st) + "</span></td></tr>";
       });
       h += "</tbody></table></div>" +
+        '<div class="note warn"><span class="ic">!</span><span>' +
+        "<b>ใบตรวจ Food กับ Mech ใช้ช่องไม่เหมือนกันจริง</b> — ระบบจึงแยกสัญญาส่งมอบตามสายสินค้า " +
+        "(<span class=\"mono\">HAND.QC_INCOMING.byMod</span>) ไม่ได้บังคับให้ฝั่งเครื่องจักรกรอกอุณหภูมิ " +
+        "และไม่ได้บังคับให้ฝั่งอาหารกรอกสภาพตู้</span></div>" +
+        '<div class="sub" style="margin:10px 0 4px;font-weight:600">ช่องที่ขอจากใบตรวจ และเอาไปใช้ทำอะไร</div>' +
+        '<div class="tw"><table><thead><tr><th>ช่องบนใบตรวจ</th>' +
+        "<th>ปลายทางเอาไปใช้</th></tr></thead><tbody>" +
+        QCAPP.pull.map(x => "<tr><td><b>" + esc(x.f) + "</b></td><td>" + esc(x.to) + "</td></tr>").join("") +
+        "</tbody></table></div>" +
         '<div class="rowline">วิธีเชื่อมตอนนี้: <b>' + esc(QCAPP.mode) + "</b></div>" +
-        '<div class="note info"><span class="ic">▸</span><span>ยังต้องถามทีม QC 3 ข้อ — ' +
-        "แอปมี API หรือส่งออกไฟล์ได้ไหม · เลขที่ใบตรวจผูกกับเลข PO อยู่แล้วหรือเปล่า · " +
-        "ฟอร์ม Food กับ Mech ใช้ช่องเดียวกันไหม (ดู docs/15)</span></div></div>";
+        '<div class="note info"><span class="ic">▸</span><span>ยังต้องถามทีม QC — ' +
+        "แอปมี API หรือส่งออกไฟล์ได้ไหม · ฝั่ง Mech ใบตรวจอ้าง<b>เลขรับของ (RC)</b> ไม่ใช่เลข PO " +
+        "จะจับคู่ด้วยอะไร · ต้องดึงรูปถ่ายทั้งชุดเข้าเล่มเอกสารด้วยหรือเอาแค่ลิงก์ (ดู docs/16)</span></div></div>";
       return h;
     }
 
@@ -2365,6 +2615,37 @@
 
   function upTarget() { return upOpen ? (POS.filter(x => x.no === upOpen.po)[0] || null) : null; }
 
+  /* ============ ข้อค้างจากใบตรวจ (Defect & Remark ที่ยัง "รอสรุป") ============
+     พบจากใบตรวจจริง: ผลรวมเป็น Pass แต่ตารางท้ายใบเขียน "รอสรุปเรื่องเปลี่ยนกล่อง"
+     ถ้าไม่ยกออกมา บัญชีจะจ่ายเต็มจำนวนทั้งที่ยังคุยกับผู้ขายไม่จบ */
+  function qcOpenFields(p) {
+    const cur = (p.qcOpen || []);
+    const txt = c => cur.filter(x => x.blocks === c).map(x => x.t).join("\n");
+    return '<div class="note warn" style="border:1px solid var(--gold);border-radius:var(--r-md);margin:6px 0 4px">' +
+      '<span class="ic">!</span><span><b>ข้อบกพร่องที่ยังไม่สรุป (Defect &amp; Remark)</b> — ' +
+      "ใบตรวจผ่านได้แต่ยังมีเรื่องค้างกับผู้ขาย เขียนไว้ที่นี่ <b>บรรทัดละ 1 ข้อ</b> " +
+      "แล้วคลังกับบัญชีจะเห็นบนหน้าจอเขาเอง</span></div>" +
+      '<div class="fld"><span class="lbl">ข้อค้างที่ต้อง<b>สรุปก่อนจ่ายเงิน</b> ' +
+        '<span class="req">ล็อกการจ่าย</span></span>' +
+        '<textarea id="qo_block" rows="2" placeholder="เช่น พบกล่องบุบ เสียรูป มีร่องรอยความชื้น — รอสรุปเรื่องเปลี่ยนกล่อง">' +
+        esc(txt(true)) + "</textarea></div>" +
+      '<div class="fld"><span class="lbl">ข้อค้างที่<b>ไม่กระทบการจ่าย</b> (แจ้งให้ทราบ)</span>' +
+        '<textarea id="qo_note" rows="2" placeholder="เช่น ขนาดกล่องไม่เท่ากัน — จะให้ฝ่ายขายตั้งราคาตามขนาด">' +
+        esc(txt(false)) + "</textarea></div>";
+  }
+  const qcLines = id => valOf(id).split("\n").map(x => x.trim()).filter(x => x !== "");
+  // เก็บข้อค้าง โดยรักษาสถานะของข้อที่เคยสรุปไปแล้วไว้ (ข้อความเดิม = ข้อเดิม)
+  function saveQcOpen(p) {
+    const was = {};
+    (p.qcOpen || []).forEach(x => { was[x.t] = x; });
+    const mk = (t, blocks) => was[t] ? was[t]
+      : {t:t, blocks:blocks, st:"OPEN", by:ROLES[role].person, at:"วันนี้", closeBy:"", closeWhy:""};
+    p.qcOpen = qcLines("qo_block").map(t => mk(t, true))
+      .concat(qcLines("qo_note").map(t => mk(t, false)));
+  }
+  const qcOpenLeft = p => (p.qcOpen || []).filter(x => x.st === "OPEN");
+  const qcPayHold  = p => qcOpenLeft(p).filter(x => x.blocks);
+
   function uploadModal() {
     const el = $("#modal");
     const p = upTarget();
@@ -2373,7 +2654,7 @@
     const d = upOpen.doc ? DOCS.filter(x => x.c === upOpen.doc)[0] : null;
     const code = d ? d.c : "STEP_" + upOpen.step;
     const prev = p.files[code];
-    const hc = HAND[upOpen.step];                  // สัญญาส่งมอบข้อมูลของขั้นนี้
+    const hc = handOf(upOpen.step, p);             // สัญญาส่งมอบข้อมูลของขั้นนี้ (ตามสายสินค้า)
     const hv = x => p.hand[x.k] === undefined ? "" : p.hand[x.k];
 
     el.innerHTML = '<div class="bugwrap" data-uact="close"></div>' +
@@ -2405,8 +2686,14 @@
           x.t === "num"  ? '<input type="number" step="0.01" id="hf_' + x.k + '" value="' + esc(hv(x)) + '">' :
           x.t === "date" ? '<input type="date" id="hf_' + x.k + '" value="' + esc(hv(x)) + '">' :
           x.t === "time" ? '<input type="time" id="hf_' + x.k + '" value="' + esc(hv(x)) + '">' :
+          x.t === "sel"  ? '<select id="hf_' + x.k + '"><option value="">— เลือก —</option>' +
+                           (x.o || []).map(o => '<option' + (String(hv(x)) === o ? " selected" : "") +
+                             ">" + esc(o) + "</option>").join("") + "</select>" :
                            '<input type="text" id="hf_' + x.k + '" value="' + esc(hv(x)) + '">',
           x.req)).join("") + "</div>" : "") +
+
+      // ข้อบกพร่องที่ใบตรวจเขียนว่า "รอสรุป" — เดิมจบอยู่ในไฟล์ PDF ปลายทางไม่มีทางรู้
+      (upOpen.step === "QC_INCOMING" ? qcOpenFields(p) : "") +
 
       fld1("ไฟล์ที่แนบ", '<input type="text" id="up_file" placeholder="เลือกไฟล์… เช่น scan_2026-08-08.pdf" value="' +
         esc(prev ? prev.n : "") + '">', !!(d && d.req)) +
@@ -2438,7 +2725,7 @@
     if (nm) nm.textContent = DRIVE.fileName(p, code, file || "scan.pdf");
 
     const errs = [];
-    const hc = HAND[upOpen.step];
+    const hc = handOf(upOpen.step, p);
     if (hc) hc.f.forEach(x => {
       const need = x.req || (upOpen.mode === "qcfail" && x.k === "qtyBad");
       if (need && !String(valOf("hf_" + x.k)).trim())
@@ -2531,9 +2818,22 @@
     if (!payReqOpen) return null;
     const p = POS.filter(x => x.no === payReqOpen.po)[0];
     if (!p) return null;
-    // ขอจ่ายได้เฉพาะงวดที่ยังไม่ถูกตั้งเรื่อง — กันการขอซ้ำงวดที่หัวหน้าอนุมัติไปแล้ว
-    const x = p.payments.filter(y => y.status === "PENDING")[0] || null;
-    return {p:p, x:x};
+    // เลือกงวดได้ — ถ้ายังไม่ได้เลือก ใช้งวดแรกที่ยังไม่ถูกตั้งเรื่อง
+    const pick = payReqOpen.seq != null
+      ? p.payments.filter(y => String(y.seq) === String(payReqOpen.seq))[0]
+      : null;
+    const x = pick || p.payments.filter(y => y.status === "PENDING")[0] || null;
+    return {p:p, x:x, ro:!!(x && x.status !== "PENDING")};   // ro = ดูอย่างเดียว งวดนี้ตั้งเรื่องไปแล้ว
+  }
+  // แถบเลือกงวด — เห็นทุกงวดของ PO นี้ในหน้าจอเดียว ไม่ต้องเดาว่ากำลังขอรอบไหน
+  function prTabs(p, cur) {
+    return '<div class="prtabs">' + p.payments.map(y => {
+      const s = PAY_ST[y.status] || PAY_ST.PENDING;
+      return '<button class="prtab' + (y.seq === cur.seq ? " on" : "") +
+        '" data-pract="tab" data-prseq="' + y.seq + '">' +
+        "งวดที่ " + y.seq + " · " + esc(y.type) + '<span class="s">' + baht(y.amount) + " · " +
+        esc(s.t) + (y.billNo ? " · " + esc(y.billNo) : " · ยังไม่มีเอกสารเรียกเก็บ") + "</span></button>";
+    }).join("") + "</div>";
   }
   const prRemain = p => p.payments.filter(y => y.status !== "PAID" && y.status !== "VOID" &&
     y.status !== "CANCELLED").reduce((s, y) => s + y.amount, 0);
@@ -2562,8 +2862,31 @@
         '<div class="fl2"><button class="btn" data-pract="close">ปิด</button></div></div></div>';
       return;
     }
-    const files = Object.keys(p.files).filter(k => k.indexOf("STEP_") !== 0);
-    const docOpts = (files.length ? files : DOCS.filter(d => docState(p, d) !== "na").map(d => d.c))
+    // งวดที่ตั้งเรื่อง/จ่ายไปแล้ว — เปิดดูได้ว่าใช้เอกสารเรียกเก็บใบไหน แต่แก้ไม่ได้
+    if (t.ro) {
+      const sp = PAY_ST[x.status] || PAY_ST.PENDING;
+      el.innerHTML = '<div class="bugwrap" data-pract="close"></div>' +
+        '<div class="bugpanel wide" role="dialog" aria-label="งวดที่ตั้งเรื่องไปแล้ว">' +
+        "<h3>งวดที่ " + x.seq + " · " + esc(x.type) + " — " + esc(p.no) +
+          '<button data-pract="close" aria-label="ปิด">✕</button></h3>' +
+        '<div class="bugbody">' + prTabs(p, x) +
+        '<div class="ctxbox">งวดนี้อยู่ในสถานะ <b>' + esc(sp.t) + "</b> — ดูได้อย่างเดียว<br>" +
+          "ยอด <b>" + baht(x.amount) + "</b> · มีผล <b>" + esc(x.due || "—") + "</b>" +
+          (x.reqNo ? " · คำขอ <b>" + esc(x.reqNo) + "</b>" : "") + "</div>" +
+        (x.billNo
+          ? '<div class="dl"><span><b>' + esc(BILLDOC[billKind(x)].n) + "</b> เลขที่ " + esc(x.billNo) +
+            " · ยอดตามใบ " + baht(x.billAmt) + "</span><span class=\"fn\">" +
+            esc(x.billFile ? x.billFile.n : "—") + "</span></div>"
+          : '<div class="errbox"><div class="e1">งวดนี้ไม่มีเอกสารเรียกเก็บผูกอยู่ — ' +
+            "งวดที่จ่ายก่อนใช้ระบบนี้จะไม่มีข้อมูลย้อนหลัง</div></div>") +
+        '<div class="fl2"><button class="btn" data-pract="close">ปิด</button></div></div></div>';
+      return;
+    }
+    const files = Object.keys(p.files).filter(k => k.indexOf("STEP_") !== 0 && k.indexOf("BILL_") !== 0);
+    // ตัวเลือกแรกคือเอกสารเรียกเก็บของงวดนี้เอง — เป็นใบที่ควรถูกประทับมากที่สุด
+    const docOpts = '<option value="' + esc(payDocCode(x)) + '" selected>' +
+        esc(BILLDOC[billKind(x)].n) + " (งวดที่ " + x.seq + ")</option>" +
+      (files.length ? files : DOCS.filter(d => docState(p, d) !== "na").map(d => d.c))
       .map(c => { const d = DOCS.filter(y => y.c === c)[0];
         return '<option value="' + esc(c) + '">' + esc(d ? d.n : c) + "</option>"; }).join("");
 
@@ -2571,7 +2894,7 @@
       '<div class="bugpanel wide" role="dialog" aria-label="ขออนุมัติทำจ่าย">' +
       "<h3>ส่งเอกสาร + ขออนุมัติทำจ่าย — " + esc(p.no) +
         '<button data-pract="close" aria-label="ปิด">✕</button></h3>' +
-      '<div class="bugbody">' +
+      '<div class="bugbody">' + prTabs(p, x) +
 
       '<div class="ctxbox">ผู้ขาย: <b>' + esc(p.sup) + "</b> · เงื่อนไข <b>" + esc(p.term) + "</b><br>" +
         "งวดที่จะขอจ่าย: <b>" + esc(x.type) + "</b> · ยอดคงเหลือทั้งใบ <b>" + baht(prRemain(p)) + "</b><br>" +
@@ -2584,6 +2907,27 @@
       fld1("Effective date — วันที่ต้องมีผลจ่าย", '<input type="date" id="pr_eff" value="' +
         (thToISO(x.due) || todayISO()) + '">', true) +
       "</div>" +
+
+      /* เอกสารเรียกเก็บของงวดนี้ — บังคับทุกงวด ผู้อนุมัติจะได้เห็นว่าจ่ายตามใบไหน */
+      '<div class="note info" style="border:1px solid var(--line);border-radius:var(--r-md);margin:6px 0 4px">' +
+        '<span class="ic">📄</span><span><b>เอกสารเรียกเก็บของงวดที่ ' + x.seq + " (" + esc(x.type) +
+        ")</b> — บังคับทุกงวด ระบบแนบไปกับคำขอให้ผู้อนุมัติเห็นพร้อมกัน<br>" +
+        esc(BILLDOC[billKind(x)].hint) + "</span></div>" +
+
+      '<div class="grid2">' +
+      fld1("ประเภทเอกสารเรียกเก็บ", '<select id="pr_bkind">' +
+        Object.keys(BILLDOC).map(k => '<option value="' + k + '"' +
+          (billKind(x) === k ? " selected" : "") + ">" + esc(BILLDOC[k].n) + "</option>").join("") +
+        "</select>", true) +
+      fld1("เลขที่เอกสารเรียกเก็บ", '<input type="text" id="pr_bno" placeholder="เช่น INV-ABC-0804" value="' +
+        esc(x.billNo || p.hand.invNo || "") + '">', true) +
+      fld1("ยอดตามเอกสารเรียกเก็บ (บาท)", '<input type="number" step="0.01" id="pr_bamt" value="' +
+        esc(x.billAmt != null ? x.billAmt : (p.hand.invAmt != null ? p.hand.invAmt : "")) + '">', true) +
+      fld1("ไฟล์เอกสารเรียกเก็บ", '<input type="text" id="pr_bfile" placeholder="เลือกไฟล์… เช่น invoice_ABC_0804.pdf" value="' +
+        esc(x.billFile ? x.billFile.orig : "") + '">', true) +
+      "</div>" +
+      '<div class="hint" style="margin:-4px 0 6px">ระบบเปลี่ยนชื่อไฟล์เป็น <b id="pr_bnamed">' +
+        esc(DRIVE.fileName(p, payDocCode(x), "invoice.pdf")) + "</b> แล้ววางในโฟลเดอร์เดียวกับเอกสารอื่นของรายการนี้</div>" +
 
       '<label class="chkline"><input type="checkbox" id="pr_stamp" checked> ' +
         "ประทับข้อความนี้ลงบนเอกสารที่แนบ</label>" +
@@ -2625,7 +2969,12 @@
     if (pv && pv.classList) { if (stamp) pv.classList.remove("off"); else pv.classList.add("off"); }
     const l = document.getElementById("pr_ptl"), r = document.getElementById("pr_ptr");
     const POSN = {TR:"มุมขวาบน", TL:"มุมซ้ายบน", BR:"มุมขวาล่าง", CT:"กลางหน้า (ลายน้ำ)"};
-    const dc = DOCS.filter(y => y.c === valOf("pr_doc"))[0];
+    const bfile = valOf("pr_bfile").trim();
+    const bn = document.getElementById("pr_bnamed");
+    if (bn) bn.textContent = DRIVE.fileName(p, payDocCode(t.x), bfile || "invoice.pdf");
+    const dc = valOf("pr_doc") === payDocCode(t.x)
+      ? {n:BILLDOC[valOf("pr_bkind") || billKind(t.x)].n}
+      : DOCS.filter(y => y.c === valOf("pr_doc"))[0];
     if (l) l.textContent = stamp ? "จะพิมพ์ลง " + (dc ? dc.n : "เอกสารที่เลือก") : "ไม่ประทับลงเอกสาร";
     if (r) r.textContent = stamp
       ? (POSN[valOf("pr_pos")] || "—") + " · " + (valOf("pr_size") || "13") + "pt · " + (valOf("pr_color") || "แดง")
@@ -2642,6 +2991,26 @@
     if (missing(p).length)
       errs.push("S6 · ยังขาดเอกสาร " + missing(p).map(d => d.n).join(" · ") + " — หัวหน้าจะตีกลับ");
     if (stamp && !valOf("pr_text").trim()) errs.push("S7 · ติ๊กประทับข้อความแล้วแต่ข้อความว่าง");
+
+    // เอกสารเรียกเก็บของงวดนี้ — บังคับทุกงวด ไม่ใช่แนบครั้งเดียวทั้ง PO
+    const bno = valOf("pr_bno").trim(), bamt = numOf("pr_bamt");
+    const bkind = valOf("pr_bkind") || billKind(t.x);
+    if (!bno) errs.push("S8 · ต้องระบุเลขที่เอกสารเรียกเก็บของงวดนี้ — ผู้อนุมัติต้องรู้ว่าจ่ายตามใบไหน");
+    if (!bfile) errs.push("S9 · ต้องแนบไฟล์เอกสารเรียกเก็บของงวดนี้ — คำขอที่ไม่มีใบเรียกเก็บไม่ควรมีใครกดอนุมัติ");
+    if (bamt <= 0) errs.push("S10 · ต้องระบุยอดตามเอกสารเรียกเก็บ");
+    else if (amt > bamt + 1)
+      errs.push("S11 · ขอจ่าย " + baht(amt) + " เกินยอดในเอกสารเรียกเก็บ (" + baht(bamt) + ")");
+    if (bno && bamt > 0) {
+      const dup = sameBill(p, t.x, bno);
+      if (dup.length) {
+        const tot = dup.reduce((s2, y) => s2 + y.amount, 0) + amt;
+        if (tot > bamt + 1)
+          errs.push("S12 · ใบ " + bno + " ถูกใช้ขอจ่ายงวดที่ " + dup.map(y => y.seq).join(", ") +
+            " ไปแล้ว รวมกับงวดนี้เป็น " + baht(tot) + " เกินยอดในใบ (" + baht(bamt) + ") — จ่ายซ้ำ");
+      }
+    }
+    if (bkind === "INVOICE" && p.stage < 12 && !p.hand.invNo)
+      errs.push("S13 · เลือกใบแจ้งหนี้ตัวจริงแต่ยังไม่ถึงขั้นรับใบแจ้งหนี้ — ถ้าเป็นงวดมัดจำให้เลือก PI");
 
     const eb = document.getElementById("pr_err");
     if (eb) eb.innerHTML = errs.map(e => '<div class="e1">' + esc(e) + "</div>").join("") +
@@ -2965,9 +3334,20 @@
       if (cl.dataset.cl === "cn") {
         c.cn = "CN-26-00" + (CLAIMS.indexOf(c) + 1);
         const p = POS.filter(x => x.no === c.po)[0];
-        if (p) { p.claim = false; p.payments.forEach(x => { if (x.status === "BLOCKED") x.status = "PENDING"; });
-                 p.tl.push(["วันนี้","ระบบ","ได้รับใบลดหนี้ " + c.cn + " — ปลดล็อกงวดจ่าย"]); }
-        toast("บันทึกใบลดหนี้ " + c.cn + " — ปลดล็อกการจ่ายเงินอัตโนมัติ");
+        if (p) {
+          p.claim = false;
+          // ปลดล็อกได้ต่อเมื่อไม่มีข้อค้างจากใบตรวจที่ล็อกไว้ด้วย — ไม่งั้นปลดข้างเดียวแล้วหลุด
+          const hold = qcPayHold(p);
+          if (!hold.length) {
+            p.payments.forEach(x => { if (x.status === "BLOCKED") x.status = "PENDING"; });
+            p.tl.push(["วันนี้","ระบบ","ได้รับใบลดหนี้ " + c.cn + " — ปลดล็อกงวดจ่าย"]);
+          } else
+            p.tl.push(["วันนี้","ระบบ","ได้รับใบลดหนี้ " + c.cn + " แต่ยังล็อกจ่ายอยู่ — " +
+              "ข้อค้างจากใบตรวจยังไม่สรุป " + hold.length + " ข้อ"]);
+        }
+        toast(p && qcPayHold(p).length
+          ? "บันทึกใบลดหนี้ " + c.cn + " แล้ว — แต่ยังล็อกจ่ายอยู่เพราะข้อค้างจากใบตรวจยังไม่สรุป"
+          : "บันทึกใบลดหนี้ " + c.cn + " — ปลดล็อกการจ่ายเงินอัตโนมัติ");
       }
       render(); return;
     }
@@ -3047,12 +3427,8 @@
       if (!x) return;
       if (act === "form") { payOpen = {po:p.no, seq:x.seq}; modals(); return; }
       if (act === "req") {
-        x.status = "REQUESTED"; x.reqBy = ROLES[role].person; x.reqRole = role;
-        x.reqTo = PAY_APPROVER; x.reqAt = "วันนี้";
-        p.tl.push(["วันนี้", ROLES[role].person, "ตั้งเรื่องขอจ่ายงวดที่ " + x.seq + " " + baht(x.amount)]);
-        notify(PAY_APPROVER, "act", p.no, "รออนุมัติจ่าย งวดที่ " + x.seq,
-          p.no + " " + p.sup + " — " + baht(x.amount) + " · ขอโดย " + ROLES[role].person);
-        toast("ส่งให้" + ROLES[PAY_APPROVER].name + "อนุมัติแล้ว — ทุกยอดต้องผ่านผู้จัดการ");
+        // บัญชีตั้งเรื่องเองก็ต้องผ่านฟอร์มเดียวกัน — ทุกงวดต้องมีเอกสารเรียกเก็บผูกอยู่
+        payReqOpen = {po:p.no, seq:x.seq}; modals(); return;
       }
       if (act === "apv") {
         // ผู้อนุมัติต้องไม่ใช่ผู้ขอ — กันเซ็นอนุมัติงานของตัวเอง
@@ -3097,11 +3473,22 @@
         const code = d ? d.c : "STEP_" + upOpen.step;
         const file = valOf("up_file").trim(), note = valOf("up_note").trim();
         // เก็บข้อมูลตามสัญญาส่งมอบของขั้นนี้ — ไปโผล่บนใบส่งงานของแผนกถัดไป
-        const hc2 = HAND[upOpen.step];
+        const hc2 = handOf(upOpen.step, tp);
         if (hc2) hc2.f.forEach(x => {
           const v = String(valOf("hf_" + x.k)).trim();
           if (v !== "") tp.hand[x.k] = x.t === "num" ? parseFloat(v) : v;
         });
+        if (upOpen.step === "QC_INCOMING") {
+          saveQcOpen(tp);
+          const hold = qcPayHold(tp);
+          if (hold.length) {
+            tp.payments.forEach(x => { if (x.status === "PENDING") x.status = "BLOCKED"; });
+            tp.tl.push(["วันนี้", ROLES[role].person,
+              "บันทึกข้อค้างจากใบตรวจ " + hold.length + " ข้อ — ล็อกการจ่ายไว้จนกว่าจะสรุป"]);
+            notify("SR", "act", tp.no, "ใบตรวจผ่านแต่มีข้อค้าง " + hold.length + " ข้อ",
+              tp.no + " " + tp.sup + " — " + hold[0].t + " · ต้องสรุปกับผู้ขายก่อนจ่ายเงิน");
+          }
+        }
         if (file) tp.files[code] = {n:DRIVE.fileName(tp, code, file), orig:file, note:note,
           by:ROLES[role].person, at:"วันนี้", step:upOpen.step};
         const sg = STAGES.filter(x => x.c === upOpen.step)[0];
@@ -3125,14 +3512,27 @@
     if (pq) {
       const act = pq.dataset.pract;
       if (act === "close") { payReqOpen = null; modals(); return; }
+      if (act === "tab") { payReqOpen.seq = pq.dataset.prseq; modals(); return; }
       if (act === "send") {
         const t = prTarget(); if (!t || !t.x) return;
         if (prCalc().length) { toast("ส่งไม่ได้ — แก้ข้อที่ติดก่อน"); return; }
         const amt = numOf("pr_amt"), eff = valOf("pr_eff");
         const stamp = !!(document.getElementById("pr_stamp") || {}).checked;
         const txt = valOf("pr_text").trim();
-        const dc = DOCS.filter(y => y.c === valOf("pr_doc"))[0];
         const x = t.x;
+        // เอกสารเรียกเก็บของงวดนี้ — เก็บเข้าไดรฟ์กลางเหมือนเอกสารขั้นอื่น แล้วผูกกับงวด
+        const bkind = valOf("pr_bkind") || billKind(x);
+        const bfile = valOf("pr_bfile").trim(), bcode = payDocCode(x);
+        x.billKind = bkind; x.billNo = valOf("pr_bno").trim(); x.billAmt = numOf("pr_bamt");
+        x.billFile = {n:DRIVE.fileName(t.p, bcode, bfile), orig:bfile,
+          by:ROLES[role].person, at:"วันนี้"};
+        t.p.files[bcode] = {n:x.billFile.n, orig:bfile, note:BILLDOC[bkind].n + " งวดที่ " + x.seq,
+          by:ROLES[role].person, at:"วันนี้", step:"PAYMENT"};
+        t.p.tl.push(["วันนี้", ROLES[role].person,
+          "แนบ " + BILLDOC[bkind].n + " เลขที่ " + x.billNo + " สำหรับงวดที่ " + x.seq +
+          " → " + DRIVE.folderOf(t.p) + "/" + x.billFile.n]);
+        const dc = valOf("pr_doc") === bcode ? {n:BILLDOC[bkind].n + " (งวดที่ " + x.seq + ")"}
+                                             : DOCS.filter(y => y.c === valOf("pr_doc"))[0];
         // บันทึกคำขอให้ครบ เพื่อให้ผู้อนุมัติมีอะไรอ้างอิงตอนกด ไม่ใช่กดลอย ๆ
         const rnums = POS.reduce((a, q) => a.concat(q.payments.map(y =>
           parseInt(String(y.reqNo || "").split("-")[2], 10)).filter(n => !isNaN(n))), []);
@@ -3140,7 +3540,7 @@
         x.amount = amt; x.due = isoToTH(eff); x.status = "REQUESTED";
         x.reqBy = ROLES[role].person; x.reqRole = role; x.reqAt = "วันนี้";
         x.reqTo = PAY_APPROVER;   // ทุกยอดผ่านผู้จัดการ ไม่มีเกณฑ์วงเงิน
-        x.reqDocs = reqDocs(t.p);
+        x.reqDocs = reqDocs(t.p, x);
         x.stampOn = stamp && dc ? dc.n : "";
         x.reqSt = "PENDING"; x.rejWhy = ""; x.rejBy = ""; x.apvAt = "";
         x.effNote = txt;
@@ -3156,7 +3556,11 @@
           t.p.no + " " + t.p.sup + " — " + baht(amt) + " มีผล " + isoToTH(eff) +
           " · ขอโดย " + ROLES[role].person + " · เอกสารแนบ " + x.reqDocs.length + " ใบ");
         payReqOpen = null; modals();
-        advance(t.p, "ส่งมอบเอกสารครบชุด + ขออนุมัติทำจ่าย");
+        // เดินขั้นตอนเฉพาะตอนที่จัดซื้อยิงคำขอจากขั้น "ส่งมอบเอกสาร"
+        // บัญชีตั้งเรื่องจากตารางงวดไม่ใช่การจบขั้นตอนของ PO — เดินขั้นให้จะข้ามงานคนอื่น
+        if ((st(t.p) || {}).c === "DOC_HANDOVER") advance(t.p, "ส่งมอบเอกสารครบชุด + ขออนุมัติทำจ่าย");
+        else t.p.tl.push(["วันนี้", ROLES[role].person,
+          "ตั้งเรื่องขอจ่ายงวดที่ " + x.seq + " " + baht(amt) + " ตาม " + x.billNo]);
         toast("ส่งให้" + ROLES[PAY_APPROVER].name + "อนุมัติแล้ว — ทุกยอดต้องผ่านผู้จัดการ");
         render(); return;
       }
@@ -3172,6 +3576,29 @@
       p.tl.push(["วันนี้", ROLES[role].person,
         "ถามกลับไปที่ " + (sg ? ROLES[sg.o].name : "-") + " — ขอ " + ms.join(" · ")]);
       toast("ส่งคำถามถึง " + (sg ? person(sg.o) : "-") + " ทาง Lark แล้ว พร้อมบอกว่าขาดช่องไหน");
+      render(); return;
+    }
+
+    // ปิดข้อค้างจากใบตรวจ — ต้องเขียนว่าสรุปว่าอย่างไร ไม่ใช่กดปิดเฉย ๆ
+    const qd = ev.target.closest("[data-qcdone]");
+    if (qd) {
+      const i = parseInt(qd.dataset.qcdone, 10), it = (p.qcOpen || [])[i];
+      if (!it) return;
+      const why = valOf("qc_why_" + i).trim();
+      if (!why) { toast("ต้องเขียนว่าสรุปว่าอย่างไร — ปลายทางต้องรู้ว่าจบยังไง"); return; }
+      it.st = "CLOSED"; it.closeBy = ROLES[role].person; it.closeWhy = why;
+      p.tl.push(["วันนี้", ROLES[role].person, "สรุปข้อค้างจากใบตรวจ: " + it.t + " → " + why]);
+      // ปลดล็อกงวดจ่ายเมื่อไม่เหลือข้อค้างที่ล็อกไว้ และไม่มีใบเคลมค้าง
+      if (!qcPayHold(p).length && !p.claim) {
+        let n = 0;
+        p.payments.forEach(x => { if (x.status === "BLOCKED") { x.status = "PENDING"; n++; } });
+        if (n) {
+          p.tl.push(["วันนี้", "ระบบ", "สรุปข้อค้างครบแล้ว — ปลดล็อกงวดจ่าย " + n + " งวด"]);
+          notify("AC", "info", p.no, "ปลดล็อกการจ่ายแล้ว",
+            p.no + " " + p.sup + " — ข้อค้างจากใบตรวจสรุปครบแล้ว ตั้งเรื่องขอจ่ายได้");
+        }
+      }
+      toast("บันทึกแล้ว — ขึ้นบนหน้าจอของคลังและบัญชีทันที");
       render(); return;
     }
 

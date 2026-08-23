@@ -44,7 +44,7 @@ function click(attr, data) {
 const ROLES = ["SR", "QC", "LS", "WH", "AC", "ACH", "GM"];
 const PAGES = { home: [""], po: ["ACTIVE","DONE","CANCELLED","SEARCH"], req: ["PRICE","CLAIM","ITEM"],
                 inbox: [""], admin: ["ISSUES","SAP","STAGES","DOCS","FILES","USERS"], report: [""] };
-const POS = ["PO-26-0042","PO-26-0051","CS-26-0007","PO-26-0038","PO-26-0029","PO-26-0033","PO-26-0045","PO-26-0031","PO-26-0025","PO-26-0019","PO-26-0012"];
+const POS = ["PO-26-0042","PO-26-0051","CS-26-0007","PO-26-0060","PO-26-0038","PO-26-0029","PO-26-0033","PO-26-0045","PO-26-0031","PO-26-0025","PO-26-0019","PO-26-0012"];
 
 let n = 0, bad = [];
 function check(label) {
@@ -102,6 +102,22 @@ function setFields(o) {
   formFields.py_err  = {innerHTML:"", value:""};
 }
 function type(id) { inputH({ target: formFields[id] ? Object.assign(formFields[id], {id:id}) : {id:id} }); }
+
+/* ทุกงวดต้องแนบเอกสารเรียกเก็บของงวดนั้น — ตัวช่วยกรอกฟอร์มขออนุมัติจ่ายให้ครบ */
+function prFields(o) {
+  setFields(Object.assign({pr_stamp:true, pr_pos:"BR", pr_size:"13", pr_color:"แดง",
+    pr_text:"ขออนุมัติทำจ่าย", pr_bkind:"INVOICE", pr_bno:"INV-TEST-001",
+    pr_bamt:o.pr_amt, pr_bfile:"invoice_test.pdf"}, o));
+  formFields.pr_err = {innerHTML:""}; formFields.pr_prev = {classList:{add(){},remove(){}}};
+  formFields.pr_ptl = {textContent:""}; formFields.pr_ptr = {textContent:""};
+  formFields.pr_bnamed = {textContent:""};
+}
+// ตั้งเรื่องขอจ่ายจากตารางงวด (บัญชี) — ตอนนี้ต้องผ่านฟอร์มเดียวกับที่จัดซื้อใช้
+function reqPay(seq, o) {
+  click("data-payact", { payact: "req", seq: String(seq) });
+  prFields(o || {});
+  click("data-pract", { pract: "send" });
+}
 
 click("data-role", { role: "AC" });
 click("data-po", { po: "PO-26-0042" });
@@ -161,7 +177,8 @@ if (!new RegExp(today().split("-").reverse().join("/")).test(d)) bad.push("ไ�
 /* ---------- payment: สายอนุมัติ ---------- */
 click("data-po", { po: "PO-26-0033" });
 if (!/ตั้งเรื่องขอจ่าย<\/button>/.test(nodes["#main"].innerHTML)) bad.push("ไม่มีปุ่มตั้งเรื่องขอจ่าย");
-click("data-payact", { payact: "req", seq: "2" });
+reqPay(2, {pr_amt:155000, pr_eff:today(), pr_bno:"INV-OB-2607", pr_bamt:155000});
+click("data-po", { po: "PO-26-0033" });
 if (!/รออนุมัติจ่าย/.test(nodes["#main"].innerHTML)) bad.push("ตั้งเรื่องแล้วสถานะไม่เป็น REQUESTED");
 if (/อนุมัติจ่าย<\/button>/.test(nodes["#main"].innerHTML)) bad.push("บัญชีอนุมัติคำขอของตัวเองได้ (ผิดหลักแยกหน้าที่)");
 click("data-role", { role: "ACH" });
@@ -268,14 +285,20 @@ if (!/บันทึกผลตรวจไม่ผ่าน/.test(nodes["#mo
 // ต้องอ้างเลขที่ใบตรวจจากแอป Incoming Inspection ที่ QC ใช้อยู่แล้ว
 if (!/Incoming Inspection/.test(nodes["#modal"].innerHTML))
   bad.push("ป๊อปอัป QC ไม่ได้บอกว่าให้ตรวจในแอปเดิมแล้วเอาเลขใบตรวจมากรอก");
-setFields({up_file:"qc_fail.pdf", up_note:"เปลือกมีจุดดำเกินเกณฑ์", up_none:false,
-           hf_qcRef:"", hf_temp:"-12.4", hf_qtyOk:"460 KG", hf_qtyBad:"40 KG"});
+// ช่องของใบตรวจฝั่งอาหาร — ล็อต วันหมดอายุ เกรด ต้องมี (ฝั่งเครื่องจักรไม่มีช่องพวกนี้)
+if (!/เกรดที่ QC ให้/.test(nodes["#modal"].innerHTML))
+  bad.push("ป๊อปอัป QC ฝั่งอาหารไม่มีช่องเกรดตามใบตรวจจริง");
+const qcOK = {up_file:"qc_fail.pdf", up_note:"เปลือกมีจุดดำเกินเกณฑ์", up_none:false,
+  hf_qcRef:"F-2026060", hf_qcPoRef:"PO-F126050020", hf_qcDate:"2026-08-01",
+  hf_qcPlace:"ห้องเย็นรักษ์ชัย II", hf_invQty:"500 KG", hf_qtyOk:"460 KG",
+  hf_qcResult:"ไม่ผ่าน (Fail)", hf_qtyBad:"40 KG", hf_temp:"-12.4",
+  hf_lot:"126005800", hf_expDate:"07-2028", hf_grade:"C", qo_block:"", qo_note:""};
+setFields(Object.assign({}, qcOK, {hf_qcRef:""}));
 formFields.up_err = {innerHTML:""}; formFields.up_named = {textContent:""};
 click("data-uact", { uact: "save" });
 if (!/เลขที่ใบตรวจ/.test(formFields.up_err.innerHTML))
   bad.push("บันทึกผลตรวจได้โดยไม่ต้องอ้างเลขที่ใบตรวจจากแอป QC");
-setFields({up_file:"qc_fail.pdf", up_note:"เปลือกมีจุดดำเกินเกณฑ์", up_none:false,
-           hf_qcRef:"IIF-26-0201", hf_temp:"-12.4", hf_qtyOk:"460 KG", hf_qtyBad:"40 KG"});
+setFields(qcOK);
 formFields.up_err = {innerHTML:""}; formFields.up_named = {textContent:""};
 click("data-uact", { uact: "save" });
 d = nodes["#main"].innerHTML;
@@ -504,27 +527,35 @@ click("data-pract", { pract: "send" });
 if (!/S1/.test(formFields.pr_err.innerHTML)) bad.push("ส่งขอทำจ่ายได้โดยไม่ใส่ยอดเงิน (S1)");
 
 // Effective date ย้อนหลัง → บล็อก
-setFields({pr_amt:122500, pr_eff:"2020-01-01", pr_stamp:true, pr_doc:"INVOICE", pr_pos:"BR",
-           pr_size:"13", pr_color:"แดง", pr_text:"ขออนุมัติทำจ่าย"});
-formFields.pr_err = {innerHTML:""}; formFields.pr_prev = {classList:{add(){},remove(){}}};
-formFields.pr_ptl = {textContent:""}; formFields.pr_ptr = {textContent:""};
+prFields({pr_amt:122500, pr_eff:"2020-01-01", pr_bamt:122500});
 click("data-pract", { pract: "send" });
 if (!/S4/.test(formFields.pr_err.innerHTML)) bad.push("ส่งขอทำจ่ายด้วย Effective date ย้อนหลังได้ (S4)");
 
 // ยอดเกินยอดคงเหลือ → บล็อก
-setFields({pr_amt:9999999, pr_eff:today(), pr_stamp:true, pr_doc:"INVOICE", pr_pos:"BR",
-           pr_size:"13", pr_color:"แดง", pr_text:"ขออนุมัติทำจ่าย"});
-formFields.pr_err = {innerHTML:""}; formFields.pr_prev = {classList:{add(){},remove(){}}};
-formFields.pr_ptl = {textContent:""}; formFields.pr_ptr = {textContent:""};
+prFields({pr_amt:9999999, pr_eff:today(), pr_bamt:9999999});
 click("data-pract", { pract: "send" });
 if (!/S2/.test(formFields.pr_err.innerHTML)) bad.push("ขอจ่ายเกินยอดคงเหลือของ PO ได้ (S2)");
 
+// ไม่แนบเอกสารเรียกเก็บของงวดนี้ → บล็อก (ผู้อนุมัติต้องมีใบให้ดู)
+prFields({pr_amt:122500, pr_eff:today(), pr_bamt:122500, pr_bfile:""});
+click("data-pract", { pract: "send" });
+if (!/S9/.test(formFields.pr_err.innerHTML)) bad.push("ส่งขอจ่ายได้โดยไม่แนบเอกสารเรียกเก็บของงวด (S9)");
+
+// ไม่ใส่เลขเอกสารเรียกเก็บ → บล็อก
+prFields({pr_amt:122500, pr_eff:today(), pr_bamt:122500, pr_bno:""});
+click("data-pract", { pract: "send" });
+if (!/S8/.test(formFields.pr_err.innerHTML)) bad.push("ส่งขอจ่ายได้โดยไม่ระบุเลขเอกสารเรียกเก็บ (S8)");
+
+// ขอจ่ายเกินยอดในใบเรียกเก็บ → บล็อก
+prFields({pr_amt:122500, pr_eff:today(), pr_bamt:50000});
+click("data-pract", { pract: "send" });
+if (!/S11/.test(formFields.pr_err.innerHTML)) bad.push("ขอจ่ายเกินยอดในเอกสารเรียกเก็บได้ (S11)");
+
 // ครบ → ส่งได้ งวดต้องเป็นรออนุมัติ และวันครบกำหนดต้องเป็น Effective date ที่ระบุ
 const eff = "2026-12-15";
-setFields({pr_amt:122500, pr_eff:eff, pr_stamp:true, pr_doc:"INVOICE", pr_pos:"BR",
-           pr_size:"16", pr_color:"แดง", pr_text:"ขออนุมัติทำจ่าย PO-26-0045\nยอด 122,500"});
-formFields.pr_err = {innerHTML:""}; formFields.pr_prev = {classList:{add(){},remove(){}}};
-formFields.pr_ptl = {textContent:""}; formFields.pr_ptr = {textContent:""};
+prFields({pr_amt:122500, pr_eff:eff, pr_size:"16", pr_bkind:"INVOICE",
+          pr_bno:"INV-ABC-0804", pr_bamt:122500, pr_bfile:"invoice_ABC_0804.pdf",
+          pr_text:"ขออนุมัติทำจ่าย PO-26-0045\nยอด 122,500"});
 click("data-pract", { pract: "send" });
 click("data-po", { po: "PO-26-0045" });
 d = nodes["#main"].innerHTML;
@@ -627,7 +658,9 @@ if (!/เกณฑ์ตรวจรับ/.test(d)) bad.push("QC ไม่เ�
 click("data-role", { role: "WH" });
 click("data-po", { po: "PO-26-0038" });   // stage 11 = รับเข้าคลัง
 d = nodes["#main"].innerHTML;
-if (!/จำนวนที่ตรวจแล้วรับได้/.test(d)) bad.push("คลังไม่เห็นจำนวนที่ QC รับได้");
+if (!/จำนวนที่ตรวจนับได้จริง/.test(d)) bad.push("คลังไม่เห็นจำนวนที่ QC รับได้");
+if (!/F-2026041/.test(d)) bad.push("คลังไม่เห็นเลขที่ใบตรวจที่จะใช้อ้างอิง");
+if (!/ห้องเย็นรักษ์ชัย/.test(d)) bad.push("คลังไม่เห็นว่าของอยู่ที่ไหน — ต้องไปรับที่ห้องเย็นผู้ให้บริการ");
 if (!/-18\.5/.test(d)) bad.push("คลังไม่เห็นอุณหภูมิที่ QC วัดได้");
 
 // 4) บัญชีต้องเห็นทั้งจำนวนที่ QC รับและจำนวนที่คลังรับเข้า ก่อนตั้งหนี้
@@ -775,31 +808,99 @@ d = nodes["#main"].innerHTML;
 if (!/หัวหน้าบัญชี/.test(d)) bad.push("ไม่มีบทบาทหัวหน้าบัญชีแยกจากบัญชี");
 if (!/คุณอารีย์/.test(d)) bad.push("บทบาทหัวหน้าบัญชีไม่มีผู้ใช้");
 
-// บัญชี (ผู้บันทึกจ่าย) ต้องไม่มีสิทธิ์อนุมัติคำขอที่ส่งถึงหัวหน้าบัญชี
-click("data-role", { role: "AC" });
-click("data-po", { po: "PO-26-0033" });
-click("data-payact", { payact: "req", seq: "2" });
+/* ================= ใบตรวจ Food กับ Mech ใช้ช่องคนละชุด ================= */
+click("data-role", { role: "QC" });
+click("data-po", { po: "PO-26-0060" });      // สายเครื่องจักร stage 10 = QC ตรวจรับ
 d = nodes["#main"].innerHTML;
-if (/data-payact="apv"/.test(d)) bad.push("บัญชีอนุมัติคำขอของตัวเองได้ — ผิดหลักแยกหน้าที่");
-click("data-role", { role: "ACH" });
-click("data-po", { po: "PO-26-0033" });
-if (!/อนุมัติจ่าย/.test(nodes["#main"].innerHTML))
-  bad.push("หัวหน้าบัญชีไม่เห็นปุ่มอนุมัติคำขอที่ส่งถึงตัวเอง");
-click("data-payact", { payact: "apv", seq: "2" });
-if (!/อนุมัติแล้ว รอทำจ่าย/.test(nodes["#main"].innerHTML))
-  bad.push("หัวหน้าบัญชีอนุมัติแล้วสถานะไม่เปลี่ยน");
+if (!/เครื่องจักร/.test(d)) bad.push("หัวเอกสารไม่บอกว่าเป็นสายสินค้าไหน");
+click("data-act", { act: "qcpass" });
+d = nodes["#modal"].innerHTML;
+if (/อุณหภูมิที่วัดได้/.test(d)) bad.push("บังคับให้ฝั่งเครื่องจักรกรอกอุณหภูมิ — ใบตรวจ Mech ไม่มีช่องนี้");
+if (/เลขล็อต/.test(d)) bad.push("บังคับให้ฝั่งเครื่องจักรกรอกเลขล็อต — ใบตรวจ Mech ไม่มีช่องนี้");
+if (!/สภาพตู้/.test(d)) bad.push("ใบตรวจฝั่งเครื่องจักรไม่มีช่องสภาพตู้/หีบห่อ");
+if (!/ข้อบกพร่องที่ยังไม่สรุป/.test(d)) bad.push("ป๊อปอัป QC ไม่มีที่บันทึกข้อค้างท้ายใบตรวจ");
+setFields({up_file:"M-2026097.pdf", up_note:"", up_none:false,
+  hf_qcRef:"M-2026097", hf_qcPoRef:"M-RC26200090", hf_qcDate:"2026-08-21",
+  hf_qcPlace:"CHOD", hf_invQty:"1 SET", hf_qtyOk:"1 SET", hf_qcResult:"ผ่าน (Pass)",
+  hf_qtyBad:"", hf_conCond:"ผ่าน (Pass)", qo_block:"", qo_note:""});
+formFields.up_err = {innerHTML:""}; formFields.up_named = {textContent:""};
+click("data-uact", { uact: "save" });
+click("data-role", { role: "WH" });
+click("data-po", { po: "PO-26-0060" });
+d = nodes["#main"].innerHTML;
+if (!/M-2026097/.test(d)) bad.push("คลังไม่เห็นเลขที่ใบตรวจฝั่งเครื่องจักร");
+// เลข PO Ref บนใบตรวจ Mech เป็นเลขรับของ ไม่ตรงกับเลข PO ในระบบ → ต้องเตือน ไม่ใช่ปล่อยผ่าน
+click("data-role", { role: "AC" });
+click("data-po", { po: "PO-26-0060" });
+if (!/PO Ref บนใบตรวจคือ/.test(nodes["#main"].innerHTML))
+  bad.push("เลข PO Ref บนใบตรวจไม่ตรงกับรายการแต่ระบบไม่เตือน");
 
-// ยอดเล็กก็ต้องผ่านผู้จัดการเหมือนกัน — ไม่มียอดไหนข้ามได้
+/* ================= เอกสารเรียกเก็บรายงวด: รอบ 1 กับ รอบ 2 คนละใบ =================
+   PO-26-0060 (สายเครื่องจักร) งวด 1 จ่ายด้วย PI ไปแล้ว · งวด 2 รอตั้งเรื่องด้วยใบแจ้งหนี้ */
+click("data-role", { role: "AC" });
+click("data-po", { po: "PO-26-0060" });
+d = nodes["#main"].innerHTML;
+if (!/PI-SG-2608/.test(d)) bad.push("ตารางงวดไม่แสดงเอกสารเรียกเก็บของงวดที่ 1");
+if (!/ยังไม่แนบ/.test(d)) bad.push("งวดที่ยังไม่มีเอกสารเรียกเก็บไม่ถูกทำเครื่องหมายไว้");
+
+click("data-payact", { payact: "req", seq: "2" });
+d = nodes["#modal"].innerHTML;
+if (!/prtabs/.test(d)) bad.push("ป๊อปอัปขอจ่ายไม่มีแถบให้สลับดูแต่ละงวด");
+if (!/งวดที่ 1/.test(d) || !/งวดที่ 2/.test(d)) bad.push("แถบงวดไม่ครบทุกงวดของ PO");
+if (!/เอกสารเรียกเก็บของงวดที่ 2/.test(d)) bad.push("ป๊อปอัปไม่ได้บังคับเอกสารเรียกเก็บของงวดนี้");
+if (!/Proforma Invoice/.test(d) || !/Invoice\)/.test(d))
+  bad.push("ไม่มีตัวเลือกประเภทเอกสารเรียกเก็บ (PI / ใบแจ้งหนี้)");
+
+// สลับไปดูงวดที่ 1 ที่จ่ายไปแล้ว — ต้องเห็นว่าใช้ใบไหน แต่แก้ไม่ได้
+click("data-pract", { pract: "tab", prseq: "1" });
+d = nodes["#modal"].innerHTML;
+if (!/PI-SG-2608/.test(d)) bad.push("ดูงวดที่จ่ายแล้วไม่เห็นเอกสารเรียกเก็บที่ใช้ตอนนั้น");
+if (!/ดูได้อย่างเดียว/.test(d)) bad.push("งวดที่จ่ายแล้วยังแก้เอกสารเรียกเก็บได้");
+if (/data-pract="send"/.test(d)) bad.push("งวดที่จ่ายแล้วยังมีปุ่มส่งขออนุมัติ");
+
+// กลับมางวดที่ 2 แล้วใช้เลขใบเดียวกับงวดที่ 1 จนยอดรวมเกินใบ → ต้องบล็อก (กันจ่ายซ้ำ)
+click("data-pract", { pract: "tab", prseq: "2" });
+prFields({pr_amt:59000, pr_eff:today(), pr_bkind:"DEPOSIT", pr_bno:"PI-SG-2608",
+          pr_bamt:59000, pr_bfile:"PI_Sungrow_2608.pdf"});
+click("data-pract", { pract: "send" });
+if (!/S12/.test(formFields.pr_err.innerHTML))
+  bad.push("ใช้ใบเรียกเก็บใบเดิมขอจ่ายซ้ำอีกงวดได้ (S12)");
+click("data-pract", { pract: "close" });
+
+click("data-role", { role: "AC" });
+/* PO-26-0038: ใบตรวจ "ผ่าน" แต่ท้ายใบยังเขียนว่ารอสรุป → ต้องล็อกจ่ายไว้ก่อน
+   แล้วปลดล็อกเองเมื่อจัดซื้อบันทึกว่าสรุปกับผู้ขายจบแล้ว */
+click("data-po", { po: "PO-26-0038" });
+d = nodes["#main"].innerHTML;
+if (!/ข้อค้างจากใบตรวจ/.test(d)) bad.push("บัญชีไม่เห็นข้อค้างท้ายใบตรวจ");
+if (!/ล็อกการจ่ายไว้/.test(d)) bad.push("ใบตรวจผ่านแต่มีข้อค้าง — ไม่ได้ล็อกการจ่าย");
+if (/data-payact="req"/.test(d)) bad.push("มีข้อค้างค้างอยู่แต่ยังตั้งเรื่องขอจ่ายได้");
+
+click("data-role", { role: "SR" });
+click("data-po", { po: "PO-26-0038" });
+if (!/data-qcdone="0"/.test(nodes["#main"].innerHTML))
+  bad.push("จัดซื้อไม่มีปุ่มบันทึกว่าสรุปข้อค้างแล้ว");
+setFields({qc_why_0:"", qc_why_1:""});
+click("data-qcdone", { qcdone: "0" });
+if (!/ต้องเขียนว่าสรุปว่าอย่างไร/.test(nodes["#toast"].textContent))
+  bad.push("ปิดข้อค้างได้โดยไม่ต้องเขียนว่าสรุปว่าอย่างไร");
+setFields({qc_why_0:"ผู้ขายยอมเปลี่ยนกล่องให้ในล็อตถัดไป ไม่ลดราคาล็อตนี้", qc_why_1:"ให้ฝ่ายขายตั้งราคาตามขนาดกล่อง"});
+click("data-qcdone", { qcdone: "0" });
+click("data-po", { po: "PO-26-0038" });
+d = nodes["#main"].innerHTML;
+if (!/สรุปแล้ว/.test(d)) bad.push("บันทึกสรุปข้อค้างแล้วแต่สถานะไม่เปลี่ยน");
+if (!/ผู้ขายยอมเปลี่ยนกล่อง/.test(d)) bad.push("ไม่แสดงว่าสรุปว่าอย่างไร ปลายทางยังไม่รู้เรื่อง");
+if (/งวดนี้ถูกล็อกเพราะ/.test(d)) bad.push("สรุปข้อที่ล็อกจ่ายแล้วแต่ยังล็อกอยู่");
+
+// ปลดล็อกแล้วต้องตั้งเรื่องได้ แต่ยังต้องติดเรื่องเอกสารที่ยังมาไม่ครบ (ยังไม่ถึงขั้นรับใบแจ้งหนี้)
 click("data-role", { role: "AC" });
 click("data-po", { po: "PO-26-0038" });
-click("data-payact", { payact: "req", seq: "1" });
-d = nodes["#main"].innerHTML;
-if (!/รออนุมัติจ่าย/.test(d)) bad.push("ตั้งเรื่องขอจ่ายจากฝั่งบัญชีแล้วสถานะไม่เปลี่ยน");
-if (/data-payact="apv"/.test(d)) bad.push("บัญชีอนุมัติคำขอที่ตัวเองตั้งได้");
-click("data-role", { role: "ACH" });
-click("data-po", { po: "PO-26-0038" });
-if (!/data-payact="apv"/.test(nodes["#main"].innerHTML))
-  bad.push("คำขอจากฝั่งบัญชีไม่ไปถึงผู้จัดการฝ่ายบัญชี");
+if (!/data-payact="req"/.test(nodes["#main"].innerHTML))
+  bad.push("สรุปข้อค้างครบแล้วแต่ยังตั้งเรื่องขอจ่ายไม่ได้");
+reqPay(1, {pr_amt:196000, pr_eff:today(), pr_bno:"INV-SM-2807", pr_bamt:196000});
+if (!/S6/.test(formFields.pr_err.innerHTML))
+  bad.push("ขอจ่ายได้ทั้งที่เอกสารยังมาไม่ครบ (S6)");
+click("data-pract", { pract: "close" });
 
 // ผู้บันทึกจ่ายต้องไม่ใช่ผู้อนุมัติคนเดียวกัน (P13)
 click("data-role", { role: "ACH" });
@@ -821,6 +922,7 @@ if (!/Incoming Inspection/.test(d)) bad.push("หน้าตั้งค่า�
 if (!/ไม่ทำฟอร์มตรวจรับซ้ำ/.test(d)) bad.push("ไม่ได้ระบุว่าระบบนี้จะไม่สร้างฟอร์มตรวจซ้ำ");
 if (!/Mech/.test(d)) bad.push("ไม่ได้ครอบคลุมสายงาน Mech");
 
-console.log("เรนเดอร์ทั้งหมด " + n + " ครั้ง + จ่าย + ใช้งานง่าย/SAP + ขอราคา→PO + เงินสด/ไดรฟ์กลาง/รวมไฟล์/ป๊อปอัป");
+console.log("เรนเดอร์ทั้งหมด " + n + " ครั้ง + จ่าย + ใช้งานง่าย/SAP + ขอราคา→PO + เงินสด/ไดรฟ์กลาง/รวมไฟล์/ป๊อปอัป\n" +
+  "  + ใบตรวจ Food/Mech คนละชุด + ข้อค้างท้ายใบตรวจล็อกจ่าย + เอกสารเรียกเก็บรายงวด");
 if (bad.length) { console.log("พบปัญหา " + bad.length + ":"); bad.slice(0, 30).forEach(b => console.log("  - " + b)); process.exit(1); }
 console.log("ผ่านทั้งหมด");
