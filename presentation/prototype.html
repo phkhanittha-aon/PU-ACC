@@ -362,6 +362,50 @@
   .prev .sheet:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
   .prev.off{opacity:.45}
 
+  /* ตัวอย่างเอกสารจริง + บล็อกข้อความที่ลากวางได้
+     ตำแหน่งเก็บเป็น 0–100 ของ "พื้นที่ว่าง" แล้วใช้ left:X% คู่กับ translateX(-X%)
+     ทำให้ 0 = ชิดซ้าย · 50 = กึ่งกลาง · 100 = ชิดขวา โดยไม่ต้องวัดขนาดกล่องตอนวาด */
+  .docprev{border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface-2);
+    overflow:hidden}
+  .docprev.off{opacity:.4;filter:grayscale(1)}
+  .docprev .pt{background:var(--surface);border-bottom:1px solid var(--line);padding:6px 11px;font-size:11px;
+    font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);
+    display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .docprev .stage{padding:16px;display:flex;justify-content:center}
+  .page{position:relative;width:100%;max-width:340px;aspect-ratio:1/1.414;background:#fff;color:#1a1a1a;
+    box-shadow:var(--sh-2);border-radius:2px;padding:16px 15px;font-size:7px;line-height:1.6;
+    touch-action:none;user-select:none;overflow:hidden}
+  /* หน้ากระดาษเป็นสีขาวเสมอทั้งโหมดสว่างและมืด — เพราะเอกสารจริงที่จะพิมพ์ออกมาก็เป็นกระดาษขาว */
+  .page .ph{display:flex;gap:8px;align-items:flex-start;border-bottom:1.5px solid #1a1a1a;padding-bottom:7px}
+  .page .lg{width:22px;height:22px;border-radius:50%;background:#b8952f;color:#fff;display:flex;
+    align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:0 0 auto}
+  .page .ti{flex:1}
+  .page .ti b{display:block;font-size:10px;letter-spacing:.04em}
+  .page .ti span{color:#666}
+  .page .mt{text-align:right;color:#444;white-space:nowrap}
+  .page .rows{margin-top:9px}
+  .page .r{display:flex;justify-content:space-between;gap:6px;padding:3.5px 0;border-bottom:1px solid #e6e6e6}
+  .page .r i{font-style:normal;color:#555}
+  .page .bar{height:4px;background:#ededed;border-radius:2px;margin:3px 0}
+  .page .bar.s{width:62%} .page .bar.m{width:84%}
+  .page .tot{margin-top:9px;display:flex;justify-content:space-between;font-weight:700;font-size:9px;
+    border-top:1.5px solid #1a1a1a;padding-top:6px}
+  .page .sign{position:absolute;left:15px;bottom:14px;right:15px;display:flex;justify-content:space-between;
+    color:#999;font-size:6px}
+  /* width:max-content จำเป็น — กล่อง absolute ที่ left ใกล้ขอบขวาจะถูกบีบให้แคบตามที่เหลือ
+     ทำให้ข้อความตกบรรทัดทีละ 2–3 ตัวอักษร · max-width คิดจากความกว้างหน้ากระดาษ ไม่ใช่ที่เหลือ */
+  .stampbox{position:absolute;cursor:grab;touch-action:none;white-space:pre-wrap;line-height:1.5;padding:4px 6px;
+    border:1px dashed transparent;border-radius:3px;width:max-content;max-width:58%;
+    transition:border-color 120ms}
+  .stampbox:hover{border-color:rgba(0,0,0,.28)}
+  .stampbox.grab{cursor:grabbing;border-color:var(--gold);background:rgba(184,149,47,.09)}
+  .stampbox .gr{position:absolute;top:-9px;left:-1px;font-size:6px;letter-spacing:.05em;color:var(--gold);
+    opacity:0;transition:opacity 120ms;font-family:var(--mono)}
+  .stampbox:hover .gr,.stampbox.grab .gr{opacity:1}
+  .docprev .fb{border-top:1px solid var(--line);background:var(--surface);padding:7px 11px;font-size:11.5px;
+    color:var(--ink-2);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .docprev .fb b{font-family:var(--mono);color:var(--ink)}
+
   /* กล่องชุดเอกสารรวม */
   .bundle{border:1px solid var(--go);background:var(--go-bg);border-radius:var(--r-md);padding:12px 16px;
     margin-bottom:16px;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;color:var(--go);font-size:13px}
@@ -1742,7 +1786,9 @@
         '<div class="ck no"><span class="m">✕</span><span>ไม่มีเอกสารเรียกเก็บผูกกับงวดนี้ — ไม่ควรอนุมัติ</span></div>';
 
     if (x.effNote)
-      h += '<div class="sec">ข้อความที่ผู้ขอประทับลงบน' + esc(x.stampOn || "เอกสารที่แนบ") + "</div>" +
+      h += '<div class="sec">ข้อความที่ผู้ขอประทับลงบน' + esc(x.stampOn || "เอกสารที่แนบ") +
+        (x.stampPos ? " · ตำแหน่ง " + Math.round(x.stampPos.x) + "/" + Math.round(x.stampPos.y) +
+          " ที่ผู้ขอวางเอง" : "") + "</div>" +
         '<div class="stamp">' + esc(x.effNote) + "</div>";
 
     h += '<div class="sec">เอกสารประกอบ ' + docs.length + " ใบ — ระบบแนบให้จากไดรฟ์กลาง</div>";
@@ -3002,6 +3048,91 @@
       "ผู้ขอ " + (ROLES[role] ? ROLES[role].person : "-");
   }
 
+  /* ============ ตัวอย่างเอกสาร + บล็อกข้อความที่ลากวางได้ ============
+     ของเดิมเป็นแค่กล่องข้อความ ผู้ขอจึงไม่เห็นว่าข้อความจะไปทับตารางยอดเงินหรือลายเซ็นหรือเปล่า
+     ตอนนี้วาดหน้าเอกสารจำลองจากข้อมูลที่กรอกจริง แล้วลากบล็อกไปวางได้ทั้งหน้า
+     prPos เก็บเป็น 0–100 ของพื้นที่ว่าง (0 = ชิดซ้าย/บน · 50 = กึ่งกลาง · 100 = ชิดขวา/ล่าง) */
+  const PR_PRESET = {TL:{x:4, y:6}, TR:{x:96, y:6}, BR:{x:96, y:88}, CT:{x:50, y:50}};
+  let prPos = null, prDrag = null;
+  const prPosNow = () => prPos || PR_PRESET.BR;
+  const PR_SIZE = {"11":6.5, "13":7.5, "16":9};
+  const PR_INK  = {"ดำ":"#1a1a1a", "แดง":"#b3231f", "เทาจาง":"rgba(26,26,26,.32)"};
+
+  function docPreview(p, x, init) {
+    // รับค่าที่กำลังจะถูกวาดลงช่องกรอกมาตรง ๆ — อ่านจาก DOM ตอนนี้จะได้ค่าของงวดก่อนหน้าที่ยังไม่ถูกแทน
+    const pos = prPosNow(), kind = init.kind;
+    const bno = init.bno || "—";
+    const bamt = init.bamt || x.amount;
+    const size = "13", ink = "แดง";
+    const dn = BILLDOC[kind].n;
+    return '<div class="docprev" id="pr_prev">' +
+      '<div class="pt"><span id="pr_ptl">ตัวอย่าง</span><span id="pr_ptr">—</span></div>' +
+      '<div class="stage"><div class="page" id="pr_page">' +
+        '<div class="ph"><div class="lg">M</div>' +
+          '<div class="ti"><b id="pr_pgtitle">' + esc(dn.split(" /")[0].toUpperCase()) + "</b>" +
+            "<span>" + esc(p.sup) + "</span></div>" +
+          '<div class="mt">เลขที่ <span id="pr_pgno">' + esc(bno) + "</span><br>" +
+            '<span id="pr_pgdue">' + esc(x.due || "—") + "</span></div></div>" +
+        '<div class="rows">' +
+          '<div class="r"><i>' + esc(p.item) + "</i><span>" + esc(p.qty) + "</span></div>" +
+          '<div class="r"><i>งวดที่ ' + x.seq + " · " + esc(x.type) + "</i><span>" +
+            baht(x.amount) + "</span></div>" +
+          '<div class="bar m"></div><div class="bar s"></div><div class="bar m"></div>' +
+          '<div class="bar s"></div>' +
+        "</div>" +
+        '<div class="tot"><span>รวมทั้งสิ้น</span><span id="pr_pgtot">' + baht(bamt) + "</span></div>" +
+        '<div class="rows" style="margin-top:10px">' +
+          '<div class="r"><i>หมายเหตุ</i><span></span></div>' +
+          '<div class="bar m"></div><div class="bar s"></div>' +
+        "</div>" +
+        '<div class="sign"><span>ผู้วางบิล ____________</span><span>ผู้รับวางบิล ____________</span></div>' +
+        '<div class="stampbox" id="pr_stampbox" style="left:' + pos.x + "%;top:" + pos.y +
+          "%;transform:translate(" + (-pos.x) + "%," + (-pos.y) + "%);font-size:" +
+          (PR_SIZE[size] || 7.5) + "px;color:" + PR_INK[ink] + '">' +
+          '<span class="gr">ลากได้</span><span id="pr_stamptext">' +
+          esc(valOf("pr_text") || prText()) + "</span></div>" +
+      "</div></div>" +
+      '<div class="fb"><span>ลากบล็อกข้อความไปวางตรงไหนของเอกสารก็ได้ — ระบบจำตำแหน่งไว้ใช้ตอนประทับจริง</span>' +
+        '<span>ตำแหน่ง <b id="pr_posn">' + Math.round(pos.x) + " / " + Math.round(pos.y) +
+        "</b></span></div></div>";
+  }
+
+  // ผูกการลากหลังจากวาดป๊อปอัปแล้ว — ข้ามไปเงียบ ๆ ถ้าอยู่ในชุดทดสอบที่ไม่มี DOM จริง
+  function wirePrDrag() {
+    const box = document.getElementById("pr_stampbox");
+    const page = document.getElementById("pr_page");
+    if (!box || !page || !box.addEventListener || !page.getBoundingClientRect) return;
+    const snap = v => [0, 50, 100].reduce((a, s) => Math.abs(v - s) < 4 ? s : a, v);
+    box.addEventListener("pointerdown", ev => {
+      const pr = page.getBoundingClientRect(), br = box.getBoundingClientRect();
+      // พื้นที่ว่าง = ขนาดหน้ากระดาษลบขนาดกล่อง · ถ้ากล่องเต็มหน้าก็ลากไม่ได้
+      prDrag = {px:ev.clientX, py:ev.clientY, x:prPosNow().x, y:prPosNow().y,
+                fw:Math.max(1, pr.width - br.width), fh:Math.max(1, pr.height - br.height)};
+      box.classList.add("grab");
+      if (box.setPointerCapture) box.setPointerCapture(ev.pointerId);
+      ev.preventDefault();
+    });
+    box.addEventListener("pointermove", ev => {
+      if (!prDrag) return;
+      const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+      const nx = snap(cl(prDrag.x + (ev.clientX - prDrag.px) / prDrag.fw * 100, 0, 100));
+      const ny = snap(cl(prDrag.y + (ev.clientY - prDrag.py) / prDrag.fh * 100, 0, 100));
+      prPos = {x:nx, y:ny};
+      box.style.left = nx + "%"; box.style.top = ny + "%";
+      box.style.transform = "translate(" + (-nx) + "%," + (-ny) + "%)";
+      const pn = document.getElementById("pr_posn");
+      if (pn) pn.textContent = Math.round(nx) + " / " + Math.round(ny);
+      // ลากเองแล้ว = ไม่ตรงกับตัวเลือกสำเร็จรูปอีกต่อไป
+      const sel = document.getElementById("pr_pos");
+      if (sel && !Object.keys(PR_PRESET).some(k => PR_PRESET[k].x === nx && PR_PRESET[k].y === ny))
+        sel.value = "FREE";
+    });
+    // วางแล้วให้แถบบนหัวตัวอย่างอัปเดตตาม (จาก "มุมขวาล่าง" เป็น "ตำแหน่งที่ลากวางเอง")
+    const drop = () => { if (!prDrag) return; prDrag = null; box.classList.remove("grab"); prCalc(); };
+    box.addEventListener("pointerup", drop);
+    box.addEventListener("pointercancel", drop);
+  }
+
   function payReqModal() {
     const el = $("#modal");
     const t = prTarget();
@@ -3038,6 +3169,10 @@
       return;
     }
     const files = Object.keys(p.files).filter(k => k.indexOf("STEP_") !== 0 && k.indexOf("BILL_") !== 0);
+    // ค่าตั้งต้นของเอกสารเรียกเก็บงวดนี้ — ใช้ทั้งในช่องกรอกและในตัวอย่างเอกสาร ให้ตรงกันเสมอ
+    const bKind = billKind(x);
+    const bNo = x.billNo || p.hand.invNo || "";
+    const bAmt = x.billAmt != null ? x.billAmt : (p.hand.invAmt != null ? p.hand.invAmt : "");
     // ตัวเลือกแรกคือเอกสารเรียกเก็บของงวดนี้เอง — เป็นใบที่ควรถูกประทับมากที่สุด
     const docOpts = '<option value="' + esc(payDocCode(x)) + '" selected>' +
         esc(BILLDOC[billKind(x)].n) + " (งวดที่ " + x.seq + ")</option>" +
@@ -3075,9 +3210,9 @@
           (billKind(x) === k ? " selected" : "") + ">" + esc(BILLDOC[k].n) + "</option>").join("") +
         "</select>", true) +
       fld1("เลขที่เอกสารเรียกเก็บ", '<input type="text" id="pr_bno" placeholder="เช่น INV-ABC-0804" value="' +
-        esc(x.billNo || p.hand.invNo || "") + '">', true) +
+        esc(bNo) + '">', true) +
       fld1("ยอดตามเอกสารเรียกเก็บ (บาท)", '<input type="number" step="0.01" id="pr_bamt" value="' +
-        esc(x.billAmt != null ? x.billAmt : (p.hand.invAmt != null ? p.hand.invAmt : "")) + '">', true) +
+        esc(bAmt === "" ? "" : bAmt) + '">', true) +
       fld1("ไฟล์เอกสารเรียกเก็บ", '<input type="text" id="pr_bfile" placeholder="เลือกไฟล์… เช่น invoice_ABC_0804.pdf" value="' +
         esc(x.billFile ? x.billFile.orig : "") + '">', true) +
       "</div>" +
@@ -3089,16 +3224,22 @@
 
       '<div class="grid2">' +
       fld1("เอกสารที่จะประทับ", '<select id="pr_doc">' + docOpts + "</select>") +
-      fld1("ตำแหน่ง", '<select id="pr_pos"><option value="TR">มุมขวาบน</option>' +
+      fld1("ตำแหน่ง (หรือลากบนเอกสารเลย)",
+        '<select id="pr_pos"><option value="TR">มุมขวาบน</option>' +
         '<option value="TL">มุมซ้ายบน</option><option value="BR" selected>มุมขวาล่าง</option>' +
-        '<option value="CT">กลางหน้า (ลายน้ำ)</option></select>') +
+        '<option value="CT">กลางหน้า (ลายน้ำ)</option>' +
+        '<option value="FREE">กำหนดเอง (ลากแล้ว)</option></select>') +
       fld1("ขนาดตัวอักษร", '<select id="pr_size"><option value="11">เล็ก 11pt</option>' +
         '<option value="13" selected>กลาง 13pt</option><option value="16">ใหญ่ 16pt</option></select>') +
       fld1("สี", '<select id="pr_color"><option value="ดำ">ดำ</option>' +
         '<option value="แดง" selected>แดง</option><option value="เทาจาง">เทาจาง (ลายน้ำ)</option></select>') +
       "</div>" +
 
-      '<div class="fld"><span class="lbl">ตัวอย่างข้อความที่จะพิมพ์ลงเอกสาร — แก้ได้</span>' +
+      '<div class="fld"><span class="lbl">ตัวอย่างเอกสารที่จะประทับ — ' +
+        "<b>ลากบล็อกข้อความไปวางตรงไหนก็ได้</b></span>" +
+        docPreview(p, x, {kind:bKind, bno:bNo, bamt:bAmt}) + "</div>" +
+
+      '<div class="fld"><span class="lbl">ข้อความที่จะประทับ — แก้ได้</span>' +
       '<div class="prev" id="pr_prev"><div class="pt"><span id="pr_ptl">ตัวอย่าง</span>' +
         '<span id="pr_ptr">—</span></div>' +
       '<textarea class="sheet" id="pr_text">' + esc(prText()) + "</textarea></div></div>" +
@@ -3108,6 +3249,7 @@
       '<button class="btn ok" data-pract="send">ส่งให้หัวหน้าอนุมัติ</button></div></div></div>';
     prTouched = false;
     prCalc();
+    wirePrDrag();
   }
 
   function prCalc() {
@@ -3122,8 +3264,33 @@
 
     const pv = document.getElementById("pr_prev");
     if (pv && pv.classList) { if (stamp) pv.classList.remove("off"); else pv.classList.add("off"); }
+
+    // เลือกตำแหน่งสำเร็จรูป = ย้ายบล็อกไปที่นั่น · ลากเองแล้วช่องจะเป็น "กำหนดเอง" และไม่ย้ายทับ
+    const pk = valOf("pr_pos");
+    if (PR_PRESET[pk]) prPos = PR_PRESET[pk];
+    const sbox = document.getElementById("pr_stampbox");
+    if (sbox && sbox.style) {
+      const q = prPosNow();
+      sbox.style.left = q.x + "%"; sbox.style.top = q.y + "%";
+      sbox.style.transform = "translate(" + (-q.x) + "%," + (-q.y) + "%)";
+      sbox.style.fontSize = (PR_SIZE[valOf("pr_size") || "13"] || 7.5) + "px";
+      sbox.style.color = PR_INK[valOf("pr_color") || "แดง"] || PR_INK["แดง"];
+      const pn = document.getElementById("pr_posn");
+      if (pn) pn.textContent = Math.round(q.x) + " / " + Math.round(q.y);
+    }
+    const stx = document.getElementById("pr_stamptext");
+    if (stx) stx.textContent = valOf("pr_text") || prText();
+
+    // หน้ากระดาษเดินตามช่องที่กรอก — เปลี่ยนประเภท/เลขที่/ยอด แล้วเห็นผลทันที
+    const setTx = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    const bk = valOf("pr_bkind") || billKind(t.x);
+    if (BILLDOC[bk]) setTx("pr_pgtitle", BILLDOC[bk].n.split(" /")[0].toUpperCase());
+    setTx("pr_pgno", valOf("pr_bno") || "—");
+    setTx("pr_pgdue", eff ? isoToTH(eff) : (t.x.due || "—"));
+    setTx("pr_pgtot", baht(numOf("pr_bamt") || t.x.amount));
     const l = document.getElementById("pr_ptl"), r = document.getElementById("pr_ptr");
-    const POSN = {TR:"มุมขวาบน", TL:"มุมซ้ายบน", BR:"มุมขวาล่าง", CT:"กลางหน้า (ลายน้ำ)"};
+    const POSN = {TR:"มุมขวาบน", TL:"มุมซ้ายบน", BR:"มุมขวาล่าง", CT:"กลางหน้า (ลายน้ำ)",
+      FREE:"ตำแหน่งที่ลากวางเอง"};
     const bfile = valOf("pr_bfile").trim();
     const bn = document.getElementById("pr_bnamed");
     if (bn) bn.textContent = DRIVE.fileName(p, payDocCode(t.x), bfile || "invoice.pdf");
@@ -3132,7 +3299,8 @@
       : DOCS.filter(y => y.c === valOf("pr_doc"))[0];
     if (l) l.textContent = stamp ? "จะพิมพ์ลง " + (dc ? dc.n : "เอกสารที่เลือก") : "ไม่ประทับลงเอกสาร";
     if (r) r.textContent = stamp
-      ? (POSN[valOf("pr_pos")] || "—") + " · " + (valOf("pr_size") || "13") + "pt · " + (valOf("pr_color") || "แดง")
+      ? (POSN[valOf("pr_pos")] || POSN.FREE) + " · " + (valOf("pr_size") || "13") + "pt · " +
+        (valOf("pr_color") || "แดง")
       : "แนบข้อความเป็นหมายเหตุแทน";
 
     const errs = [];
@@ -3704,8 +3872,10 @@
     const pq = ev.target.closest("[data-pract]");
     if (pq) {
       const act = pq.dataset.pract;
-      if (act === "close") { payReqOpen = null; modals(); return; }
-      if (act === "tab") { payReqOpen.seq = pq.dataset.prseq; modals(); return; }
+      if (act === "close") { payReqOpen = null; prPos = null; prDrag = null; modals(); return; }
+      // สลับงวด = เริ่มวางตำแหน่งใหม่ เพราะเอกสารคนละใบกัน
+      if (act === "tab") { payReqOpen.seq = pq.dataset.prseq; prPos = null; prDrag = null;
+        modals(); return; }
       if (act === "send") {
         const t = prTarget(); if (!t || !t.x) return;
         if (prCalc().length) { toast("ส่งไม่ได้ — แก้ข้อที่ติดก่อน"); return; }
@@ -3735,20 +3905,22 @@
         x.reqTo = PAY_APPROVER;   // ทุกยอดผ่านผู้จัดการ ไม่มีเกณฑ์วงเงิน
         x.reqDocs = reqDocs(t.p, x);
         x.stampOn = stamp && dc ? dc.n : "";
+        x.stampPos = stamp ? {x:prPosNow().x, y:prPosNow().y} : null;   // ตำแหน่งที่ผู้ขอวางไว้เอง
         x.reqSt = "PENDING"; x.rejWhy = ""; x.rejBy = ""; x.apvAt = "";
         x.effNote = txt;
         t.p.tl.push(["วันนี้", ROLES[role].person,
           "ขออนุมัติทำจ่าย " + baht(amt) + " · มีผลวันที่ " + isoToTH(eff)]);
         if (stamp) t.p.tl.push(["วันนี้", "ระบบ",
           "ประทับข้อความลงบน " + (dc ? dc.n : "เอกสารที่แนบ") + " (" +
-          (valOf("pr_size") || "13") + "pt) แล้วเก็บเป็นเวอร์ชันใหม่ — ต้นฉบับยังอยู่"]);
+          (valOf("pr_size") || "13") + "pt · ตำแหน่ง " + Math.round(prPosNow().x) + "/" +
+          Math.round(prPosNow().y) + " ตามที่ผู้ขอวางไว้) แล้วเก็บเป็นเวอร์ชันใหม่ — ต้นฉบับยังอยู่"]);
         t.p.tl.push(["วันนี้", "ระบบ", "แนบเอกสารทั้งชุดจากไดรฟ์กลางไปกับคำขอ และแจ้ง " +
           esc(ROLES[PAY_APPROVER].name) + " ทาง Lark"]);
         notify(PAY_APPROVER, "act", t.p.no,
           "รออนุมัติจ่าย " + x.reqNo,
           t.p.no + " " + t.p.sup + " — " + baht(amt) + " มีผล " + isoToTH(eff) +
           " · ขอโดย " + ROLES[role].person + " · เอกสารแนบ " + x.reqDocs.length + " ใบ");
-        payReqOpen = null; modals();
+        payReqOpen = null; prPos = null; prDrag = null; modals();
         // เดินขั้นตอนเฉพาะตอนที่จัดซื้อยิงคำขอจากขั้น "ส่งมอบเอกสาร"
         // บัญชีตั้งเรื่องจากตารางงวดไม่ใช่การจบขั้นตอนของ PO — เดินขั้นให้จะข้ามงานคนอื่น
         if ((st(t.p) || {}).c === "DOC_HANDOVER") advance(t.p, "ส่งมอบเอกสารครบชุด + ขออนุมัติทำจ่าย");
@@ -3880,7 +4052,8 @@
   const QFIELDS = ["q_supplier","q_price","q_lead","q_valid"];
   const UPFIELDS = ["up_file","up_note","up_none"];
   const CSFIELDS = ["cs_sup","cs_item","cs_qty","cs_amt","cs_date","cs_from","cs_why","cs_bypass","cs_bywhy"];
-  const PRFIELDS = ["pr_amt","pr_eff","pr_stamp","pr_doc","pr_pos","pr_size","pr_color","pr_text"];
+  const PRFIELDS = ["pr_amt","pr_eff","pr_stamp","pr_doc","pr_pos","pr_size","pr_color","pr_text",
+                    "pr_bkind","pr_bno","pr_bamt","pr_bfile"];   // ช่องเอกสารเรียกเก็บก็ต้องอัปเดตตัวอย่างเอกสารด้วย
   function modalInput(id) {
     if (UPFIELDS.indexOf(id) >= 0 || String(id).indexOf("hf_") === 0) { upCalc(); return; }
     if (CSFIELDS.indexOf(id) >= 0) { cashCalc(); return; }

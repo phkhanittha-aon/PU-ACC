@@ -111,6 +111,10 @@ function prFields(o) {
   formFields.pr_err = {innerHTML:""}; formFields.pr_prev = {classList:{add(){},remove(){}}};
   formFields.pr_ptl = {textContent:""}; formFields.pr_ptr = {textContent:""};
   formFields.pr_bnamed = {textContent:""};
+  // ตัวอย่างเอกสาร: บล็อกข้อความที่ลากได้ + ตัวเลขบนหน้ากระดาษ
+  formFields.pr_stampbox = {style:{}, classList:{add(){},remove(){}}};
+  formFields.pr_stamptext = {textContent:""}; formFields.pr_posn = {textContent:""};
+  ["pr_pgtitle","pr_pgno","pr_pgdue","pr_pgtot"].forEach(k => { formFields[k] = {textContent:""}; });
 }
 // ตั้งเรื่องขอจ่ายจากตารางงวด (บัญชี) — ตอนนี้ต้องผ่านฟอร์มเดียวกับที่จัดซื้อใช้
 function reqPay(seq, o) {
@@ -551,6 +555,49 @@ prFields({pr_amt:122500, pr_eff:today(), pr_bamt:50000});
 click("data-pract", { pract: "send" });
 if (!/S11/.test(formFields.pr_err.innerHTML)) bad.push("ขอจ่ายเกินยอดในเอกสารเรียกเก็บได้ (S11)");
 
+/* ---------- ตัวอย่างเอกสาร + บล็อกข้อความที่ลากวางได้ ---------- */
+prFields({pr_amt:122500, pr_eff:today(), pr_bamt:122500, pr_bno:"INV-ABC-0804"});
+d = nodes["#modal"].innerHTML;
+if (!/pr_page/.test(d)) bad.push("หน้าขอทำจ่ายไม่มีตัวอย่างหน้าเอกสาร");
+if (!/id="pr_stampbox"/.test(d)) bad.push("ไม่มีบล็อกข้อความบนตัวอย่างเอกสาร");
+if (!/ลากได้/.test(d)) bad.push("ไม่ได้บอกผู้ใช้ว่าบล็อกข้อความลากได้");
+if (!/INV-ABC-0804/.test(d)) bad.push("ตัวอย่างเอกสารไม่ได้ใช้เลขที่เอกสารเรียกเก็บที่กรอก");
+if (!/ABC Foods/.test(d)) bad.push("ตัวอย่างเอกสารไม่ได้ใช้ชื่อผู้ขายจริง");
+if (!/กำหนดเอง/.test(d)) bad.push("ไม่มีตัวเลือกตำแหน่งแบบกำหนดเอง");
+
+// เปลี่ยนตัวเลือกตำแหน่งแล้วบล็อกต้องย้ายจริง (ไม่กดส่ง — แค่แก้ช่องแล้วดูตัวอย่าง)
+prFields({pr_amt:122500, pr_eff:today(), pr_bamt:122500, pr_bno:"INV-ABC-0804", pr_pos:"TL"});
+type("pr_pos");
+if (formFields.pr_stampbox.style.left !== "4%")
+  bad.push("เลือกมุมซ้ายบนแล้วบล็อกข้อความไม่ย้ายตาม (" + formFields.pr_stampbox.style.left + ")");
+formFields.pr_pos.value = "CT"; type("pr_pos");
+if (formFields.pr_stampbox.style.left !== "50%")
+  bad.push("เลือกกลางหน้าแล้วบล็อกข้อความไม่ไปกึ่งกลาง");
+if (!/translate\(-50%,-50%\)/.test(formFields.pr_stampbox.style.transform || ""))
+  bad.push("บล็อกกลางหน้าไม่ได้ชดเชยขนาดตัวเอง — จะเลยขอบกระดาษ");
+if (formFields.pr_posn.textContent !== "50 / 50") bad.push("ไม่แสดงตำแหน่งที่วางเป็นตัวเลข");
+
+// ขนาดและสีต้องมีผลกับบล็อกบนเอกสาร ไม่ใช่แค่ข้อความบอก
+formFields.pr_size.value = "16"; formFields.pr_color.value = "ดำ"; type("pr_size");
+if (formFields.pr_stampbox.style.fontSize !== "9px")
+  bad.push("เปลี่ยนขนาดตัวอักษรแล้วบล็อกไม่เปลี่ยน (" + formFields.pr_stampbox.style.fontSize + ")");
+if (formFields.pr_stampbox.style.color !== "#1a1a1a") bad.push("เปลี่ยนสีแล้วบล็อกไม่เปลี่ยนสี");
+
+// ข้อความที่พิมพ์ต้องขึ้นบนเอกสารทันที และหน้ากระดาษเดินตามช่องที่กรอก
+formFields.pr_text.value = "ทดสอบข้อความประทับ"; type("pr_text");
+if (formFields.pr_stamptext.textContent !== "ทดสอบข้อความประทับ")
+  bad.push("พิมพ์ข้อความแล้วไม่ขึ้นบนตัวอย่างเอกสาร");
+if (!/122,500/.test(formFields.pr_pgtot.textContent))
+  bad.push("ยอดบนหน้ากระดาษไม่เดินตามยอดที่กรอก");
+formFields.pr_bno.value = "INV-เปลี่ยนแล้ว"; type("pr_bno");
+if (formFields.pr_pgno.textContent !== "INV-เปลี่ยนแล้ว")
+  bad.push("เปลี่ยนเลขที่เอกสารเรียกเก็บแล้วหน้ากระดาษไม่เปลี่ยนตาม");
+// ไม่ประทับ = ตัวอย่างต้องหรี่ลงให้เห็นว่าไม่มีอะไรพิมพ์ลงเอกสาร
+let dim = false;
+formFields.pr_prev = {classList:{add(){ dim = true; }, remove(){ dim = false; }}};
+formFields.pr_stamp.checked = false; type("pr_stamp");
+if (!dim) bad.push("ติ๊กไม่ประทับแล้วตัวอย่างเอกสารไม่ได้บอกว่าจะไม่มีอะไรพิมพ์ลง");
+
 // ครบ → ส่งได้ งวดต้องเป็นรออนุมัติ และวันครบกำหนดต้องเป็น Effective date ที่ระบุ
 const eff = "2026-12-15";
 prFields({pr_amt:122500, pr_eff:eff, pr_size:"16", pr_bkind:"INVOICE",
@@ -574,6 +621,8 @@ click("data-po", { po: "PO-26-0045" });
 d = nodes["#main"].innerHTML;
 if (!/ใบขออนุมัติทำจ่าย/.test(d)) bad.push("คำขอจ่ายจาก SR ไม่มีใบขออนุมัติให้หัวหน้าดู");
 if (!/PRQ-26-\d{4}/.test(d)) bad.push("ใบขออนุมัติไม่มีเลขที่ให้อ้างอิง");
+if (!/ที่ผู้ขอวางเอง/.test(d))
+  bad.push("ผู้อนุมัติไม่เห็นว่าข้อความถูกประทับไว้ตำแหน่งไหนบนเอกสาร");
 if (!/ผู้ขอ/.test(d)) bad.push("ผู้อนุมัติไม่เห็นว่าใครเป็นคนขอ");
 if (!/เอกสารประกอบ/.test(d)) bad.push("ผู้อนุมัติไม่เห็นเอกสารประกอบที่แนบมากับคำขอ");
 if (!/INV-ABC-0804/.test(d)) bad.push("ใบขออนุมัติไม่โยงถึงใบแจ้งหนี้ที่บัญชีบันทึกไว้");
