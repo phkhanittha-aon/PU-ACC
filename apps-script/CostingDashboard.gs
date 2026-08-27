@@ -4,8 +4,14 @@
  * วิธีใช้ของผู้ใช้ (ทั้งหมดที่ต้องทำ)
  *   1. เอาไฟล์ Costing ใหม่ทับไฟล์เดิมในโฟลเดอร์ที่ตั้งไว้ (ชื่อไฟล์เดิม)
  *   2. เปิดสเปรดชีตนี้ แล้วกดเมนู  ตั้งเบิกทำจ่าย > อัพเดท Dashboard
+ *   3. อยากส่งเข้าระบบเอกสาร ก็กด  ตั้งเบิกทำจ่าย > ส่งรายการที่พร้อมเข้าระบบ P2P
  *
  * ไม่ต้องก๊อปวาง ไม่ต้องลบชีตเก่า ไม่ต้องแตะสูตร
+ *
+ * ชีตในไฟล์นี้
+ *   Dashboard  สร้างใหม่ทับของเดิมทุกครั้ง — ลบได้ ไม่มีอะไรหาย
+ *   Log        ประวัติการอัพเดท — ลบได้
+ *   Ledger     จดว่าแถวไหนส่งเข้าระบบเอกสารไปแล้ว — *ห้ามลบ* ลบแล้วจะตั้งเบิกซ้ำ
  *
  * กติกาการประมวลผล (ตรงกับ tools/costing-extract.py ทุกข้อ)
  *   1. อ่านชีตแรกสุดของไฟล์เท่านั้น
@@ -22,13 +28,23 @@
 var CFG = {
   SOURCE_FILE_NAME: 'Costing Mech.xlsx',   // ชื่อไฟล์ที่ผู้ใช้เอามาทับ
   SOURCE_FOLDER_ID: '',                    // ว่าง = ค้นทั้งไดรฟ์ · ใส่ id โฟลเดอร์จะเร็วและแม่นกว่า
-  SHEET_DATA:  'Dashboard',                // ชีตผลลัพธ์ (ถูกเขียนทับทุกครั้ง)
-  SHEET_LOG:   'Log',                      // ประวัติการอัพเดท
-  KEEP_LOG:    200                         // เก็บ log กี่บรรทัด
+  SHEET_DATA:   'Dashboard',               // ชีตผลลัพธ์ (ถูกเขียนทับทุกครั้ง)
+  SHEET_LOG:    'Log',                     // ประวัติการอัพเดท
+  SHEET_LEDGER: 'Ledger',                  // จดว่าแถวไหนส่งเข้า P2P ไปแล้ว — ห้ามลบ
+  KEEP_LOG:     200,                       // เก็บ log กี่บรรทัด
+  HUB_URL:      '',                        // ลิงก์ระบบเอกสาร P2P · ว่าง = ไม่ทำคอลัมน์ลิงก์
+  HUB_ENDPOINT: '',                        // ปลายทางรับงวดจ่าย · ว่าง = จดใน Ledger อย่างเดียว ไม่ยิงออก
+  HUB_KEY_PROP: 'HUB_KEY'                  // ชื่อ Script Property ที่เก็บกุญแจลับร่วม
 };
 
 var OUT_COLS  = ['PO Number', 'Supplier', 'PO Payment Term', 'Price', 'Currency',
                  'Due Date', 'Payment_Status'];
+/* ลายนิ้วมือแถว — ใช้กันส่งซ้ำเข้า P2P
+   ต้องไม่อิงลำดับแถวในไฟล์ เพราะไฟล์ใหม่แต่ละรอบเรียงไม่เหมือนเดิม
+   PO + รายการ + ยอด + วันครบกำหนด คือชุดที่ระบุงวดจ่ายหนึ่งงวดได้จริง */
+function fingerprint_(r) {
+  return [r['PO Number'], r['_item'], r['Price'], r['Due Date']].join('|');
+}
 var KEY_FIELDS = ['PO Number', 'Supplier', 'Price', 'Due Date'];
 var LC_RE = /l\s*\/?\s*c/i;
 var UNKNOWN = 'UNKNOWN';
@@ -42,12 +58,15 @@ var ALIASES = {
   'Currency':        ['currency', 'cur'],
   'Due Date':        ['due date', 'duedate']
 };
+/** คอลัมน์เสริม — ไม่มีก็ทำงานต่อได้ ใช้ทำลายนิ้วมือแถวให้แม่นขึ้นเท่านั้น */
+var OPTIONAL = {'_item': ['product description', 'description', 'item', 'รายการ']};
 
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('ตั้งเบิกทำจ่าย')
     .addItem('อัพเดท Dashboard', 'updateDashboard')
     .addSeparator()
+    .addItem('ส่งรายการที่พร้อมเข้าระบบ P2P', 'sendReadyToHub')
     .addItem('ตรวจไฟล์ต้นทางที่จะใช้', 'showSourceInfo')
     .addToUi();
 }
@@ -162,6 +181,9 @@ function transform_(values) {
       if (names[j] in seen) { idx[want] = seen[names[j]]; return; }
     missing.push(want);
   });
+  Object.keys(OPTIONAL).forEach(function (want) {      // ขาดได้ ไม่ถือว่าไฟล์ผิด
+    OPTIONAL[want].forEach(function (a) { if (!(want in idx) && a in seen) idx[want] = seen[a]; });
+  });
   if (missing.length)
     return {ok: false, msg: 'ไฟล์นี้ไม่มีคอลัมน์ที่ต้องใช้: ' + missing.join(', ') +
       '\n\nหัวคอลัมน์ที่เจอ: ' + head.filter(String).slice(0, 25).join(' | ')};
@@ -197,7 +219,9 @@ function transform_(values) {
       'Currency':        isBlank_(row[idx['Currency']]) ? '' : String(row[idx['Currency']]).trim(),
       'Due Date':        fmtDate_(row[idx['Due Date']]),
       'Payment_Status':  status,
-      '_zero':           zero
+      '_zero':           zero,
+      '_item':           ('_item' in idx && !isBlank_(row[idx['_item']]))
+                           ? String(row[idx['_item']]).trim() : ''
     });
   }
   return {ok: true, rows: rows, stats: st};
@@ -217,16 +241,161 @@ function fmtDate_(v) {
 
 /* ================= เขียนผล ================= */
 
+/* ================= เชื่อมกับระบบเอกสาร Procure-to-Pay =================
+   หัวใจไม่ใช่ปุ่มลิงก์ แต่คือ "กันส่งซ้ำ"
+   ไฟล์ Costing ถูกเอาของใหม่ทับทุกรอบ ถ้าไม่จดว่าแถวไหนส่งไปแล้ว
+   รอบหน้าแถวเดิมจะกลับมาเป็น 🟢 พร้อมทำจ่ายอีกครั้ง แล้วตั้งเบิกซ้ำ
+   ชีต Ledger จึงเป็นชีตเดียวในไฟล์นี้ที่ห้ามลบ — Dashboard สร้างใหม่ได้เสมอ แต่ Ledger สร้างใหม่ไม่ได้ */
+
+function ledgerSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(CFG.SHEET_LEDGER);
+  if (!sh) {
+    sh = ss.insertSheet(CFG.SHEET_LEDGER);
+    sh.appendRow(['ลายนิ้วมือแถว', 'PO Number', 'Supplier', 'Price', 'Currency',
+                  'Due Date', 'ส่งเมื่อ', 'ส่งโดย', 'ผลการส่ง']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:I1').setFontWeight('bold').setBackground('#17211d').setFontColor('#ffffff');
+  }
+  return sh;
+}
+
+function ledgerMap_() {
+  var sh = ledgerSheet_(), last = sh.getLastRow(), m = {};
+  if (last < 2) return m;
+  sh.getRange(2, 1, last - 1, 7).getValues().forEach(function (r) {
+    if (r[0]) m[String(r[0])] = r[6];       // ลายนิ้วมือ -> วันที่ส่ง
+  });
+  return m;
+}
+
+/** ส่งรายการที่ 🟢 และยังไม่เคยส่ง เข้าระบบเอกสาร P2P */
+function sendReadyToHub() {
+  var ui = SpreadsheetApp.getUi();
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(30000)) { ui.alert('มีคนกำลังทำงานอยู่ ลองใหม่อีกครั้ง'); return; }
+  try {
+    var file = findSourceFile_();
+    if (!file.ok) { ui.alert('ส่งไม่ได้', file.msg, ui.ButtonSet.OK); return; }
+    var grid = readFirstSheet_(file.id);
+    if (!grid.ok) { ui.alert('ส่งไม่ได้', grid.msg, ui.ButtonSet.OK); return; }
+    var res = transform_(grid.values);
+    if (!res.ok) { ui.alert('ส่งไม่ได้', res.msg, ui.ButtonSet.OK); return; }
+
+    var seen = ledgerMap_();
+    // ส่งเฉพาะแถวที่ข้อมูลครบ — แถว 🔴 ส่งไปปลายทางก็ตั้งเรื่องไม่ได้อยู่ดี
+    var todo = res.rows.filter(function (r) {
+      return r.Payment_Status.indexOf('🟢') === 0 && !seen[fingerprint_(r)];
+    });
+    if (!todo.length) {
+      ui.alert('ไม่มีอะไรต้องส่ง',
+        'รายการที่พร้อมทำจ่ายถูกส่งเข้าระบบ P2P ครบแล้ว\n\n' +
+        'ถ้าคาดว่าควรมีรายการใหม่ ให้กด "อัพเดท Dashboard" ก่อน แล้วลองอีกครั้ง',
+        ui.ButtonSet.OK);
+      return;
+    }
+    var ans = ui.alert('ส่งเข้าระบบ P2P',
+      'จะส่ง ' + todo.length + ' รายการที่พร้อมทำจ่ายและยังไม่เคยส่ง\n' +
+      'รวม ' + countPO_(todo) + ' ใบ PO\n\n' +
+      'รายการที่ส่งแล้วจะไม่ถูกส่งซ้ำอีก แม้เอาไฟล์ใหม่มาทับ',
+      ui.ButtonSet.OK_CANCEL);
+    if (ans !== ui.Button.OK) return;
+
+    var who = Session.getActiveUser().getEmail() || 'ไม่ทราบผู้ใช้';
+    var stamp = new Date();
+    var sent = 0, failed = 0, rowsOut = [];
+    todo.forEach(function (r) {
+      var out = postToHub_(r);
+      if (out.ok) sent++; else failed++;
+      rowsOut.push([fingerprint_(r), r['PO Number'], r.Supplier, r.Price, r.Currency,
+                    r['Due Date'], stamp, who, out.note]);
+    });
+    // จดลง Ledger ทีเดียว — เขียนทีละแถวช้าและมีโอกาสค้างกลางทาง
+    if (rowsOut.length) {
+      var sh = ledgerSheet_();
+      sh.getRange(sh.getLastRow() + 1, 1, rowsOut.length, 9).setValues(rowsOut);
+    }
+    log_(['ส่งเข้า P2P', file.name, file.updated, '', '', todo.length, sent, failed, '', '']);
+    updateDashboard_quiet_();
+    ui.alert('ส่งเข้าระบบ P2P แล้ว',
+      'ส่งสำเร็จ ' + sent + ' รายการ' + (failed ? '\nส่งไม่สำเร็จ ' + failed +
+        ' รายการ — ดูเหตุผลรายแถวในชีต ' + CFG.SHEET_LEDGER : '') +
+      '\n\nจดไว้ในชีต ' + CFG.SHEET_LEDGER + ' แล้ว — รอบหน้าจะไม่ส่งซ้ำ',
+      ui.ButtonSet.OK);
+  } catch (e) {
+    log_(['ผิดพลาดตอนส่งเข้า P2P', String(e && e.message || e)]);
+    SpreadsheetApp.getUi().alert('ส่งไม่สำเร็จ', String(e && e.message || e),
+      SpreadsheetApp.getUi().ButtonSet.OK);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function countPO_(rows) {
+  var s = {};
+  rows.forEach(function (r) { s[r['PO Number']] = 1; });
+  return Object.keys(s).length;
+}
+
+/** ยิงงวดจ่ายหนึ่งงวดไปที่ระบบเอกสาร — ยังไม่ได้ตั้งปลายทางก็จดใน Ledger อย่างเดียว
+    ไม่ใช่ error เพราะ Ledger คือสิ่งที่กันจ่ายซ้ำจริง ๆ ส่วนการยิงเป็นแค่ความสะดวก */
+function postToHub_(r) {
+  if (!CFG.HUB_ENDPOINT) return {ok: true, note: 'จดไว้ (ยังไม่ได้ตั้งปลายทาง)'};
+  var body = JSON.stringify({
+    source:    'COSTING_MECH',
+    ref:       fingerprint_(r),          // ปลายทางใช้กันซ้ำอีกชั้น
+    poNumber:  r['PO Number'],
+    supplier:  r.Supplier,
+    term:      r['PO Payment Term'],
+    amount:    r.Price,
+    currency:  r.Currency,
+    dueDate:   r['Due Date'],
+    item:      r._item,
+    zeroPrice: !!r._zero,                // ปลายทางเตือนต่อได้ ไม่ต้องคำนวณเอง
+    sentAt:    new Date().toISOString()
+  });
+  var key = PropertiesService.getScriptProperties().getProperty(CFG.HUB_KEY_PROP) || '';
+  var sig = key ? Utilities.base64Encode(
+    Utilities.computeHmacSha256Signature(body, key)) : '';
+  try {
+    var res = UrlFetchApp.fetch(CFG.HUB_ENDPOINT, {
+      method: 'post', contentType: 'application/json', payload: body,
+      headers: {'X-MGS-Signature': sig}, muteHttpExceptions: true
+    });
+    var code = res.getResponseCode();
+    return code === 200 ? {ok: true, note: 'ส่งสำเร็จ'}
+                        : {ok: false, note: 'ปลายทางตอบ ' + code};
+  } catch (e) {
+    return {ok: false, note: 'ส่งไม่ถึง: ' + (e && e.message || e)};
+  }
+}
+
+/** อัพเดทชีตใหม่เงียบ ๆ หลังส่ง เพื่อให้คอลัมน์สถานะตรงกับ Ledger ทันที */
+function updateDashboard_quiet_() {
+  var file = findSourceFile_(); if (!file.ok) return;
+  var grid = readFirstSheet_(file.id); if (!grid.ok) return;
+  var res = transform_(grid.values); if (!res.ok) return;
+  writeDashboard_(res);
+}
+
 function writeDashboard_(res) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(CFG.SHEET_DATA) || ss.insertSheet(CFG.SHEET_DATA);
   sh.clear();
   sh.clearConditionalFormatRules();
 
-  var head = OUT_COLS.concat(['⚠️ ตรวจก่อนเบิก']);
+  var seen = ledgerMap_();
+  var head = OUT_COLS.concat(['⚠️ ตรวจก่อนเบิก', 'ในระบบ P2P']);
   var body = res.rows.map(function (x) {
+    var when = seen[fingerprint_(x)];
+    var p2p = when
+      ? 'ส่งแล้ว ' + Utilities.formatDate(new Date(when), Session.getScriptTimeZone(), 'dd/MM/yyyy')
+      : (x.Payment_Status.indexOf('🟢') === 0 ? 'ยังไม่ส่ง' : 'ส่งไม่ได้ — ข้อมูลไม่ครบ');
+    if (when && CFG.HUB_URL)
+      p2p = '=HYPERLINK("' + CFG.HUB_URL + '#po/' + encodeURIComponent(x['PO Number']) +
+            '","' + p2p + ' ↗")';
     return OUT_COLS.map(function (c) { return x[c]; })
-      .concat([x._zero ? '⚠️ ยอดเป็นศูนย์' : '']);
+      .concat([x._zero ? '⚠️ ยอดเป็นศูนย์' : '', p2p]);
   });
 
   // แถบสรุปด้านบน — เปิดมาเห็นตัวเลขก่อน ไม่ต้องเลื่อนหา
@@ -234,10 +403,12 @@ function writeDashboard_(res) {
   sh.getRange(1, 1).setValue('Dashboard ตั้งเบิกทำจ่าย · อัพเดทเมื่อ ' +
     Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
   sh.getRange(1, 1, 1, head.length).merge().setFontWeight('bold').setFontSize(12);
+  var nSent = res.rows.filter(function (x) { return !!seen[fingerprint_(x)]; }).length;
   sh.getRange(2, 1).setValue(
     'อ่านมา ' + s.read + ' แถว · ตัด LC ' + s.excluded_lc + ' · เหลือ ' + res.rows.length +
     '   |   🟢 ' + s.complete + '   🔴 ' + s.incomplete +
-    '   |   UNKNOWN ' + s.unknown_term + '   ⚠️ ยอดศูนย์ ' + s.zero_price);
+    '   |   UNKNOWN ' + s.unknown_term + '   ⚠️ ยอดศูนย์ ' + s.zero_price +
+    '   |   ส่งเข้า P2P แล้ว ' + nSent + ' · ยังไม่ส่ง ' + (s.complete - nSent));
   sh.getRange(2, 1, 1, head.length).merge().setFontColor('#5f6368');
 
   sh.getRange(3, 1, 1, head.length).setValues([head])
@@ -250,6 +421,10 @@ function writeDashboard_(res) {
   sh.getRange(4, 4, Math.max(1, body.length), 1).setNumberFormat('#,##0.000');
   head.forEach(function (_, i) { sh.autoResizeColumn(i + 1); });
   sh.getRange(3, 3).setNote('เงื่อนไขจ่ายที่มีคำว่า LC ถูกตัดออกแล้ว — จ่ายผ่านธนาคาร ไม่เข้ากระบวนการนี้');
+  sh.getRange(3, head.length).setNote(
+    'สถานะมาจากชีต ' + CFG.SHEET_LEDGER + ' ซึ่งจดว่าแถวไหนถูกส่งเข้าระบบเอกสารไปแล้ว\n' +
+    'ชีตนี้สร้างใหม่ได้ทุกเมื่อ แต่ชีต ' + CFG.SHEET_LEDGER + ' ห้ามลบ — ' +
+    'ลบแล้วรายการเดิมจะถูกส่งซ้ำและตั้งเบิกซ้ำ');
 
   if (body.length) {
     var rng = sh.getRange(4, 1, body.length, head.length);
@@ -259,7 +434,10 @@ function writeDashboard_(res) {
         .setBackground('#fdeaea').setRanges([rng]).build(),
       SpreadsheetApp.newConditionalFormatRule()          // แถวยอดศูนย์
         .whenFormulaSatisfied('=$H4<>""')
-        .setBackground('#fbefe4').setRanges([rng]).build()
+        .setBackground('#fbefe4').setRanges([rng]).build(),
+      SpreadsheetApp.newConditionalFormatRule()          // ส่งเข้า P2P แล้ว = จบงานฝั่งนี้
+        .whenFormulaSatisfied('=LEFT($I4,8)="ส่งแล้ว "')
+        .setBackground('#e6f0ec').setFontColor('#276456').setRanges([rng]).build()
     ]);
   }
 }

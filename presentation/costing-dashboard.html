@@ -124,6 +124,26 @@
   .itm{font-size:11.5px;color:var(--ink-3);margin-top:2px}
   .empty{padding:38px 20px;text-align:center;color:var(--ink-3);font-size:13.5px}
 
+  /* ---------- สถานะในระบบ Procure-to-Pay ---------- */
+  .p2p{display:flex;flex-direction:column;gap:4px;align-items:flex-start;white-space:nowrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;
+    font-size:11.5px;font-weight:500;border:1px solid}
+  .pill.new{background:var(--surface-2);color:var(--ink-2);border-color:var(--line-2)}
+  .pill.sent{background:var(--cold-bg);color:var(--cold);border-color:var(--cold)}
+  .send{border:1px solid var(--line-2);background:var(--paper);border-radius:5px;
+    padding:2px 9px;font-size:11.5px;color:var(--ink-2)}
+  .send:hover{border-color:var(--gold);color:var(--gold)}
+  .send.undo{border-style:dashed}
+  .hub{font-family:var(--mono);font-size:11px;color:var(--gold);text-decoration:none;
+    border-bottom:1px solid transparent}
+  .hub:hover{border-bottom-color:currentColor}
+  .barrow2{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:9px;
+    font-size:12.5px;color:var(--ink-3)}
+  .barrow2 button{border:1px solid var(--line-2);background:var(--paper);border-radius:var(--r);
+    padding:5px 12px;font-size:12.5px;color:var(--ink-2)}
+  .barrow2 button:hover{border-color:var(--ink-3)}
+  .barrow2 button.pri{background:var(--head);border-color:var(--head);color:#fff}
+
   /* ---------- สรุปรายใบ PO ---------- */
   details.roll{margin-top:20px;background:var(--paper);border:1px solid var(--line);
     border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
@@ -177,7 +197,9 @@
       <div class="n">ตรวจก่อน — ส่วนใหญ่เป็นตัวอย่างสินค้า</div></div>
     <div class="tile"><div class="k">Term ว่าง → UNKNOWN</div><div class="v" id="t-unk">0</div>
       <div class="n">ยังตั้งเบิกได้ แต่ต้องยืนยันเงื่อนไข</div></div>
-    <div class="tile cold"><div class="k">ตัดออก (LC)</div><div class="v">134</div>
+    <div class="tile cold"><div class="k">ส่งเข้าระบบ P2P แล้ว</div><div class="v" id="t-sent">0</div>
+      <div class="n">ไม่ถูกส่งซ้ำอีกแม้เอาไฟล์ใหม่ทับ</div></div>
+    <div class="tile"><div class="k">ตัดออก (LC)</div><div class="v">134</div>
       <div class="n">จ่ายผ่านธนาคาร ไม่เข้ากระบวนการนี้</div></div>
   </div>
 
@@ -203,6 +225,12 @@
       <button class="chip stop" data-f="bad" aria-pressed="false">🔴 ข้อมูลไม่ครบ<span class="c" id="c-bad">0</span></button>
       <button class="chip warn" data-f="zero" aria-pressed="false">⚠️ ยอดเป็นศูนย์<span class="c" id="c-zero">0</span></button>
       <button class="chip" data-f="unk" aria-pressed="false">Term = UNKNOWN<span class="c" id="c-unk">0</span></button>
+      <button class="chip" data-f="new" aria-pressed="false">ยังไม่ส่งเข้า P2P<span class="c" id="c-new">0</span></button>
+    </div>
+    <div class="barrow2">
+      <button class="pri" id="sendAll">ส่งรายการที่กรองอยู่เข้าระบบ P2P</button>
+      <button id="reset">ล้างสถานะที่ลองไว้</button>
+      <span id="hint2">กดแล้วแถวจะถูกจดไว้ว่าส่งไปแล้ว — รอบหน้าที่เอาไฟล์ใหม่ทับ จะไม่ถูกส่งซ้ำ</span>
     </div>
   </div>
 
@@ -216,6 +244,7 @@
       <thead><tr>
         <th>PO Number</th><th>Supplier</th><th>PO Payment Term</th>
         <th style="text-align:right">Price</th><th>Currency</th><th>Due Date</th><th>Payment_Status</th>
+        <th>ในระบบ P2P</th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -245,6 +274,17 @@
     <b>ยอดเป็นศูนย์ <span id="zn">0</span> รายการ</b> — ทั้งหมดเป็นตัวอย่างสินค้าและค่าส่งด่วน
     (Sample / Express cost) ที่ผู้ขายไม่คิดเงิน ระบบยังนับว่า <b>ข้อมูลครบ</b> เพราะ 0 เป็นค่าที่กรอกไว้จริง
     ไม่ใช่ช่องว่าง แต่ติดธงไว้ให้คนตรวจก่อนตั้งเบิก — กันการตั้งเบิกยอดศูนย์โดยไม่ตั้งใจ
+  </span></div>
+
+  <div class="note c"><span class="i">🔗</span><span>
+    <b>ต่อเข้ากระบวนการ Procure-to-Pay อย่างไร</b> — Dashboard นี้เป็น <b>ต้นทางของงวดจ่าย</b>
+    ไม่ใช่ที่อนุมัติ กดปุ่ม <b>ส่งเข้า P2P</b> แล้วแถวนั้นจะไปเปิดเป็นงวดจ่ายในระบบเอกสาร
+    ให้จัดซื้อแนบใบเรียกเก็บและส่งให้ผู้จัดการอนุมัติตามสายเดิม<br>
+    <b>สิ่งที่กันไว้คือการจ่ายซ้ำ</b> — ไฟล์ Costing ถูกเอาของใหม่ทับทุกเดือน ถ้าไม่จำว่าแถวไหนส่งไปแล้ว
+    รอบหน้าแถวเดิมจะกลับมาเป็น 🟢 พร้อมทำจ่ายอีกครั้ง ระบบจึงจดด้วย
+    <b>ลายนิ้วมือแถว</b> (PO + รายการ + ยอด + วันครบกำหนด) ซึ่งไม่เปลี่ยนตามลำดับแถวในไฟล์<br>
+    <span class="mono" style="font-size:11.5px">แถวข้อมูลไม่ครบส่งไม่ได้ — ปุ่มไม่ขึ้นตั้งแต่แรก
+    ไม่ใช่ให้กดแล้วค่อยไปเด้ง error ที่ปลายทาง</span>
   </span></div>
 
   <div class="note c"><span class="i">i</span><span>
@@ -280,12 +320,26 @@ try {
 const save = () => { try {
   localStorage.setItem("mgs-costing", JSON.stringify({filter, sortBy})); } catch (e) {} };
 
+/* ---------- เชื่อมกับระบบเอกสาร Procure-to-Pay ----------
+   หัวใจไม่ใช่ปุ่มลิงก์ แต่คือ "กันส่งซ้ำ" — ไฟล์ Costing ถูกเอาของใหม่ทับทุกเดือน
+   ถ้าไม่จำว่าแถวไหนส่งไปแล้ว รอบหน้าแถวเดิมจะกลับมาเป็น 🟢 พร้อมทำจ่ายอีกครั้ง แล้วจ่ายซ้ำ
+   จึงจดด้วย "ลายนิ้วมือแถว" = PO + รายการ + ยอด + วันครบกำหนด ซึ่งไม่เปลี่ยนตามลำดับแถวในไฟล์
+   ในระบบจริงสถานะนี้อยู่ในชีต Ledger ที่นี่เก็บในเบราว์เซอร์เพื่อให้ลองกดดูได้ */
+const HUB = "https://claude.ai/code/artifact/05c59072-6abc-40a8-8512-6c7619bcf2dc";
+const fp = r => [r.po, r.item, r.p, r.due].join("|");
+let sent = {};
+try { sent = JSON.parse(localStorage.getItem("mgs-costing-sent") || "{}"); } catch (e) {}
+const saveSent = () => { try {
+  localStorage.setItem("mgs-costing-sent", JSON.stringify(sent)); } catch (e) {} };
+const isSent = r => !!sent[fp(r)];
+
 const MATCH = {
   all:  () => true,
   ok:   r => !isBad(r),
   bad:  r => isBad(r),
   zero: r => r.z,
-  unk:  r => r.term === "UNKNOWN"
+  unk:  r => r.term === "UNKNOWN",
+  new:  r => !isSent(r)
 };
 
 function statusCell(r) {
@@ -293,6 +347,19 @@ function statusCell(r) {
     ? '<span class="st no">🔴 ข้อมูลไม่ครบ (' + esc(r.miss.join(", ")) + ")</span>"
     : '<span class="st ok">🟢 พร้อมทำจ่าย (Complete)</span>' +
       (r.z ? '<br><span class="zt">⚠️ ยอดเป็นศูนย์ — ตรวจก่อนเบิก</span>' : "");
+}
+
+function p2pCell(r) {
+  const k = fp(r), s = sent[k];
+  return s
+    ? '<span class="pill sent">ส่งแล้ว · ' + esc(s.at) + "</span>" +
+      '<a class="hub" href="' + HUB + "#po/" + encodeURIComponent(r.po) +
+        '" target="_blank" rel="noopener">เปิดในระบบเอกสาร ↗</a>' +
+      '<button class="send undo" data-send="' + esc(k) + '">ยกเลิกที่ส่ง</button>'
+    : '<span class="pill new">ยังไม่ส่ง</span>' +
+      (isBad(r)
+        ? '<span class="itm">ข้อมูลไม่ครบ — ส่งไม่ได้</span>'
+        : '<button class="send" data-send="' + esc(k) + '">ส่งเข้า P2P</button>');
 }
 
 function view() {
@@ -320,8 +387,17 @@ function render() {
       '<td class="num">' + money(r.p) + "</td>" +
       "<td>" + esc(r.cur || "—") + "</td>" +
       '<td class="mono">' + esc(r.due || "—") + "</td>" +
-      "<td>" + statusCell(r) + "</td></tr>").join("");
+      "<td>" + statusCell(r) + "</td>" +
+      '<td class="p2p">' + p2pCell(r) + "</td></tr>").join("");
+  // ว่างเพราะอะไร ต้องบอกให้ตรง — กรองไว้ ค้นไว้ หรือหมดจริง ๆ
+  const lbl = {all:"", ok:"ที่พร้อมทำจ่าย", bad:"ที่ข้อมูลไม่ครบ", zero:"ที่ยอดเป็นศูนย์",
+               unk:"ที่ Term เป็น UNKNOWN", new:"ที่ยังไม่ส่งเข้า P2P"}[filter];
   $("#empty").hidden = list.length > 0;
+  $("#empty").textContent = term.trim()
+    ? 'ไม่พบรายการ' + (lbl ? lbl + " " : "") + 'ที่ตรงกับ "' + term.trim() +
+      '" — ลองพิมพ์เลข PO หรือชื่อผู้ขายให้สั้นลง'
+    : filter === "new" ? "ส่งเข้าระบบ P2P ครบทุกรายการแล้ว — กดชิป “ทั้งหมด” เพื่อดูรายการทั้งหมด"
+    : "ไม่มีรายการ" + (lbl ? lbl : "") + " — กดชิป “ทั้งหมด” เพื่อดูรายการทั้งหมด";
 
   const tot = {};
   list.forEach(r => { if (r.p != null) tot[r.cur] = (tot[r.cur] || 0) + r.p; });
@@ -333,7 +409,8 @@ function render() {
 
 function counts() {
   const n = f => KEEP.filter(MATCH[f]).length;
-  ["all", "ok", "bad", "zero", "unk"].forEach(f => { $("#c-" + f).textContent = n(f); });
+  ["all", "ok", "bad", "zero", "unk", "new"].forEach(f => { $("#c-" + f).textContent = n(f); });
+  $("#t-sent").textContent = KEEP.filter(isSent).length;
   $("#t-ok").textContent = n("ok");
   $("#t-bad").textContent = n("bad");
   $("#t-zero").textContent = n("zero");
@@ -397,6 +474,29 @@ $("#clr").addEventListener("click", () => {
   term = ""; $("#q").value = ""; $("#clr").hidden = true; $("#q").focus(); render();
 });
 $("#sort").addEventListener("change", ev => { sortBy = ev.target.value; render(); });
+
+// ส่งทีละแถว — ข้อมูลไม่ครบส่งไม่ได้ ปุ่มจึงไม่ขึ้นตั้งแต่แรก
+$("#tb").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-send]");
+  if (!b) return;
+  const k = b.dataset.send;
+  if (sent[k]) delete sent[k];
+  else sent[k] = {at: new Date().toLocaleDateString("th-TH", {day:"2-digit", month:"2-digit"})};
+  saveSent(); counts(); render();
+});
+$("#sendAll").addEventListener("click", () => {
+  const list = view().filter(r => !isBad(r) && !isSent(r));
+  if (!list.length) { $("#hint2").textContent = "รายการที่กรองอยู่ส่งเข้าระบบไปหมดแล้ว"; return; }
+  const at = new Date().toLocaleDateString("th-TH", {day:"2-digit", month:"2-digit"});
+  list.forEach(r => { sent[fp(r)] = {at: at}; });
+  saveSent(); counts(); render();
+  $("#hint2").textContent = "ส่งเข้าระบบ P2P " + list.length +
+    " รายการ — รอบหน้าที่เอาไฟล์ใหม่ทับ รายการเหล่านี้จะไม่ถูกส่งซ้ำ";
+});
+$("#reset").addEventListener("click", () => {
+  sent = {}; saveSent(); counts(); render();
+  $("#hint2").textContent = "ล้างแล้ว — ทุกแถวกลับไปเป็น “ยังไม่ส่ง”";
+});
 
 [...$("#chips").children].forEach(c =>
   c.setAttribute("aria-pressed", String(c.dataset.f === filter)));

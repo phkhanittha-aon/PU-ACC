@@ -97,8 +97,11 @@ def extract(path):
                 "sheet": ws.title, "headers": [str(h) for h in rows[0] if h]}
 
     get = lambda r, k: r[idx[k]] if idx[k] < len(r) else None
-    out, stats = [], Counter()
-    terms = Counter()
+    out, terms = [], Counter()
+    # ตั้งค่าเริ่มต้นเป็น 0 ทุกตัว — Counter ปกติจะไม่มีคีย์ที่นับได้ 0
+    # ทำให้ผลที่ส่งออกขาดคีย์ไปเฉย ๆ และเทียบกับฝั่ง Apps Script ไม่ได้
+    stats = Counter({"read": 0, "excluded_lc": 0, "complete": 0, "incomplete": 0,
+                     "unknown_term": 0, "zero_price": 0})
 
     for n, r in enumerate(rows[1:], start=2):
         if all(is_blank(c) for c in r):             # แถวว่างล้วน = ท้ายตาราง ข้ามไป
@@ -150,7 +153,21 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("xlsx")
     ap.add_argument("-o", "--out", default="")
+    ap.add_argument("--grid", default="",
+                    help="ส่งออกตารางดิบของชีตแรกเป็น JSON — ใช้เทียบผลกับฝั่ง Apps Script")
     a = ap.parse_args()
+
+    if a.grid:
+        # ตารางดิบ ไม่ผ่านกฎใด ๆ — ให้ฝั่ง Apps Script รับไปประมวลผลเองแล้วเทียบผลกัน
+        import datetime
+        wb = openpyxl.load_workbook(a.xlsx, data_only=True)
+        ws = wb[wb.sheetnames[0]]
+        cell = lambda c: "" if c is None else (
+            c.isoformat() if isinstance(c, (datetime.date, datetime.datetime)) else c)
+        grid = [[cell(c) for c in row] for row in ws.iter_rows(values_only=True)]
+        with open(a.grid, "w", encoding="utf-8") as f:
+            json.dump(grid, f, ensure_ascii=False)
+        print("เขียนตารางดิบ %d แถว ที่ %s" % (len(grid), a.grid))
 
     res = extract(a.xlsx)
     if "error" in res:
