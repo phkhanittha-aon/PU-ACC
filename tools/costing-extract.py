@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
-"""สกัดข้อมูลจาก Costing Mech.xlsx เพื่อขึ้น Dashboard ตั้งเบิกทำจ่าย
+"""สกัดข้อมูลจากไฟล์ Costing ที่ออกจาก SAP เพื่อขึ้น Dashboard ตั้งเบิกทำจ่าย
 
-รันด้วย:  python3 tools/costing-extract.py <ไฟล์.xlsx> [-o ไฟล์ผลลัพธ์.json]
+ไฟล์ Costing เป็น **รายงานที่ออกจาก SAP** ไม่ใช่ไฟล์ที่คนพิมพ์เอง
+และบริษัทมี PO ทั้งฝั่ง **Mech** และ **Food** จึงมีไฟล์คนละใบ กฎเดียวกัน
+
+รันด้วย:
+  python3 tools/costing-extract.py "Costing Mech.xlsx"                      # เดาสายจากชื่อไฟล์
+  python3 tools/costing-extract.py "Costing Mech.xlsx" "Costing Food.xlsx"  # รวมหลายไฟล์
+  python3 tools/costing-extract.py a.xlsx -m MECH -o out.json               # ระบุสายเอง
 
 กติกาตามที่ทีมกำหนด
   1. อ่านชีตแรกสุดเท่านั้น
@@ -33,6 +39,36 @@ COLS = OrderedDict([
 KEY_FIELDS = ["PO Number", "Supplier", "Price", "Due Date"]   # 4 ฟิลด์ที่ตัดสินความครบ
 LC_RE = re.compile(r"l\s*/?\s*c", re.IGNORECASE)              # จับ LC · L/C · l / c
 UNKNOWN = "UNKNOWN"
+
+# สายสินค้า — บริษัทมี PO ทั้งฝั่ง Mech และ Food ไฟล์คนละใบ กฎเดียวกัน
+# OTHER มาจากของจริง: ไฟล์ Mech มีแถว PO-O3… (ค่าเดินทาง ค่าบริการ) ปนอยู่ด้วย
+MODULES = {"MECH": "เครื่องจักร & โซลาร์", "FOOD": "อาหาร", "OTHER": "ค่าใช้จ่ายอื่น"}
+# เลข PO แต่ละชุดขึ้นต้นต่างกัน (จากไฟล์จริงและใบตรวจ QC: PO-M2… / PO-F1… / PO-O3…)
+PO_PREFIX = {"M": "MECH", "F": "FOOD", "O": "OTHER"}
+
+
+def guess_module(path, rows, idx, explicit=""):
+    """หาสายสินค้าตามลำดับ: ที่สั่งมา -> เลข PO ในไฟล์ -> ชื่อไฟล์
+    เดาไม่ได้ก็คืน UNSET ไม่ใช่เดามั่ว — เอาไปแสดงให้คนเลือกดีกว่าลงผิดสาย"""
+    if explicit.upper() in MODULES:
+        return explicit.upper()
+    # ดูจากเลข PO จริงในไฟล์ ตัวไหนมากสุดชนะ (แม่นกว่าชื่อไฟล์ที่คนตั้งเอง)
+    votes = Counter()
+    if "PO Number" in idx:
+        for r in rows[1:]:
+            v = str(r[idx["PO Number"]] or "").strip().upper()
+            m = re.match(r"^PO-([A-Z])", v)
+            if m and m.group(1) not in PO_PREFIX:
+                continue
+            if m:
+                votes[PO_PREFIX[m.group(1)]] += 1
+    if votes:
+        return votes.most_common(1)[0][0]
+    name = norm(path)
+    for k in MODULES:
+        if k.lower() in name:
+            return k
+    return "UNSET"
 
 
 def norm(s):
@@ -84,7 +120,7 @@ def to_num(v):
         return None
 
 
-def extract(path):
+def extract(path, module=""):
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = wb[wb.sheetnames[0]]                       # กติกาข้อ 1 — ชีตแรกสุด
     rows = list(ws.iter_rows(values_only=True))
@@ -95,6 +131,8 @@ def extract(path):
     if missing:
         return {"error": "ไม่พบคอลัมน์ที่ต้องใช้: " + ", ".join(missing),
                 "sheet": ws.title, "headers": [str(h) for h in rows[0] if h]}
+
+    mod = guess_module(path, rows, idx, module)
 
     get = lambda r, k: r[idx[k]] if idx[k] < len(r) else None
     out, terms = [], Counter()
@@ -133,6 +171,7 @@ def extract(path):
 
         out.append({
             "row":             n,
+            "Module":          mod,
             "PO Number":       "" if is_blank(get(r, "PO Number")) else str(get(r, "PO Number")).strip(),
             "Supplier":        "" if is_blank(get(r, "Supplier")) else str(get(r, "Supplier")).strip(),
             "PO Payment Term": term,
@@ -145,49 +184,73 @@ def extract(path):
             "Zero_Price":      zero,
         })
 
-    return {"sheet": ws.title, "rows": out, "stats": dict(stats),
-            "terms": terms.most_common()}
+    return {"sheet": ws.title, "module": mod, "file": path, "rows": out,
+            "stats": dict(stats), "terms": terms.most_common()}
+
+
+def dump_grid(path, out):
+    """ตารางดิบ ไม่ผ่านกฎใด ๆ — ให้ฝั่ง Apps Script รับไปประมวลผลเองแล้วเทียบผลกัน"""
+    import datetime
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    cell = lambda c: "" if c is None else (
+        c.isoformat() if isinstance(c, (datetime.date, datetime.datetime)) else c)
+    grid = [[cell(c) for c in row] for row in ws.iter_rows(values_only=True)]
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(grid, f, ensure_ascii=False)
+    print("เขียนตารางดิบ %d แถว ที่ %s" % (len(grid), out))
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("xlsx")
+    ap.add_argument("xlsx", nargs="+", help="ไฟล์ Costing หนึ่งไฟล์ขึ้นไป (Mech / Food)")
+    ap.add_argument("-m", "--module", default="",
+                    help="ระบุสายสินค้าเอง MECH หรือ FOOD · ไม่ระบุ = เดาจากเลข PO ในไฟล์")
     ap.add_argument("-o", "--out", default="")
     ap.add_argument("--grid", default="",
-                    help="ส่งออกตารางดิบของชีตแรกเป็น JSON — ใช้เทียบผลกับฝั่ง Apps Script")
+                    help="ส่งออกตารางดิบของไฟล์แรกเป็น JSON — ใช้เทียบผลกับฝั่ง Apps Script")
     a = ap.parse_args()
 
     if a.grid:
-        # ตารางดิบ ไม่ผ่านกฎใด ๆ — ให้ฝั่ง Apps Script รับไปประมวลผลเองแล้วเทียบผลกัน
-        import datetime
-        wb = openpyxl.load_workbook(a.xlsx, data_only=True)
-        ws = wb[wb.sheetnames[0]]
-        cell = lambda c: "" if c is None else (
-            c.isoformat() if isinstance(c, (datetime.date, datetime.datetime)) else c)
-        grid = [[cell(c) for c in row] for row in ws.iter_rows(values_only=True)]
-        with open(a.grid, "w", encoding="utf-8") as f:
-            json.dump(grid, f, ensure_ascii=False)
-        print("เขียนตารางดิบ %d แถว ที่ %s" % (len(grid), a.grid))
+        dump_grid(a.xlsx[0], a.grid)
 
-    res = extract(a.xlsx)
-    if "error" in res:
-        print("หยุดการประมวลผล — " + res["error"])
-        if res.get("headers"):
-            print("หัวคอลัมน์ที่เจอในไฟล์: " + " | ".join(res["headers"][:40]))
+    all_rows, all_stats, files, bad = [], Counter(), [], 0
+    for path in a.xlsx:
+        res = extract(path, a.module)
+        if "error" in res:
+            print("ข้ามไฟล์ %s — %s" % (path, res["error"]))
+            if res.get("headers"):
+                print("  หัวคอลัมน์ที่เจอ: " + " | ".join(res["headers"][:30]))
+            bad += 1
+            continue
+        s = res["stats"]
+        files.append({"file": path, "sheet": res["sheet"], "module": res["module"],
+                      "rows": len(res["rows"]), "stats": s})
+        all_rows += res["rows"]
+        all_stats.update(s)
+        print("%-6s %-40s ชีต %-10s อ่าน %3d | ตัด LC %3d | เหลือ %3d | 🟢 %3d 🔴 %d"
+              % (res["module"], path.split("/")[-1][:40], res["sheet"], s.get("read", 0),
+                 s.get("excluded_lc", 0), len(res["rows"]),
+                 s.get("complete", 0), s.get("incomplete", 0)))
+        if res["module"] == "UNSET":
+            print("  เตือน: เดาสายสินค้าไม่ได้จากเลข PO หรือชื่อไฟล์ — ระบุด้วย -m MECH|FOOD")
+
+    if bad and not all_rows:
         sys.exit(1)
 
-    s = res["stats"]
-    print("ชีตที่อ่าน: " + res["sheet"])
-    print("อ่านมา %d แถว | ตัด LC ออก %d | เหลือเข้ากระบวนการ %d"
-          % (s.get("read", 0), s.get("excluded_lc", 0), len(res["rows"])))
+    t = all_stats
+    print("-" * 72)
+    print("รวมทุกไฟล์ %d ไฟล์ | อ่านมา %d แถว | ตัด LC ออก %d | เหลือเข้ากระบวนการ %d"
+          % (len(files), t.get("read", 0), t.get("excluded_lc", 0), len(all_rows)))
     print("  🟢 พร้อมทำจ่าย %d   🔴 ข้อมูลไม่ครบ %d"
-          % (s.get("complete", 0), s.get("incomplete", 0)))
+          % (t.get("complete", 0), t.get("incomplete", 0)))
     print("  เงื่อนไขจ่ายว่าง (นับเป็น UNKNOWN) %d | ราคาเป็นศูนย์ %d"
-          % (s.get("unknown_term", 0), s.get("zero_price", 0)))
+          % (t.get("unknown_term", 0), t.get("zero_price", 0)))
 
     if a.out:
         with open(a.out, "w", encoding="utf-8") as f:
-            json.dump(res, f, ensure_ascii=False, indent=1)
+            json.dump({"files": files, "rows": all_rows, "stats": dict(t)},
+                      f, ensure_ascii=False, indent=1)
         print("เขียนผลลัพธ์ที่ " + a.out)
 
 

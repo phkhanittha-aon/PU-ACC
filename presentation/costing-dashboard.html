@@ -60,6 +60,21 @@
   .srcline b{color:#c7d3cc;font-weight:500}
 
   /* ---------- แถบตัวเลขสรุป ---------- */
+  /* ---------- สายสินค้า: Mech / Food ไฟล์คนละใบ กฎเดียวกัน ---------- */
+  .mods{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;
+    margin-top:14px}
+  .mod{border:1px solid rgba(255,255,255,.14);border-radius:var(--r);padding:10px 13px;
+    background:rgba(255,255,255,.04)}
+  .mod.off{opacity:.6;border-style:dashed}
+  .mod .mn{font-size:13.5px;font-weight:600;color:#fff;display:flex;align-items:center;gap:7px}
+  .mod .tag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:1px 6px;
+    border-radius:3px;background:rgba(255,255,255,.13);color:#c7d3cc;font-weight:400}
+  .mod.on .tag{background:var(--gold);color:#17211d}
+  .mod .mf{font-family:var(--mono);font-size:11px;color:#8fa298;margin-top:3px}
+  .mod .ms{font-size:12px;color:#a9b8b0;margin-top:5px;line-height:1.6}
+  .mod .ms b{color:#fff;font-weight:600}
+  td.mod-cell{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+
   .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-bottom:18px}
   .tile{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);
     padding:13px 15px;box-shadow:var(--sh)}
@@ -174,15 +189,26 @@
     <div class="brand">
       <div class="mk">M</div>
       <div>
-        <h1>ตั้งเบิกทำจ่าย — Costing Mech</h1>
-        <div class="sub">Payment Request Dashboard</div>
+        <h1>ตั้งเบิกทำจ่าย — Costing</h1>
+        <div class="sub">Payment Request Dashboard · SAP export</div>
       </div>
     </div>
     <div class="srcline">
-      <span>ไฟล์ต้นทาง <b>Costing Mech.xlsx</b> · ชีต <b>Sheet1</b></span>
-      <span>อ่านมา <b>231</b> แถว</span>
-      <span>ตัด LC ออก <b>134</b> แถว</span>
-      <span>เข้ากระบวนการ <b>97</b> แถว · <b>49</b> ใบ PO · <b>12</b> ผู้ขาย</span>
+      <span>รายงานที่ออกจาก <b>SAP</b> · หนึ่งไฟล์ต่อหนึ่งสายสินค้า กฎเดียวกัน</span>
+    </div>
+    <div class="mods">
+      <div class="mod on">
+        <div class="mn">เครื่องจักร &amp; โซลาร์ <span class="tag">MECH</span></div>
+        <div class="mf">Costing Mech.xlsx · ชีต Sheet1</div>
+        <div class="ms">อ่าน <b>231</b> · ตัด LC <b>134</b> · เข้ากระบวนการ <b>97</b> แถว
+          · <b>49</b> ใบ PO · <b>12</b> ผู้ขาย</div>
+      </div>
+      <div class="mod off">
+        <div class="mn">อาหาร <span class="tag">FOOD</span></div>
+        <div class="mf">Costing Food.xlsx · ยังไม่ได้รับไฟล์</div>
+        <div class="ms">โครงพร้อมแล้ว — วางไฟล์ฝั่งอาหารลงโฟลเดอร์เดียวกัน
+          แล้วกดอัพเดท ระบบแยกสายจากเลข PO ให้เอง (PO-F…)</div>
+      </div>
     </div>
   </div>
 </header>
@@ -226,6 +252,9 @@
       <button class="chip warn" data-f="zero" aria-pressed="false">⚠️ ยอดเป็นศูนย์<span class="c" id="c-zero">0</span></button>
       <button class="chip" data-f="unk" aria-pressed="false">Term = UNKNOWN<span class="c" id="c-unk">0</span></button>
       <button class="chip" data-f="new" aria-pressed="false">ยังไม่ส่งเข้า P2P<span class="c" id="c-new">0</span></button>
+      <button class="chip" data-f="mech" aria-pressed="false">สายเครื่องจักร<span class="c" id="c-mech">0</span></button>
+      <button class="chip" data-f="food" aria-pressed="false">สายอาหาร<span class="c" id="c-food">0</span></button>
+      <button class="chip" data-f="other" aria-pressed="false">ค่าใช้จ่ายอื่น<span class="c" id="c-other">0</span></button>
     </div>
     <div class="barrow2">
       <button class="pri" id="sendAll">ส่งรายการที่กรองอยู่เข้าระบบ P2P</button>
@@ -242,7 +271,7 @@
   <div class="tw">
     <table>
       <thead><tr>
-        <th>PO Number</th><th>Supplier</th><th>PO Payment Term</th>
+        <th>สาย</th><th>PO Number</th><th>Supplier</th><th>PO Payment Term</th>
         <th style="text-align:right">Price</th><th>Currency</th><th>Due Date</th><th>Payment_Status</th>
         <th>ในระบบ P2P</th>
       </tr></thead>
@@ -255,7 +284,7 @@
     <summary>สรุปรายใบ PO — ยอดรวมที่ต้องตั้งเบิกต่อใบ
       <span class="h">49 ใบ · แยกตามสกุลเงิน</span></summary>
     <div class="body tw"><table><thead><tr>
-      <th>PO Number</th><th>Supplier</th><th>PO Payment Term</th>
+      <th>สาย</th><th>PO Number</th><th>Supplier</th><th>PO Payment Term</th>
       <th style="text-align:right">จำนวนรายการ</th><th style="text-align:right">ยอดรวม</th>
       <th>Due Date</th><th>สถานะ</th>
     </tr></thead><tbody id="rb"></tbody></table></div>
@@ -326,7 +355,14 @@ const save = () => { try {
    จึงจดด้วย "ลายนิ้วมือแถว" = PO + รายการ + ยอด + วันครบกำหนด ซึ่งไม่เปลี่ยนตามลำดับแถวในไฟล์
    ในระบบจริงสถานะนี้อยู่ในชีต Ledger ที่นี่เก็บในเบราว์เซอร์เพื่อให้ลองกดดูได้ */
 const HUB = "https://claude.ai/code/artifact/05c59072-6abc-40a8-8512-6c7619bcf2dc";
-const fp = r => [r.po, r.item, r.p, r.due].join("|");
+/* บริษัทมี PO ทั้งฝั่ง Mech และ Food — ไฟล์คนละใบ กฎเดียวกัน
+   แยกสายจากเลข PO ที่ SAP ออกมาให้ (PO-M… / PO-F…) ไม่ต้องพึ่งชื่อไฟล์ที่คนตั้งเอง */
+const MODNAME = {MECH:"เครื่องจักร", FOOD:"อาหาร", OTHER:"ค่าใช้จ่ายอื่น", UNSET:"ไม่ทราบสาย"};
+// OTHER เจอจริงในไฟล์ Mech — แถวค่าเดินทาง/ค่าบริการ เลขขึ้นต้น PO-O3…
+const MODPFX = {M:"MECH", F:"FOOD", O:"OTHER"};
+const modOf = r =>
+  MODPFX[(String(r.po || "").toUpperCase().match(/^PO-([A-Z])/) || [])[1]] || "UNSET";
+const fp = r => [modOf(r), r.po, r.item, r.p, r.due].join("|");
 let sent = {};
 try { sent = JSON.parse(localStorage.getItem("mgs-costing-sent") || "{}"); } catch (e) {}
 const saveSent = () => { try {
@@ -339,7 +375,10 @@ const MATCH = {
   bad:  r => isBad(r),
   zero: r => r.z,
   unk:  r => r.term === "UNKNOWN",
-  new:  r => !isSent(r)
+  new:  r => !isSent(r),
+  mech: r => modOf(r) === "MECH",
+  food: r => modOf(r) === "FOOD",
+  other: r => modOf(r) === "OTHER"
 };
 
 function statusCell(r) {
@@ -380,6 +419,7 @@ function render() {
   const list = view();
   $("#tb").innerHTML = list.map(r =>
     '<tr class="' + (isBad(r) ? "bad" : r.z ? "zero" : "") + '">' +
+      '<td class="mod-cell">' + esc(MODNAME[modOf(r)] || modOf(r)) + "</td>" +
       '<td class="po">' + esc(r.po || "—") + "</td>" +
       '<td class="sup">' + esc(r.sup || "—") +
         (r.item ? '<div class="itm">' + esc(r.item) + "</div>" : "") + "</td>" +
@@ -391,12 +431,14 @@ function render() {
       '<td class="p2p">' + p2pCell(r) + "</td></tr>").join("");
   // ว่างเพราะอะไร ต้องบอกให้ตรง — กรองไว้ ค้นไว้ หรือหมดจริง ๆ
   const lbl = {all:"", ok:"ที่พร้อมทำจ่าย", bad:"ที่ข้อมูลไม่ครบ", zero:"ที่ยอดเป็นศูนย์",
-               unk:"ที่ Term เป็น UNKNOWN", new:"ที่ยังไม่ส่งเข้า P2P"}[filter];
+               unk:"ที่ Term เป็น UNKNOWN", new:"ที่ยังไม่ส่งเข้า P2P",
+               mech:"สายเครื่องจักร", food:"สายอาหาร", other:"ค่าใช้จ่ายอื่น"}[filter];
   $("#empty").hidden = list.length > 0;
   $("#empty").textContent = term.trim()
     ? 'ไม่พบรายการ' + (lbl ? lbl + " " : "") + 'ที่ตรงกับ "' + term.trim() +
       '" — ลองพิมพ์เลข PO หรือชื่อผู้ขายให้สั้นลง'
     : filter === "new" ? "ส่งเข้าระบบ P2P ครบทุกรายการแล้ว — กดชิป “ทั้งหมด” เพื่อดูรายการทั้งหมด"
+    : filter === "food" ? "ยังไม่ได้รับไฟล์ Costing ฝั่งอาหาร — วางไฟล์ลงโฟลเดอร์เดียวกันแล้วกดอัพเดท ระบบแยกสายให้เอง"
     : "ไม่มีรายการ" + (lbl ? lbl : "") + " — กดชิป “ทั้งหมด” เพื่อดูรายการทั้งหมด";
 
   const tot = {};
@@ -409,7 +451,8 @@ function render() {
 
 function counts() {
   const n = f => KEEP.filter(MATCH[f]).length;
-  ["all", "ok", "bad", "zero", "unk", "new"].forEach(f => { $("#c-" + f).textContent = n(f); });
+  ["all", "ok", "bad", "zero", "unk", "new", "mech", "food", "other"]
+    .forEach(f => { $("#c-" + f).textContent = n(f); });
   $("#t-sent").textContent = KEEP.filter(isSent).length;
   $("#t-ok").textContent = n("ok");
   $("#t-bad").textContent = n("bad");
@@ -423,7 +466,7 @@ function rollup() {
   KEEP.forEach(r => {
     const k = r.po + "||" + r.cur;
     if (!g.has(k)) g.set(k, {po:r.po, sup:r.sup, term:r.term, cur:r.cur, n:0, sum:0,
-                            iso:r.iso, due:r.due, bad:0, zero:0});
+                            iso:r.iso, due:r.due, bad:0, zero:0, mod:modOf(r)});
     const o = g.get(k);
     o.n++; o.sum += (r.p || 0);
     if (isBad(r)) o.bad++;
@@ -434,6 +477,7 @@ function rollup() {
     .sort((a, b) => (a.iso || "9999").localeCompare(b.iso || "9999") || a.po.localeCompare(b.po))
     .map(o =>
       '<tr class="' + (o.bad ? "bad" : o.zero ? "zero" : "") + '">' +
+        '<td class="mod-cell">' + esc(MODNAME[o.mod] || o.mod) + "</td>" +
         '<td class="po">' + esc(o.po) + "</td>" +
         '<td class="sup">' + esc(o.sup) + "</td>" +
         '<td class="term' + (o.term === "UNKNOWN" ? " unk" : "") + '">' + esc(o.term) + "</td>" +

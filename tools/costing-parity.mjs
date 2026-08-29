@@ -18,11 +18,15 @@ global.Utilities = { formatDate: d => d };
 global.Session = { getScriptTimeZone: () => "Asia/Bangkok" };
 
 const src = fs.readFileSync(new URL("../apps-script/CostingDashboard.gs", import.meta.url), "utf8");
-const { transform_, fingerprint_ } = new Function(src + "\nreturn {transform_, fingerprint_};")();
+const { transform_, fingerprint_, poMismatch_ } =
+  new Function(src + "\nreturn {transform_, fingerprint_, poMismatch_};")();
 
 const gs = transform_(JSON.parse(fs.readFileSync(gridPath, "utf8")));
 const py = JSON.parse(fs.readFileSync(pyPath, "utf8"));
 const bad = [];
+// ฝั่ง Python ใส่สายสินค้ามาในแถวอยู่แล้ว — ยกมาให้ฝั่ง Apps Script เพื่อเทียบลายนิ้วมือกันจริง ๆ
+const mod = (py.rows[0] || {}).Module || "";
+if (gs.ok) gs.rows.forEach(r => { r._module = mod; });
 
 if (!gs.ok) bad.push("ฝั่ง Apps Script ประมวลผลไม่ผ่าน: " + gs.msg);
 else {
@@ -46,6 +50,9 @@ else {
       ["Payment_Status", a.Payment_Status, b.Payment_Status],
       ["ธงยอดศูนย์", a.Zero_Price, b._zero]
     ];
+    // สายสินค้าที่ฝั่ง Python เดาได้ ต้องตรงกับที่ Apps Script ตรวจจากเลข PO
+    if (i === 0 && gs.ok && poMismatch_(gs.rows, a.Module))
+      bad.push(`สายสินค้าไม่ตรงกัน — Python ว่า ${a.Module} แต่เลข PO ในไฟล์บอกอีกอย่าง`);
     cmp.forEach(([f, x, y]) => {
       if (x !== y && bad.length < 12)
         bad.push(`แถวที่ ${i + 1} ช่อง ${f} ไม่ตรง — Python "${x}" · Apps Script "${y}"`);
