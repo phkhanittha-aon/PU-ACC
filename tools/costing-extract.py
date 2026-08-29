@@ -19,7 +19,7 @@
 หลักที่ยึด: ไฟล์เพี้ยนได้ แต่สคริปต์ต้องไม่ตาย — คอลัมน์หายก็บอกว่าหายอะไร
 ไม่ใช่ traceback ยาวเป็นหน้า
 """
-import argparse, json, re, sys
+import argparse, json, os, re, sys
 from collections import Counter, OrderedDict
 
 try:
@@ -121,7 +121,14 @@ def to_num(v):
 
 
 def extract(path, module=""):
-    wb = openpyxl.load_workbook(path, data_only=True)
+    if not os.path.exists(path):
+        return {"error": "ไม่พบไฟล์ %s — ตรวจชื่อไฟล์และที่อยู่อีกครั้ง" % path}
+    try:
+        wb = openpyxl.load_workbook(path, data_only=True)
+    except Exception as e:
+        # ไฟล์เสียหรือไม่ใช่ .xlsx ก็ต้องบอกเป็นภาษาคน ไม่ใช่ traceback
+        return {"error": "เปิดไฟล์ %s ไม่ได้ (%s) — ต้องเป็นไฟล์ .xlsx ที่ไม่เสียหาย"
+                         % (path, type(e).__name__)}
     ws = wb[wb.sheetnames[0]]                       # กติกาข้อ 1 — ชีตแรกสุด
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
@@ -212,7 +219,10 @@ def main():
     a = ap.parse_args()
 
     if a.grid:
-        dump_grid(a.xlsx[0], a.grid)
+        if os.path.exists(a.xlsx[0]):
+            dump_grid(a.xlsx[0], a.grid)
+        else:
+            print("ข้ามการส่งออกตารางดิบ — ไม่พบไฟล์ " + a.xlsx[0])
 
     all_rows, all_stats, files, bad = [], Counter(), [], 0
     for path in a.xlsx:

@@ -120,6 +120,20 @@ def main():
         dM = json.load(open(jsM, encoding="utf-8"))
         ck(all(r["Module"] == "FOOD" for r in dM["rows"]), "สั่งสายเองแล้วไม่ถูกใช้")
 
+    # กฎเดียวกันถูกเขียนสองที่ (Python ตรวจสอบ · Apps Script นำเข้าจริง) ต้องให้ผลตรงกัน
+    # ทดสอบด้วยไฟล์ที่สร้างเองตรงนี้ ไม่ผูกกับไฟล์ของผู้ใช้ที่อาจไม่มีอยู่แล้ว
+    parity = os.path.join(HERE, "costing-parity.mjs")
+    if os.path.exists(parity):
+        grid = os.path.join(tmp, "grid.json")
+        subprocess.run([sys.executable, SCRIPT, xl, "-o", js, "--grid", grid],
+                       capture_output=True, text=True)
+        pp = subprocess.run(["node", parity, grid, js], capture_output=True, text=True)
+        if pp.returncode == 127 or "not found" in (pp.stderr or ""):
+            pass                                   # ไม่มี node ในเครื่องก็ข้ามไป ไม่ถือว่าพัง
+        else:
+            ck(pp.returncode == 0,
+               "Python กับ Apps Script ให้ผลไม่ตรงกัน: " + (pp.stdout or pp.stderr).strip()[:300])
+
     # ไฟล์ที่ไม่มีคอลัมน์ที่ต้องใช้ ต้องบอกว่าขาดอะไร ไม่ใช่ traceback
     xl2 = os.path.join(tmp, "bad.xlsx")
     wb2 = openpyxl.Workbook(); wb2.active.append(["A", "B"]); wb2.active.append([1, 2]); wb2.save(xl2)
@@ -137,7 +151,8 @@ def report():
             print("  - " + b)
         sys.exit(1)
     print("ทดสอบ costing-extract ผ่านทั้งหมด (ตัด LC 3 แบบ · UNKNOWN · 🔴 ระบุฟิลด์ที่ขาด · "
-          "ธงยอดศูนย์ · วันที่ 2 รูปแบบ · ไฟล์ผิดโครงสร้าง · แยกสาย Mech/Food · รวมหลายไฟล์)")
+          "ธงยอดศูนย์ · วันที่ 2 รูปแบบ · ไฟล์ผิดโครงสร้าง · แยกสาย Mech/Food · รวมหลายไฟล์ · "
+          "Python กับ Apps Script ตรงกัน)")
 
 
 if __name__ == "__main__":

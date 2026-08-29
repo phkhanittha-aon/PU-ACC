@@ -271,6 +271,18 @@
     font-family:var(--mono);color:var(--ink-2);line-height:1.7}
   .ctxbox b{color:var(--ink)}
   /* แถบเลือกงวดจ่ายในป๊อปอัปขออนุมัติ — เห็นทุกงวดพร้อมเอกสารเรียกเก็บของแต่ละงวด */
+  /* ปุ่มที่เป็นลิงก์ออกไปแอปอื่น — หน้าตาเหมือนปุ่ม แต่เป็น <a> จริงเพื่อให้เปิดแท็บใหม่ได้ */
+  /* ชิปกรองสายสินค้าในคิวตั้งเบิก */
+  .chips2{display:flex;gap:6px;flex-wrap:wrap}
+  .chips2 .chip2{background:var(--paper);border:1px solid var(--line-2);border-radius:999px;
+    padding:5px 12px;font-size:12.5px;color:var(--ink-2)}
+  .chips2 .chip2 .c{font-family:var(--mono);color:var(--ink-3);margin-left:5px;font-size:11px}
+  .chips2 .chip2:hover{border-color:var(--ink-3)}
+  .chips2 .chip2.on{background:var(--sidebar);border-color:var(--sidebar);color:#fff}
+  .chips2 .chip2.on .c{color:#9fb0a6}
+  a.btn.qcapp{display:inline-flex;align-items:center;gap:6px;text-decoration:none;
+    background:var(--gold-bg);border-color:var(--gold);color:var(--gold);font-weight:600}
+  a.btn.qcapp:hover{background:var(--gold);color:var(--paper)}
   .prtabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
   .prtabs .prtab{flex:1 1 190px;text-align:left;background:var(--surface);border:1px solid var(--line-2);
     border-radius:var(--r-md);padding:8px 10px;font-size:12.5px;font-weight:600;color:var(--ink-2);
@@ -571,10 +583,21 @@
      Mech  : Con. Condition / Packing / Physical / Quantity  (ไม่มีล็อต ไม่มีวันหมดอายุ)
      เพิ่มสายใหม่ = เพิ่มแถวที่นี่ + แถวใน HAND[..].byMod ไม่ต้องแก้หน้าจอ */
   const MODULES = {
-    FOOD: {n:"อาหาร", pfx:"F", place:"ห้องเย็น / คลังผู้ให้บริการ"},
-    MECH: {n:"เครื่องจักร & โซลาร์", pfx:"M", place:"คลังบริษัท"}
+    FOOD:  {n:"อาหาร", pfx:"F", place:"ห้องเย็น / คลังผู้ให้บริการ"},
+    MECH:  {n:"เครื่องจักร & โซลาร์", pfx:"M", place:"คลังบริษัท"},
+    // เจอในรายงาน Costing จริง — ค่าเดินทาง ค่าบริการ ไม่ใช่ของซื้อเข้าคลัง
+    // ไม่มีของให้ตรวจและไม่มีของให้รับเข้า จึงข้ามขั้น QC กับคลัง แต่ยังต้องแนบเอกสารและผ่านสายอนุมัติจ่ายเหมือนกัน
+    OTHER: {n:"ค่าใช้จ่ายอื่น", pfx:"O", place:"— (ไม่มีของเข้าคลัง)", noGoods:true}
   };
-  const modOf = p => MODULES[p && p.mod] ? p.mod : "FOOD";
+  // เลข PO จาก SAP เชื่อถือได้กว่าค่าที่คนกรอก — ดูเลขก่อน แล้วค่อยดูค่าที่ตั้งไว้ในรายการ
+  const PFX_MOD = {M:"MECH", F:"FOOD", O:"OTHER"};
+  function modOf(p) {
+    const m = String(p && p.no || "").toUpperCase().match(/^PO-([A-Z])/);
+    if (m && PFX_MOD[m[1]]) return PFX_MOD[m[1]];
+    return MODULES[p && p.mod] ? p.mod : "FOOD";
+  }
+  // ขั้นที่รายการค่าใช้จ่ายไม่ต้องเดินผ่าน — QC ตรวจรับ (10) และรับเข้าคลัง (11)
+  const NOGOODS_SKIP = [10, 11];
 
   /* ============ สัญญาระหว่างขั้น (Stage Contract) ============
      ปัญหาที่แก้: แผนกถัดไปเปิดหน้าจอแล้วไม่รู้ว่าแผนกก่อนหน้าทำอะไรไว้ ต้องไปถามในไลน์
@@ -665,8 +688,69 @@
     PENDING:{t:"รอตั้งเรื่อง", cls:"wait"}, BLOCKED:{t:"ล็อก (เคลม)", cls:"late"},
     REQUESTED:{t:"รออนุมัติจ่าย", cls:"due"}, APPROVED:{t:"อนุมัติแล้ว รอทำจ่าย", cls:"info"},
     PAID:{t:"จ่ายแล้ว", cls:"ok"}, FAILED:{t:"ธนาคารตีกลับ", cls:"late"},
-    VOID:{t:"กลับรายการ", cls:"wait"}, CANCELLED:{t:"ยกเลิก", cls:"wait"}
+    VOID:{t:"กลับรายการ", cls:"wait"}, CANCELLED:{t:"ยกเลิก", cls:"wait"},
+    // งวดที่ชำระผ่านเลตเตอร์ออฟเครดิต — ธนาคารจ่ายตามเอกสาร ไม่ต้องตั้งเบิกในระบบนี้
+    // แต่ยังอยู่ในรายการเพื่อให้ยอดรวมงวดเท่ามูลค่า PO และตามเอกสารได้
+    LC:{t:"จ่ายผ่าน LC (ธนาคาร)", cls:"info"}
   };
+
+  /* ============ เงื่อนไขจ่ายจาก SAP → งวดจ่าย ============
+     รายงาน Costing ที่ออกจาก SAP ส่ง PO Payment Term มาเป็นข้อความ 13 แบบ
+     ของเดิมต้นแบบตั้งเป็น "เครดิต 30 วัน" 1 งวดเสมอ ซึ่งไม่ตรงกับของจริงเลย
+     ตารางนี้แปลงข้อความเป็นงวดจ่ายจริง — เจอเงื่อนไขใหม่ = เพิ่มแถว ไม่ต้องแก้ฟังก์ชัน
+       lc:true  = งวดนี้ธนาคารจ่ายตาม LC ไม่ต้องตั้งเบิก
+       due      = ฐานวันครบกำหนด · SAP ส่ง Due Date มาให้อยู่แล้วจึงใช้เป็นหลัก */
+  /* ลำดับสำคัญ — เงื่อนไขที่ "แบ่งงวด" ต้องอยู่ก่อนเงื่อนไขงวดเดียวที่กว้างกว่า
+     ไม่งั้น "90% after delivery at site and 10% after commissioning" จะไปเข้าแถวเครดิตหลังรับของ
+     เปอร์เซ็นต์อ่านจากข้อความจริง ไม่ได้ตายตัว — ผู้ขายเปลี่ยนเป็น 40/60 ก็ยังถูก */
+  const PAY_TERMS = [
+    {m:/^\s*(\d+)%\s*advance.*?(\d+)%.*?\bl\s*\/?\s*c\b/i, n:"มัดจำโอน + ที่เหลือผ่าน LC",
+     plan:g => [{pct:+g[1], type:"มัดจำ", lc:false},
+                {pct:+g[2], type:"ส่วนที่เหลือ (LC)", lc:true}]},
+    {m:/^\s*(\d+)%.*?delivery.*?(\d+)%.*?commissioning/i, n:"แบ่งจ่ายตามงานติดตั้ง",
+     plan:g => [{pct:+g[1], type:"เมื่อส่งของถึงหน้างาน", lc:false},
+                {pct:+g[2], type:"เมื่อทดสอบระบบเสร็จ", lc:false}]},
+    {m:/^100%\s*advance|before\s+receiv/i, n:"จ่ายล่วงหน้าเต็มจำนวน",
+     plan:[{pct:100, type:"ชำระเต็ม (ล่วงหน้า)", lc:false}]},
+    {m:/commissioning/i, n:"จ่ายหลังทดสอบระบบ",
+     plan:[{pct:100, type:"ชำระเต็ม (หลังทดสอบระบบ)", lc:false}]},
+    {m:/after\s+received\s+goods|after\s+delivery|after\s+invoice|within\s+\d+\s*days/i,
+     n:"เครดิตหลังรับของ", plan:[{pct:100, type:"ชำระเต็ม", lc:false}]},
+    // ต้องอยู่ท้ายกว่าเงื่อนไขผสม ไม่งั้นจะกินแถว 30/70 ไปด้วย
+    {m:/\bl\s*\/?\s*c\b/i, n:"ชำระผ่าน LC ทั้งจำนวน",
+     plan:[{pct:100, type:"ชำระเต็ม (LC)", lc:true}]},
+    {m:/^unknown$/i, n:"ยังไม่ระบุเงื่อนไข",
+     plan:[{pct:100, type:"ชำระเต็ม (รอยืนยันเงื่อนไข)", lc:false}]}
+  ];
+  const UNKNOWN_TERM = "UNKNOWN";
+  function termPlan(t) {
+    const s = String(t == null || String(t).trim() === "" ? UNKNOWN_TERM : t).trim();
+    for (let i = 0; i < PAY_TERMS.length; i++) {
+      const g = s.match(PAY_TERMS[i].m);
+      if (!g) continue;
+      const pl = typeof PAY_TERMS[i].plan === "function" ? PAY_TERMS[i].plan(g) : PAY_TERMS[i].plan;
+      // เปอร์เซ็นต์ที่อ่านมาต้องรวมได้ 100 ไม่งั้นถือว่าอ่านผิด กลับไปใช้งวดเดียวปลอดภัยกว่า
+      const tot = pl.reduce((a, x) => a + x.pct, 0);
+      if (Math.abs(tot - 100) > 0.5)
+        return {n:PAY_TERMS[i].n + " (เปอร์เซ็นต์ในข้อความรวมได้ " + tot + " — ต้องตรวจ)",
+                plan:[{pct:100, type:"ชำระเต็ม", lc:false}], odd:true};
+      return {n:PAY_TERMS[i].n, plan:pl};
+    }
+    // ไม่ตรงแถวไหนเลยก็ยังต้องมีงวดให้จ่าย — ไม่ปล่อยให้รายการค้างเพราะข้อความแปลก
+    return {n:"เงื่อนไขที่ยังไม่รู้จัก", plan:[{pct:100, type:"ชำระเต็ม", lc:false}], odd:true};
+  }
+  const isLC = x => x && (x.lc === true || x.status === "LC");
+  /* กางเงื่อนไขเป็นงวดจ่ายจริง — ปัดเศษให้งวดสุดท้ายรับส่วนต่าง ยอดรวมจึงเท่ามูลค่า PO เสมอ */
+  function buildPayments(amt, term, dueTH) {
+    const pl = termPlan(term).plan;
+    let left = amt;
+    return pl.map((g, i) => {
+      const v = i === pl.length - 1 ? left : Math.round(amt * g.pct) / 100;
+      left -= v;
+      return pay(i + 1, g.type, g.pct, v, dueTH || "—", g.lc ? "LC" : "PENDING", "",
+        g.lc ? {lc:true, note:"ธนาคารจ่ายตามเอกสาร LC — ไม่ต้องตั้งเบิกในระบบนี้"} : {});
+    });
+  }
   // วงเงินซื้อเงินสดต่อรายการ — คนละเรื่องกับสายอนุมัติจ่าย (สายอนุมัติไม่มีเกณฑ์วงเงิน)
   const CASH_LIMIT = 50000;
 
@@ -741,6 +825,35 @@
      tl:[["07 ส.ค. 06:40","คุณสมชาย","เพิ่มรายการซื้อเงินสด — ไม่ได้เปิด PO"],
          ["07 ส.ค. 06:41","ระบบ","ข้าม QC ตามที่ระบุ — บันทึกเหตุผลและผู้อนุมัติไว้ถาวร"],
          ["07 ส.ค. 06:45","คุณสมชาย","แนบบิลเงินสดและรูปสินค้าหน้างาน"]]},
+
+    /* เงื่อนไขจ่ายผสม — งวดแรกโอนเอง งวดหลังธนาคารจ่ายตาม LC
+       เงื่อนไขนี้มีจริง 14 แถวในไฟล์ Costing · ของเดิมระบบทำได้แค่งวดเดียวจึงตกหล่นทั้งก้อน */
+    {no:"PO-26-0070", sap:"10288", mod:"MECH", sup:"Sungrow (ตัวแทนในไทย)",
+     item:"อินเวอร์เตอร์ SG125CX-P2 · 6 ชุด", qty:"6 SET",
+     amt:420000, cur:"THB", term:"30% Advance and 70% Balance by LC at sight",
+     sapTerm:"30% Advance and 70% Balance by LC at sight", sapDue:"25/09/2026",
+     stage:13, age:5, owner:"คุณสมชาย", status:"ACTIVE", claim:false,
+     skip:[1,2,5], date:"20/08/2026",
+     payments:buildPayments(420000, "30% Advance and 70% Balance by LC at sight", "25/09/2026"),
+     tl:[["20 ส.ค. 10:00","คุณสมชาย","สร้าง PO"],
+         ["20 ส.ค. 10:02","ระบบ",
+          "อ่านเงื่อนไขชำระจาก SAP (PO Payment Term / OCTG) = “30% Advance and 70% Balance by LC at sight” " +
+          "→ สร้างงวดจ่าย 2 งวด · 1 งวดชำระผ่าน LC ไม่ต้องตั้งเบิก"],
+         ["26 ส.ค. 09:15","คุณวิภา","อัพโหลดใบแจ้งหนี้จากผู้ขาย"]]},
+
+    /* ค่าใช้จ่ายที่ไม่ใช่ของซื้อเข้าคลัง — มาจากไฟล์ Costing จริง (PO-O326060001)
+       ไม่มีของให้ตรวจและไม่มีของให้รับเข้า จึงข้ามขั้น QC กับคลัง
+       แต่ยังต้องแนบเอกสารและผ่านสายอนุมัติจ่ายเหมือนรายการอื่นทุกประการ */
+    {no:"PO-O326060001", sap:"10311", sup:"บริษัท บิลเลี่ยน เดสติเนชั่น จำกัด",
+     item:"ค่าใช้จ่ายในการเดินทางต่างประเทศ Tour Package", qty:"1 งาน",
+     amt:373140, cur:"THB", term:"100% within 30 days after invoice date",
+     stage:13, age:6, owner:"คุณสมชาย", status:"ACTIVE", claim:false,
+     skip:[1,2,5].concat(NOGOODS_SKIP), date:"12/06/2026",
+     sapTerm:"100% within 30 days after invoice date", sapDue:"12/07/2026",
+     payments:[pay(1,"ชำระเต็ม",100,373140,"12/07/2026","PENDING")],
+     tl:[["12 มิ.ย. 09:30","คุณสมชาย","สร้างรายการค่าใช้จ่ายจากใบ PO ใน SAP"],
+         ["12 มิ.ย. 09:31","ระบบ","สายค่าใช้จ่ายอื่น — ข้ามขั้นตรวจรับ QC และรับเข้าคลัง (ไม่มีของ)"],
+         ["18 มิ.ย. 14:00","คุณวิภา","อัพโหลดใบแจ้งหนี้จากผู้ขาย"]]},
 
     // สายเครื่องจักร/โซลาร์ — ใบตรวจรับคนละชุดกับอาหาร (ไม่มีอุณหภูมิ ไม่มีล็อต มีสภาพตู้/หีบห่อแทน)
     {no:"PO-26-0060", sap:"10260", mod:"MECH", sup:"Sungrow (ตัวแทนในไทย)",
@@ -838,6 +951,11 @@
     "PO-26-0042": {shipDate:"2026-07-30", eta:"2026-07-31", etaTime:"08:30", truck:"70-1234 กทม (ห้องเย็น)"},
     "CS-26-0007": {qtyIn:"60 KG", grNo:"GR-CS-0007"},
     "PO-26-0060": {shipDate:"2026-08-19", eta:"2026-08-20", etaTime:"10:30", truck:"3 ฒฆ 7406 (Lalamove)"},
+    "PO-O326060001": {invNo:"INV-BLD-0618", invAmt:373140},
+    "PO-26-0070": {qcRef:"M-2026101", qcPoRef:"M-RC26200098", qcDate:"2026-08-24", qcPlace:"CHOD",
+                   invQty:"6 SET", qtyOk:"6 SET", qcResult:"ผ่าน (Pass)", conCond:"ผ่าน (Pass)",
+                   shipDate:"2026-08-22", eta:"2026-08-24", etaTime:"09:00", truck:"70-8899 กทม",
+                   qtyIn:"6 SET", grNo:"GR-26-0421", invNo:"INV-SG-0826", invAmt:420000},
     "PO-26-0038": {qcRef:"F-2026041", qcPoRef:"PO-F126050004", qcDate:"2026-07-30", qcPlace:"ห้องเย็นรักษ์ชัย II",
                    shipDate:"2026-07-29", eta:"2026-07-30", etaTime:"07:00", truck:"82-5567 สป.",
                    temp:-18.5, lot:"126005688", expDate:"05-2028", grade:"A",
@@ -987,12 +1105,19 @@
      ยังไม่ทราบวิธีเชื่อมจริง (API / ส่งออกไฟล์ / ฝังหน้าจอ) — ดูคำถามใน docs/15 */
   const QCAPP = {
     name:"Incoming Inspection Report (Food & Mech)",
+    /* ลิงก์แอปตรวจรับของจริงที่ทีมใช้อยู่ — คนละตัวต่อสายสินค้า
+       ระบบนี้ไม่ทำฟอร์มตรวจซ้ำ แค่พาไปสร้างใบในแอปเดิมให้ถูกตัวและถูกงาน
+       ส่ง PO กับผู้ขายไปกับลิงก์ให้ด้วย จะได้ไม่ต้องพิมพ์ซ้ำ ถ้าแอปปลายทางยังไม่รับพารามิเตอร์ก็แค่ไม่มีผล */
+    url:{
+      MECH:"https://script.google.com/a/macros/mglobalsourcing.net/s/AKfycbyFey_HmxtD4Gzb5CknPvBT_m-Ipsh_Sv1FeC18je8W9fh6sVAe01higzue6DVIr_Uy/exec",
+      FOOD:"https://script.google.com/macros/s/AKfycbzgxRCoReawJj6Igs1p6s1C_lbLKbCvKKzPQrzo0UE5ekRZnuyFSR3Oz6v3uPCHJWUfYA/exec"
+    },
     mode:"ยังไม่ได้เชื่อม — ตอนนี้ให้ QC กรอกเลขที่ใบตรวจแล้วระบบดึงผลตามเลขนั้น",
     // อ่านจากใบตรวจจริงที่ทีมส่งมา (F-2026049 กุ้งหมึกอิลเล็กซ์ · M-2026097 อินเวอร์เตอร์ Sungrow)
     lines:[
-      {o:"อาหาร (Food)", form:"Report No. F-26xxxx · ลงนาม QC + ผู้จัดการจัดซื้อ",
+      {o:"อาหาร (Food)", mod:"FOOD", form:"Report No. F-26xxxx · ลงนาม QC + ผู้จัดการจัดซื้อ",
        n:"Temp · Weight · Label · Physical · Quantity + Goods/Lot + Data Logger", st:"รอเชื่อม"},
-      {o:"เครื่องจักร & โซลาร์ (Mech)", form:"Report No. M-26xxxx · ลงนาม QC + ผู้จัดการจัดซื้อ",
+      {o:"เครื่องจักร & โซลาร์ (Mech)", mod:"MECH", form:"Report No. M-26xxxx · ลงนาม QC + ผู้จัดการจัดซื้อ",
        n:"Con. Condition · Packing · Physical · Quantity (ไม่มีล็อต/วันหมดอายุ)", st:"รอเชื่อม"}
     ],
     /* วิธีเชื่อมกับแอปตรวจรับซึ่งเป็นเว็บแอปคนละตัว (ดู docs/17)
@@ -1085,6 +1210,27 @@
      a:"ไม่ต้อง — ส่งแล้วจบ ถ้าระบบนี้ล่ม แอป QC ต้องกดจบใบได้ตามปกติ แล้วค่อยเข้าคิวส่งใหม่"}
   ];
 
+  /* ลิงก์ไปสร้างใบตรวจในแอปของ QC — เลือกแอปตามสายสินค้าของรายการนั้น
+     สาย OTHER ไม่มีของให้ตรวจ จึงไม่มีลิงก์ (คืนค่าว่าง แล้วปุ่มจะไม่ขึ้น) */
+  function qcAppUrl(p) {
+    const m = modOf(p);
+    const base = QCAPP.url[m];
+    if (!base) return "";
+    const q = "po=" + encodeURIComponent(p.sap || p.no) +
+      "&ref=" + encodeURIComponent(p.no) +
+      "&supplier=" + encodeURIComponent(p.sup || "") +
+      "&item=" + encodeURIComponent(p.item || "") +
+      "&qty=" + encodeURIComponent(p.qty || "") +
+      "&module=" + m;
+    return base + (base.indexOf("?") >= 0 ? "&" : "?") + q;
+  }
+  function qcAppBtn(p, label) {
+    const u = qcAppUrl(p);
+    if (!u) return "";
+    return '<a class="btn qcapp" href="' + esc(u) + '" target="_blank" rel="noopener">' +
+      esc(label || ("สร้างใบตรวจในแอป " + MODULES[modOf(p)].n)) + " ↗</a>";
+  }
+
   const SAP = {
     at:"วันนี้ 08:30", ok:true,
     mode:"ตัวส่งข้อมูลรันในออฟฟิศ อ่าน B1 แล้วส่งออกมา (ขาออกอย่างเดียว ไม่เปิดพอร์ตเข้า)",
@@ -1095,13 +1241,17 @@
       {o:"ใบรับสินค้า (GRPO)", src:"OPDN / PDN1", n:487, every:"ทุก 30 นาที", last:"08:30", st:"OK"},
       {o:"ใบแจ้งหนี้ผู้ขาย", src:"OPCH / PCH1", n:395, every:"ทุก 30 นาที", last:"07:30", st:"ช้า 1 รอบ"},
       {o:"การจ่ายเงินออก", src:"OVPM / VPM2", n:301, every:"ทุก 30 นาที", last:"08:30", st:"OK"},
-      {o:"เงื่อนไขชำระ", src:"OCTG", n:9, every:"ทุกคืน", last:"02:15", st:"OK"}
+      {o:"เงื่อนไขชำระ", src:"OCTG", n:9, every:"ทุกคืน", last:"02:15", st:"OK"},
+      // รายงานที่ทีมส่งมาจริง — เป็นที่มาของเงื่อนไขจ่าย วันครบกำหนด และต้นทุนนำเข้า
+      {o:"รายงาน Costing (Mech / Food)", src:"รายงานจาก SAP · 51 คอลัมน์", n:231,
+       every:"ทุกครั้งที่ออกรายงาน", last:"—", st:"ใช้อยู่"}
     ]
   };
 
   /* ================= สถานะหน้าจอ ================= */
   let role = "SR", page = "home", subtab = "ACTIVE", openPo = null, openClaim = null, q = "", fDept = "";
   let bugOpen = false, bugSev = "WRONG", openIC = null, openPR = null, quoteOpen = null, pendingAct = null;
+  let payQ = "", payQKw = "";     // ตัวกรองของคิวตั้งเบิกทำจ่ายในหน้ารายงาน
   let upOpen = null, cashOpen = false, payReqOpen = null, rejOpen = null;   // ป๊อปอัปอัพโหลด / เงินสด / ขอทำจ่าย / ตีกลับ
   let payOpen = null, payTouched = {amt:false, wht:false}, prTouched = false;
 
@@ -1156,7 +1306,8 @@
       mb:(parts.length * 0.32).toFixed(1), at:"วันนี้"};
   }
   POS.forEach(p => { if (p.status === "COMPLETED" && !p.bundle) p.bundle = mergeDocs(p); });
-  const DONE_PAY = ["PAID", "CANCELLED", "VOID"];
+  // LC = ธนาคารจ่ายตามเอกสารแล้ว ไม่ใช่งวดที่ค้างรอเราตั้งเบิก จึงนับเป็นงวดที่จบทางฝั่งนี้
+  const DONE_PAY = ["PAID", "CANCELLED", "VOID", "LC"];
   const unpaid = p => p.payments.filter(x => DONE_PAY.indexOf(x.status) < 0);
   function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");
     clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),2600);}
@@ -1523,7 +1674,9 @@
       btns = '<button class="btn ok" data-act="approve">อนุมัติ</button>' +
              '<button class="btn bad" data-act="reject">ไม่อนุมัติ</button>';
     else if (s.c === "QC_INCOMING")
-      btns = '<button class="btn ok" data-act="qcpass">ตรวจรับผ่าน</button>' +
+      // ลำดับปุ่มตามลำดับงานจริง — ไปสร้างใบตรวจในแอปก่อน แล้วค่อยกลับมาบันทึกผลที่นี่
+      btns = qcAppBtn(p, "สร้างใบตรวจในแอป " + MODULES[modOf(p)].n) +
+             '<button class="btn ok" data-act="qcpass">ตรวจรับผ่าน</button>' +
              '<button class="btn bad" data-act="qcfail">ไม่ผ่าน → เปิดใบเคลม</button>';
     else if (s.c === "ITEM_CODE")
       btns = '<button class="btn pri" data-act="goic">ไปที่ใบขอเปิดรหัสสินค้า</button>';
@@ -1607,6 +1760,12 @@
 
     // 2) ตอนนี้ต้องทำอะไร — อยู่บนสุดเสมอ ไม่ต้องเลื่อนหา
     //    นำหน้าด้วยใบส่งงานจากแผนกก่อนหน้า และคำเตือนเมื่อข้อมูลที่ต้องใช้ยังไม่มา
+    // ลิงก์ใบตรวจ — QC เปิดจากที่นี่ได้ตลอด ไม่ต้องรอให้ถึงคิวตัวเอง
+    if (role === "QC" && isActive(p) && qcAppUrl(p) && (st(p) || {}).c !== "QC_INCOMING")
+      h += '<div class="note info" style="border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:16px">' +
+        '<span class="ic">↗</span><span>ต้องการเปิดใบตรวจของรายการนี้ไว้ก่อน — ' +
+        qcAppBtn(p, "ไปที่แอปตรวจรับ " + MODULES[modOf(p)].n) + "</span></div>";
+
     h += handoffCard(p) + qcOpenCard(p) + missingCard(p) + todoCard(p);
 
     // 3) ความคืบหน้า
@@ -1690,6 +1849,9 @@
 
   function payButtons(p, x) {
     if (!isActive(p) && x.status !== "PAID") return "";
+    // งวดที่ชำระผ่าน LC ไม่ผ่านมือเรา — ไม่ให้ตั้งเรื่อง ไม่ให้บันทึกจ่าย กันคนกดแล้วจ่ายซ้ำกับธนาคาร
+    if (isLC(x))
+      return '<span class="hint">ธนาคารจ่ายตามเอกสาร LC — ไม่ต้องตั้งเบิกที่นี่</span>';
     const b = (act, cls, t) => '<button class="btn ' + cls + '" data-payact="' + act + '" data-seq="' + x.seq + '">' + t + "</button>";
     if (role === "AC") {
       if (x.status === "PENDING")  return b("req", "pri", "ตั้งเรื่องขอจ่าย");
@@ -2081,6 +2243,73 @@
   }
 
   /* ================= รายงาน ================= */
+  /* ============ คิวตั้งเบิกทำจ่าย ============
+     ยกมาจาก Dashboard แยกที่เคยทำไว้ — ทีมยืนยันว่าต้องมีระบบเดียว จึงย้ายมาอยู่ในหน้ารายงาน
+     อ่านจาก POS ที่มีอยู่ ไม่มีชุดข้อมูลของตัวเอง จึงไม่มีทางไม่ตรงกับหน้าอื่น
+     งวดที่ชำระผ่าน LC ไม่อยู่ในคิวนี้ เพราะธนาคารจ่ายตามเอกสาร ไม่ต้องตั้งเบิก */
+  function payDue() {
+    const out = [];
+    POS.filter(isActive).forEach(p => p.payments.forEach(x => {
+      if (DONE_PAY.indexOf(x.status) >= 0) return;
+      out.push({p:p, x:x, mod:modOf(p), iso:thToISO(x.due) || "9999-99-99"});
+    }));
+    return out.sort((a, b) => a.iso.localeCompare(b.iso));
+  }
+  function payQueueCard() {
+    let list = payDue();
+    if (payQ) list = list.filter(r => r.mod === payQ);
+    const kw = String(payQKw || "").trim().toLowerCase();
+    if (kw) list = list.filter(r =>
+      (r.p.no + " " + r.p.sup + " " + r.p.term).toLowerCase().indexOf(kw) >= 0);
+
+    const all = payDue(), cnt = m => all.filter(r => r.mod === m).length;
+    const tot = {};
+    list.forEach(r => { tot[r.p.cur] = (tot[r.p.cur] || 0) + r.x.amount; });
+    const lc = [];
+    POS.filter(isActive).forEach(p => p.payments.forEach(x => { if (isLC(x)) lc.push({p:p, x:x}); }));
+
+    let h = '<div class="card"><h3>คิวตั้งเบิกทำจ่าย<span class="c">' + list.length + " งวด" +
+      (money() && Object.keys(tot).length
+        ? " · " + Object.keys(tot).sort().map(c => baht(tot[c]) + " " + c).join(" · ") : "") +
+      "</span></h3>" +
+      '<div class="toolbar"><input type="search" id="payq" placeholder="ค้นหาเลข PO · ผู้ขาย · เงื่อนไขจ่าย" value="' +
+        esc(payQKw) + '">' +
+      '<div class="chips2">' +
+      ['', 'FOOD', 'MECH', 'OTHER'].map(m =>
+        '<button class="chip2' + (payQ === m ? " on" : "") + '" data-payq="' + m + '">' +
+        (m ? esc(MODULES[m].n) : "ทุกสาย") + '<span class="c">' + (m ? cnt(m) : all.length) +
+        "</span></button>").join("") + "</div></div>";
+
+    if (!list.length)
+      h += '<div class="empty">' + (kw || payQ
+        ? "ไม่มีงวดที่ตรงกับที่กรองอยู่ — กด “ทุกสาย” เพื่อดูทั้งหมด"
+        : "ไม่มีงวดค้างตั้งเบิก") + "</div>";
+    else {
+      h += '<div class="tw"><table><thead><tr><th>ครบกำหนด</th><th>สาย</th><th>PO</th>' +
+        "<th>ผู้ขาย</th><th>เงื่อนไขจ่าย</th><th>งวด</th>" +
+        (money() ? '<th class="num">ยอด</th>' : "") + "<th>สถานะ</th></tr></thead><tbody>";
+      list.forEach(r => {
+        const s2 = PAY_ST[r.x.status] || PAY_ST.PENDING;
+        h += '<tr class="click" data-po="' + esc(r.p.no) + '">' +
+          '<td class="mono">' + esc(r.x.due || "—") + "</td>" +
+          "<td>" + esc(MODULES[r.mod].n) + "</td>" +
+          '<td><span class="pono">' + esc(r.p.no) + "</span></td>" +
+          "<td>" + esc(r.p.sup) + "</td>" +
+          '<td class="sub">' + esc(r.p.term) +
+            (/^UNKNOWN$/i.test(r.p.term) ? ' <span class="pill late">รอยืนยัน</span>' : "") + "</td>" +
+          "<td>" + r.x.seq + " · " + esc(r.x.type) + "</td>" +
+          (money() ? '<td class="num">' + baht(r.x.amount) + " " + esc(r.p.cur) + "</td>" : "") +
+          '<td><span class="pill ' + s2.cls + '">' + esc(s2.t) + "</span></td></tr>";
+      });
+      h += "</tbody></table></div>";
+    }
+    if (lc.length)
+      h += '<div class="note info"><span class="ic">i</span><span><b>ไม่รวมงวดที่ชำระผ่าน LC ' +
+        lc.length + " งวด</b> — ธนาคารจ่ายตามเอกสารเลตเตอร์ออฟเครดิต ไม่ต้องตั้งเบิกที่นี่ " +
+        "แต่ยังอยู่ในรายการของ PO เพื่อให้ยอดรวมงวดเท่ามูลค่า PO</span></div>";
+    return h + "</div>";
+  }
+
   function pageReport() {
     const act = POS.filter(isActive);
     const agg = {};
@@ -2096,6 +2325,7 @@
     const max = rows.length ? rows[0].score : 1;
 
     let h = '<div class="ph"><h1>รายงาน</h1><span class="d">งานค้างอยู่ที่ขั้นตอนไหน — ข้อมูลที่ตอนนี้ยังไม่มีใครรู้</span></div>';
+    h += payQueueCard();
     h += '<div class="card"><h3>อันดับคอขวด</h3><div class="bars">';
     rows.forEach(a => {
       h += '<div class="bar' + (a.late ? " r" : "") + '"><div>' + esc(a.n) + " " + dept(a.o) + "</div>" +
@@ -2191,6 +2421,14 @@
     }
 
     if (money()) {
+      // เงื่อนไขชำระที่ SAP ส่งมาว่าง — ยังตั้งเบิกได้ แต่ต้องมีคนยืนยันก่อน ไม่ใช่เดาเอง
+      if (/^UNKNOWN$/i.test(String(p.term || "")))
+        add(false, "warn", "เงื่อนไขชำระจาก SAP ว่าง (UNKNOWN) — ให้จัดซื้อยืนยันก่อนขออนุมัติจ่าย", "SR");
+      // ยอดเป็นศูนย์มักเป็นตัวอย่างสินค้าที่ผู้ขายไม่คิดเงิน แต่ต้องมีคนดูก่อนตั้งเบิกเสมอ
+      const zero = p.payments.filter(x => x.amount === 0 && x.status !== "CANCELLED").length;
+      if (zero)
+        add(false, "warn", "มีงวดยอดเป็นศูนย์ " + zero + " งวด — ตรวจก่อนตั้งเบิกว่าถูกต้อง", "AC");
+
       const sum = p.payments.reduce((s, x) => s + x.amount, 0);
       add(!p.payments.length || sum === p.amt, "block",
           sum === p.amt ? "ผลรวมงวดจ่ายเท่ากับมูลค่า PO" : "งวดจ่ายรวม " + baht(sum) + " ไม่เท่ากับมูลค่า PO " + baht(p.amt), "AC");
@@ -2231,8 +2469,11 @@
         else add(true, "block", "ยอดใบแจ้งหนี้ตรงกับ PO (" + baht(invAmt) + ")", "");
       } else add(false, "warn", "ยังไม่ได้รับใบแจ้งหนี้", "AC");
 
+      const nLC = p.payments.filter(isLC).length;
       add(unpaid(p).length === 0, "block",
-          unpaid(p).length ? "ยังจ่ายไม่ครบ " + unpaid(p).length + " งวด" : "จ่ายครบทุกงวดและมีสลิปครบ",
+          unpaid(p).length ? "ยังจ่ายไม่ครบ " + unpaid(p).length + " งวด"
+            : "จ่ายครบทุกงวดและมีสลิปครบ" +
+              (nLC ? " (" + nLC + " งวดชำระผ่าน LC ธนาคารจ่ายตามเอกสาร)" : ""),
           "AC", "paid");
     }
     return out;
@@ -2463,6 +2704,38 @@
         '<div class="rowline">B1 ล่ม = ระบบยังใช้ได้ ขึ้นป้ายบอกว่าข้อมูลเก่าแค่ไหน<span class="pill ok">ไม่บล็อกงาน</span></div>' +
         "</div>";
 
+      /* รายงาน Costing ที่ออกจาก SAP — เป็นที่มาของเงื่อนไขจ่ายและวันครบกำหนดจริง
+         ต้นแบบเดิมเดาเป็น "เครดิต 30 วัน" 1 งวดเสมอ ซึ่งไม่ตรงกับของจริงสักเงื่อนไข */
+      h += '<div class="card"><h3>เงื่อนไขจ่ายจาก SAP → งวดจ่าย' +
+        '<span class="c">PO Payment Term · ' + PAY_TERMS.length + " แบบที่รู้จัก</span></h3>" +
+        '<div class="note info"><span class="ic">▸</span><span>' +
+        "รายงาน Costing ส่ง <b>PO Payment Term</b> กับ <b>Due Date</b> มาให้อยู่แล้ว " +
+        "ระบบกางเป็นงวดจ่ายให้เอง — <b>เจอเงื่อนไขใหม่ = เพิ่มแถวในตารางนี้ ไม่ต้องแก้โปรแกรม</b><br>" +
+        "งวดที่ชำระผ่าน <b>LC</b> ธนาคารจ่ายตามเอกสาร ระบบจึงไม่ให้ตั้งเบิกซ้ำ " +
+        "แต่ยังนับรวมในยอดของ PO</span></div>" +
+        '<div class="tw"><table><thead><tr><th>รูปแบบเงื่อนไข</th><th>ตัวอย่างข้อความจาก SAP</th>' +
+        "<th>กางเป็นงวด</th></tr></thead><tbody>";
+      [["จ่ายล่วงหน้าเต็มจำนวน", "100% advance/before receiving the goods"],
+       ["เครดิตหลังรับของ", "100% after received goods within 7 days"],
+       ["ชำระผ่าน LC ทั้งจำนวน", "LC 90 days after BL date"],
+       ["มัดจำโอน + ที่เหลือผ่าน LC", "30% Advance and 70% Balance by LC at sight"],
+       ["แบ่งจ่ายตามงานติดตั้ง", "90% after delivery at site and 10% after commissioning"],
+       ["จ่ายหลังทดสอบระบบ", "90 days after commissioning"],
+       ["ยังไม่ระบุเงื่อนไข", "(ว่าง) → UNKNOWN"]].forEach(r => {
+        const pl = termPlan(r[1] === "(ว่าง) → UNKNOWN" ? UNKNOWN_TERM : r[1]).plan;
+        h += "<tr><td><b>" + esc(r[0]) + '</b></td><td class="mono" style="font-size:12px">' +
+          esc(r[1]) + "</td><td>" +
+          pl.map(g => g.pct + "% " + esc(g.type) +
+            (g.lc ? ' <span class="pill info">LC</span>' : "")).join("<br>") + "</td></tr>";
+      });
+      h += "</tbody></table></div>" +
+        '<div class="rowline">เลข PO แยกสายให้เอง — <span class="mono">PO-M…</span> เครื่องจักร · ' +
+        '<span class="mono">PO-F…</span> อาหาร · <span class="mono">PO-O…</span> ค่าใช้จ่ายอื่น' +
+        '<span class="pill ok">จากเลขจริงใน SAP</span></div>' +
+        '<div class="rowline">สายค่าใช้จ่ายอื่นไม่มีของเข้าคลัง — ระบบข้ามขั้นตรวจรับ QC และรับเข้าคลังให้' +
+        '<span class="pill ok">ไม่ต้องตั้งค่าเอง</span></div>' +
+        "</div>";
+
       // QC มีแอปตรวจรับของตัวเองอยู่แล้ว — ต้องไม่สร้างฟอร์มตรวจซ้ำในระบบนี้
       h += '<div class="card"><h3>แอปตรวจรับของ QC ที่มีอยู่แล้ว<span class="c">' +
         esc(QCAPP.name) + "</span></h3>" +
@@ -2470,10 +2743,13 @@
         "QC ตรวจในแอปเดิมตามที่ใช้อยู่ แล้วเอา<b>เลขที่ใบตรวจ</b>มาผูกกับ PO ที่นี่ " +
         "พร้อมยกเฉพาะช่องที่ปลายทางใช้ตัดสินใจออกมา — <b>ไม่ได้ขอทั้งใบ</b></span></div>" +
         '<div class="tw"><table><thead><tr><th>สายงาน</th><th>เลขที่ใบ / การลงนาม</th>' +
-        "<th>หัวข้อที่ตรวจ</th><th>สถานะการเชื่อม</th></tr></thead><tbody>";
+        "<th>หัวข้อที่ตรวจ</th><th>ไปสร้างใบตรวจ</th></tr></thead><tbody>";
       QCAPP.lines.forEach(l => {
+        const u = QCAPP.url[l.mod];
         h += "<tr><td>" + esc(l.o) + "</td><td>" + esc(l.form) + "</td><td>" + esc(l.n) + "</td>" +
-          '<td><span class="pill due">' + esc(l.st) + "</span></td></tr>";
+          "<td>" + (u
+            ? '<a class="btn qcapp" href="' + esc(u) + '" target="_blank" rel="noopener">เปิดแอป ↗</a>'
+            : '<span class="pill due">' + esc(l.st) + "</span>") + "</td></tr>";
       });
       h += "</tbody></table></div>" +
         '<div class="note warn"><span class="ic">!</span><span>' +
@@ -2485,7 +2761,10 @@
         "<th>ปลายทางเอาไปใช้</th></tr></thead><tbody>" +
         QCAPP.pull.map(x => "<tr><td><b>" + esc(x.f) + "</b></td><td>" + esc(x.to) + "</td></tr>").join("") +
         "</tbody></table></div>" +
-        '<div class="rowline">วิธีเชื่อมตอนนี้: <b>' + esc(QCAPP.mode) + "</b></div>" +
+        '<div class="note good"><span class="ic">✓</span><span><b>ปุ่มไปสร้างใบตรวจต่อสายสินค้าใช้ได้แล้ว</b> — ' +
+        "QC กดจากในรายการ PO ได้เลย ระบบเลือกแอปให้ตามสายสินค้า และส่งเลข PO ผู้ขาย สินค้า จำนวน " +
+        "ไปกับลิงก์ให้ ไม่ต้องพิมพ์ซ้ำ (ถ้าแอปปลายทางยังไม่รับพารามิเตอร์ ก็แค่ไม่มีผล ไม่พัง)</span></div>" +
+        '<div class="rowline">วิธีดึงผลกลับตอนนี้: <b>' + esc(QCAPP.mode) + "</b></div>" +
         '<div class="note info"><span class="ic">▸</span><span>ยังต้องถามทีม QC — ' +
         "แอปมี API หรือส่งออกไฟล์ได้ไหม · ฝั่ง Mech ใบตรวจอ้าง<b>เลขรับของ (RC)</b> ไม่ใช่เลข PO " +
         "จะจับคู่ด้วยอะไร · ต้องดึงรูปถ่ายทั้งชุดเข้าเล่มเอกสารด้วยหรือเอาแค่ลิงก์ (ดู docs/16)</span></div></div>";
@@ -2878,7 +3157,10 @@
         ? '<div class="note warn" style="border:1px solid var(--gold);border-radius:var(--r-md);margin:0 0 4px">' +
           '<span class="ic">↗</span><span><b>ตรวจในแอป ' + esc(QCAPP.name) + " ตามเดิม</b> — " +
           "ระบบนี้ไม่มีฟอร์มตรวจซ้ำ ตรวจเสร็จแล้วเอา<b>เลขที่ใบตรวจ</b>มากรอกที่นี่ " +
-          "พร้อมสรุป 2–3 ตัวที่คลังและบัญชีต้องใช้</span></div>"
+          "พร้อมสรุป 2–3 ตัวที่คลังและบัญชีต้องใช้" +
+          (qcAppUrl(p) ? '<div class="fl2" style="justify-content:flex-start;margin-top:8px">' +
+            qcAppBtn(p, "เปิดแอปตรวจรับ " + MODULES[modOf(p)].n + " แล้วสร้างใบ") + "</div>" : "") +
+          "</span></div>"
         : "") +
       (hc ? '<div class="note info" style="border:1px solid var(--line);border-radius:var(--r-md);margin:0 0 4px">' +
         '<span class="ic">→</span><span>ช่องด้านล่างนี้<b>' + esc(hc.to) +
@@ -3556,6 +3838,10 @@
       render(); return;
     }
 
+    // ชิปกรองสายสินค้าในคิวตั้งเบิกทำจ่าย
+    const pq2 = ev.target.closest("[data-payq]");
+    if (pq2) { payQ = pq2.dataset.payq; renderMain(); return; }
+
     const sb = ev.target.closest("[data-sub]");
     if (sb) { subtab = sb.dataset.sub; openClaim = null; openIC = null; openPR = null; render(); return; }
     const bk = ev.target.closest("[data-back]");
@@ -3989,15 +4275,23 @@
       // ของจริงคือเรียกข้อมูล PO จาก B1 มาเติมให้ ไม่ให้คนพิมพ์เลขเอง
       p.sap = String(10250 + Math.floor(Math.random() * 40));   // DocNum ของ B1
       p.tl.push(["วันนี้", "ระบบ", "ดึง PO " + p.sap + " จาก B1 (OPOR/POR1) — ผู้ขาย จำนวน มูลค่า มาพร้อมกัน"]);
-      // ต้องเติมเงื่อนไขชำระและสร้างงวดจ่ายจริง ไม่ใช่แค่เขียนในประวัติว่าทำแล้ว
+      /* เงื่อนไขชำระกับวันครบกำหนดมาจาก SAP อยู่แล้ว (PO Payment Term / Due Date ในรายงาน Costing)
+         ของเดิมตั้งเป็น "เครดิต 30 วัน" 1 งวดเสมอ ซึ่งไม่ตรงกับของจริงสักเงื่อนไขเดียว
+         ตอนนี้กางตาม PAY_TERMS — เงื่อนไขผสมได้หลายงวด และงวดที่ผ่าน LC ติดป้ายไว้ */
       if (!p.term || /^รอกำหนด/.test(p.term)) {
-        p.term = "เครดิต 30 วัน";              // OCTG.GroupNum ของผู้ขายรายนี้
-        const dueTH = isoToTH(new Date(Date.now() + 30*864e5).toISOString().slice(0,10));
-        p.payments = [pay(1, "ชำระเต็ม", 100, p.amt, dueTH, "PENDING")];
+        p.term = p.sapTerm || "100% after received goods within 7 days";
+        const dueTH = p.sapDue || isoToTH(new Date(Date.now() + 30*864e5).toISOString().slice(0,10));
+        const tp = termPlan(p.term);
+        p.payments = buildPayments(p.amt, p.term, dueTH);
+        const nLC = p.payments.filter(isLC).length;
         p.tl.push(["วันนี้", "ระบบ",
-          "อ่านเงื่อนไขชำระจาก OCTG = “" + p.term + "” → สร้างงวดจ่าย 1 งวด ครบกำหนด " + dueTH]);
+          "อ่านเงื่อนไขชำระจาก SAP (PO Payment Term / OCTG) = “" + p.term + "” (" + tp.n + ") → สร้างงวดจ่าย " +
+          p.payments.length + " งวด ครบกำหนด " + dueTH +
+          (nLC ? " · " + nLC + " งวดชำระผ่าน LC ไม่ต้องตั้งเบิก" : "")]);
+        if (tp.odd) p.tl.push(["วันนี้", "ระบบ",
+          "เงื่อนไขชำระอ่านไม่ออกทั้งหมด — สร้างงวดเดียวไว้ก่อน ให้จัดซื้อยืนยันก่อนขออนุมัติจ่าย"]);
       } else {
-        p.tl.push(["วันนี้", "ระบบ", "เงื่อนไขชำระตรงกับ OCTG อยู่แล้ว — งวดจ่ายไม่เปลี่ยน"]);
+        p.tl.push(["วันนี้", "ระบบ", "เงื่อนไขชำระตรงกับที่ SAP ส่งมาอยู่แล้ว — งวดจ่ายไม่เปลี่ยน"]);
       }
       advance(p, "ผูกกับ PO ใน B1");
     }
@@ -4061,6 +4355,13 @@
   }
 
   document.addEventListener("input", function (ev) {
+    if (ev.target.id === "payq") {
+      payQKw = ev.target.value; const el0 = ev.target;
+      renderMain();
+      const n0 = document.getElementById("payq");
+      if (n0 && n0.focus) { n0.focus(); if (n0.setSelectionRange) n0.setSelectionRange(el0.value.length, el0.value.length); }
+      return;
+    }
     if (ev.target.id === "q") { q = ev.target.value; const el = ev.target;
       renderMain(); const nq = document.getElementById("q");
       if (nq) { nq.focus(); nq.setSelectionRange(el.value.length, el.value.length); }

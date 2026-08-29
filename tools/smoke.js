@@ -44,7 +44,7 @@ function click(attr, data) {
 const ROLES = ["SR", "QC", "LS", "WH", "AC", "ACH", "GM"];
 const PAGES = { home: [""], po: ["ACTIVE","DONE","CANCELLED","SEARCH"], req: ["PRICE","CLAIM","ITEM"],
                 inbox: [""], admin: ["ISSUES","SAP","QCAPP","STAGES","DOCS","FILES","USERS"], report: [""] };
-const POS = ["PO-26-0042","PO-26-0051","CS-26-0007","PO-26-0060","PO-26-0038","PO-26-0029","PO-26-0033","PO-26-0045","PO-26-0031","PO-26-0025","PO-26-0019","PO-26-0012"];
+const POS = ["PO-26-0042","PO-26-0051","CS-26-0007","PO-O326060001","PO-26-0060","PO-26-0038","PO-26-0029","PO-26-0033","PO-26-0045","PO-26-0031","PO-26-0025","PO-26-0019","PO-26-0012"];
 
 let n = 0, bad = [];
 function check(label) {
@@ -907,6 +907,63 @@ click("data-sub", { sub: "QCAPP" });
 d = nodes["#main"].innerHTML;
 if (/F-2026055/.test(d) || /M-2026099/.test(d)) bad.push("ผูกใบแล้วยังค้างอยู่ในคิวจับคู่");
 if (!/ไม่มีใบตรวจค้างจับคู่/.test(d)) bad.push("คิวว่างแล้วแต่ไม่ได้บอกว่าว่าง");
+
+/* ================= ข้อมูลจาก SAP: เงื่อนไขจ่าย · สายที่สาม · ลิงก์แอป QC ================= */
+
+// 1) เงื่อนไขจ่ายจาก SAP ต้องกางเป็นงวดจริง ไม่ใช่ 1 งวดเสมอเหมือนของเดิม
+click("data-role", { role: "AC" });
+click("data-page", { page: "admin" });
+click("data-sub", { sub: "SAP" });
+d = nodes["#main"].innerHTML;
+if (!/PO Payment Term/.test(d)) bad.push("หน้าเชื่อม SAP ไม่ได้บอกว่าอ่านเงื่อนไขจ่ายจากที่ไหน");
+if (!/มัดจำโอน \+ ที่เหลือผ่าน LC/.test(d)) bad.push("ไม่มีตารางแปลงเงื่อนไขจ่ายเป็นงวด");
+
+// 2) รายการที่เงื่อนไขผสม LC — ต้องได้ 2 งวด · งวด LC ไม่มีปุ่มตั้งเรื่อง · ยอดรวมยังเท่าเดิม
+click("data-po", { po: "PO-26-0070" });
+d = nodes["#main"].innerHTML;
+if (!/จ่ายผ่าน LC \(ธนาคาร\)/.test(d)) bad.push("งวดที่ชำระผ่าน LC ไม่ได้ติดป้ายไว้");
+if (!/ธนาคารจ่ายตามเอกสาร LC/.test(d)) bad.push("งวด LC ยังมีปุ่มตั้งเรื่องขอจ่าย — ต้องกันไว้");
+if (!/มัดจำ/.test(d) || !/ส่วนที่เหลือ \(LC\)/.test(d))
+  bad.push("เงื่อนไขผสมไม่ได้ถูกกางเป็น 2 งวด");
+if (!/ผลรวมงวดจ่ายเท่ากับมูลค่า PO/.test(d))
+  bad.push("แยกงวดแล้วยอดรวมไม่เท่ามูลค่า PO");
+
+// 3) สายที่สาม: ค่าใช้จ่ายที่ไม่มีของเข้าคลัง — ข้ามขั้น QC และคลัง
+click("data-role", { role: "SR" });
+click("data-po", { po: "PO-O326060001" });
+d = nodes["#main"].innerHTML;
+if (!/ค่าใช้จ่ายอื่น/.test(d)) bad.push("รายการค่าใช้จ่ายไม่ได้บอกว่าอยู่สายไหน");
+if (!/step skip[^>]*>[\s\S]{0,400}QC ตรวจรับ/.test(d))
+  bad.push("รายการค่าใช้จ่ายไม่ได้ข้ามขั้น QC");
+
+// 4) ปุ่มไปสร้างใบตรวจในแอปของ QC — คนละแอปตามสายสินค้า
+click("data-role", { role: "QC" });
+click("data-po", { po: "PO-26-0042" });
+d = nodes["#main"].innerHTML;
+const foodUrl = (d.match(/href="(https:\/\/script\.google\.com[^"]+)"/) || [])[1] || "";
+if (!foodUrl) bad.push("QC ไม่มีปุ่มไปสร้างใบตรวจในแอป");
+if (!/po=/.test(foodUrl)) bad.push("ลิงก์ไปแอปตรวจไม่ได้ส่งเลข PO ไปด้วย");
+if (!/module=FOOD/.test(foodUrl)) bad.push("ลิงก์ฝั่งอาหารไม่ได้ระบุสายเป็น FOOD");
+click("data-po", { po: "PO-26-0060" });
+const mechUrl = (nodes["#main"].innerHTML.match(/href="(https:\/\/script\.google\.com[^"]+)"/) || [])[1] || "";
+if (!/module=MECH/.test(mechUrl)) bad.push("ลิงก์ฝั่งเครื่องจักรไม่ได้ระบุสายเป็น MECH");
+if (foodUrl.split("?")[0] === mechUrl.split("?")[0])
+  bad.push("สองสายใช้ URL แอปตรวจรับเดียวกัน — ต้องคนละแอป");
+click("data-po", { po: "PO-O326060001" });
+if (/script\.google\.com/.test(nodes["#main"].innerHTML))
+  bad.push("รายการค่าใช้จ่ายไม่ควรมีปุ่มไปแอปตรวจรับ");
+
+// 5) คิวตั้งเบิกทำจ่ายอยู่ในหน้ารายงาน ไม่ใช่ระบบแยก
+click("data-role", { role: "AC" });
+click("data-page", { page: "report" });
+d = nodes["#main"].innerHTML;
+if (!/คิวตั้งเบิกทำจ่าย/.test(d)) bad.push("หน้ารายงานไม่มีคิวตั้งเบิกทำจ่าย");
+if (!/ไม่รวมงวดที่ชำระผ่าน LC/.test(d)) bad.push("คิวตั้งเบิกไม่ได้บอกว่าไม่รวมงวด LC");
+const qAll = (d.match(/data-po="/g) || []).length;
+click("data-payq", { payq: "OTHER" });
+const qOther = (nodes["#main"].innerHTML.match(/data-po="/g) || []).length;
+if (!(qOther > 0 && qOther < qAll)) bad.push("กรองสายสินค้าในคิวตั้งเบิกไม่ทำงาน");
+click("data-payq", { payq: "" });
 
 /* ================= ใบตรวจ Food กับ Mech ใช้ช่องคนละชุด ================= */
 click("data-role", { role: "QC" });

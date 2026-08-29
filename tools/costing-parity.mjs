@@ -2,7 +2,7 @@
  *   python3 tools/costing-extract.py "Costing Mech.xlsx" -o /tmp/py.json --grid /tmp/grid.json
  *   node tools/costing-parity.mjs /tmp/grid.json /tmp/py.json
  *
- * ทำไมต้องมี: กฎเดียวกันถูกเขียนสองที่ (Python ไว้ตรวจสอบ · Apps Script ไว้ใช้งานจริง)
+ * ทำไมต้องมี: กฎเดียวกันถูกเขียนสองที่ (Python ไว้ตรวจสอบ · Apps Script ตัวนำเข้าเข้า Dochub)
  * สองฝั่งเพี้ยนจากกันเมื่อไหร่ ตัวเลขที่ทีมเห็นกับตัวเลขที่ตั้งเบิกจริงจะไม่ตรงกันโดยไม่มีใครรู้
  */
 import fs from "fs";
@@ -17,7 +17,7 @@ if (!gridPath || !pyPath) {
 global.Utilities = { formatDate: d => d };
 global.Session = { getScriptTimeZone: () => "Asia/Bangkok" };
 
-const src = fs.readFileSync(new URL("../apps-script/CostingDashboard.gs", import.meta.url), "utf8");
+const src = fs.readFileSync(new URL("../apps-script/SapCostingImport.gs", import.meta.url), "utf8");
 const { transform_, fingerprint_, poMismatch_ } =
   new Function(src + "\nreturn {transform_, fingerprint_, poMismatch_};")();
 
