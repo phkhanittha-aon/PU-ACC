@@ -637,7 +637,9 @@
       {k:"grNo",  lb:"เลข GRPO ใน B1",          t:"text", req:true}]},
     INVOICE_RECEIVED: {to:"จัดซื้อ และบัญชี", f:[
       {k:"invNo",  lb:"เลขใบแจ้งหนี้ของผู้ขาย", t:"text", req:true},
-      {k:"invAmt", lb:"ยอดในใบแจ้งหนี้ (บาท)",  t:"num",  req:true}]},
+      // money:true = บทบาทที่ไม่มีสิทธิ์เห็นเงินจะไม่เห็นช่องนี้เลย (ดู handoffCard)
+      // ประกาศไว้ตรงนี้แทนการเดาจากชื่อฟิลด์ — ตั้งชื่อใหม่เมื่อไหร่ก็ยังไม่หลุด
+      {k:"invAmt", lb:"ยอดในใบแจ้งหนี้ (บาท)",  t:"num",  req:true, money:true}]},
     RECEIPT_ORIGINAL: {to:"บัญชี", f:[
       {k:"rcvBy", lb:"ใครเป็นผู้รับเอกสารตัวจริง", t:"text", req:true}]}
   };
@@ -1260,6 +1262,15 @@
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const baht = n => "฿" + Number(n||0).toLocaleString("en-US");
   const money = () => ROLES[role].money;
+  // ยอดเงินที่ต้องฝังกลางประโยคของบรรทัดประวัติ ให้ห่อด้วย bahtIn() เสมอ
+  // ผู้วาด (tlText) จะตัดทั้งก้อนทิ้งเมื่อคนอ่านไม่มีสิทธิ์เห็นเงิน — ไม่ใช่ปิดตัวเลขไว้เฉย ๆ
+  const MK = "\u2062";                                    // อักขระที่มองไม่เห็น ไม่มีทางโผล่ในข้อความจริง
+  const bahtIn = n => MK + baht(n) + MK;
+  const tlText = t => {
+    const q = String(t == null ? "" : t).split(MK);
+    return money() ? q.join("")
+      : q.filter((x, i) => i % 2 === 0).join("").replace(/\s{2,}/g, " ").replace(/\s+·/g, " ·").trim();
+  };
   const st = p => STAGES[p.stage] || null;
   const ownerOf = p => st(p) ? st(p).o : "—";
   const isActive = p => p.status === "ACTIVE";
@@ -1327,13 +1338,21 @@
   const svgIco = d => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
     'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
 
+  /* เมนู — บางหน้าเปิดให้เฉพาะบทบาทที่เกี่ยว
+     หน้าตั้งค่าระบบมีทะเบียนซื้อเงินสดพร้อมยอดเงินอยู่ข้างใน
+     QC/โลจิสติกส์/คลัง ไม่มีสิทธิ์เห็นยอดเงินตามกติกา จึงไม่เปิดหน้านี้ให้ตั้งแต่แรก */
   const NAV = [
     {k:"home",   t:"หน้าหลัก"},
     {k:"po",     t:"ใบสั่งซื้อ (PO)"},
     {k:"req",    t:"ใบคำร้อง"},
     {k:"report", t:"รายงาน"},
-    {k:"admin",  t:"ตั้งค่าระบบ"}
+    {k:"admin",  t:"ตั้งค่าระบบ", roles:["SR", "AC", "ACH", "GM"]}
   ];
+  const canSee = k => {
+    const n = NAV.filter(x => x.k === k)[0];
+    return !n || !n.roles || n.roles.indexOf(role) >= 0;
+  };
+  const myNav = () => NAV.filter(n => canSee(n.k));
   const SUB0 = {po:"ACTIVE", req:"PRICE", admin:"ISSUES"};
 
   const myNotifs = () => NOTIFS.filter(n => n.to === role);
@@ -1347,7 +1366,7 @@
     const reqOpen = CLAIMS.filter(c=>!c.cn).length + ITEMREQS.filter(x=>x.status!=="DONE").length +
       PRICEREQS.filter(x=>x.status==="NEW").length;
 
-    $("#nav").innerHTML = NAV.map(n => {
+    $("#nav").innerHTML = myNav().map(n => {
       const cur = n.k === page ? ' aria-current="page"' : "";
       let badge = "";
       if (n.k === "po" && myQueue) badge = '<span class="cnt">' + myQueue + "</span>";
@@ -1558,7 +1577,7 @@
   const handFmt = (f, v) => {
     if (v === "" || v == null) return "—";
     if (f.t === "date") return isoToTH(String(v));
-    if (f.t === "num") return /Amt$/.test(f.k) ? baht(v) : String(v);
+    if (f.t === "num") return f.money ? baht(v) : String(v);
     return String(v);
   };
   function handoffCard(p) {
@@ -1568,7 +1587,10 @@
     for (let i = p.stage - 1; i >= 0 && done.length < 3; i--) {
       if (p.skip.indexOf(i) >= 0) continue;
       const sg = STAGES[i], h = handOf(sg.c, p), f = p.files[sg.c] || p.files["STEP_" + sg.c];
-      const kv = h ? h.f.filter(x => p.hand[x.k] !== undefined && p.hand[x.k] !== "") : [];
+      // ตัดช่องเงินทิ้งทั้งแถวสำหรับบทบาทที่ไม่มีสิทธิ์เห็น — ตามหลักเดียวกับหัวเอกสาร
+      // ซ่อนไปเลยดีกว่าโชว์ว่า "ดูไม่ได้" · QC ต้องตรวจของโดยไม่รู้ว่าล็อตนี้มูลค่าเท่าไหร่
+      const kv = h ? h.f.filter(x => (money() || !x.money) &&
+        p.hand[x.k] !== undefined && p.hand[x.k] !== "") : [];
       if (!kv.length && !f) continue;
       done.push({sg:sg, kv:kv, file:f});
     }
@@ -1838,7 +1860,7 @@
 
     h += '<details class="blk"><summary>ประวัติ<span class="c">' + p.tl.length + ' รายการ</span></summary><div class="tl">' +
       p.tl.slice().reverse().map(e => '<div class="e"><time>' + esc(e[0]) + "</time><div><b>" +
-        esc(e[1]) + "</b> " + esc(e[2]) + "</div></div>").join("") + "</div></details>";
+        esc(e[1]) + "</b> " + esc(tlText(e[2])) + "</div></div>").join("") + "</div></details>";
     return h;
   }
   function fld(k, v, src) {
@@ -2658,15 +2680,21 @@
 
       h += '<div class="card"><h3>รายการซื้อเงินสด<span class="c">' + cash.length + " รายการ · ข้าม QC " +
         byp.length + " รายการ</span></h3>" +
-        '<div class="rowline"><span class="nm">วงเงินสูงสุดต่อรายการ</span><span class="pill due">' +
-        baht(CASH_LIMIT) + " — เกินกว่านี้ต้องเปิด PO</span></div>" +
+        // ป้องกันสองชั้น — เมนูนี้ซ่อนจากบทบาทที่ไม่มีสิทธิ์อยู่แล้ว แต่ถ้าวันหนึ่งมีคนเปิดให้
+        // ยอดเงินก็ยังต้องไม่หลุด
+        (money()
+          ? '<div class="rowline"><span class="nm">วงเงินสูงสุดต่อรายการ</span><span class="pill due">' +
+            baht(CASH_LIMIT) + " — เกินกว่านี้ต้องเปิด PO</span></div>"
+          : "") +
         '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ร้าน / สินค้า</th>' +
-        '<th class="num">ยอด</th><th>เหตุผลที่ไม่เปิด PO</th><th>ข้าม QC</th></tr></thead><tbody>';
-      if (!cash.length) h += '<tr><td colspan="5" class="sub">— ยังไม่มีรายการเงินสด —</td></tr>';
+        (money() ? '<th class="num">ยอด</th>' : "") +
+        "<th>เหตุผลที่ไม่เปิด PO</th><th>ข้าม QC</th></tr></thead><tbody>";
+      if (!cash.length)
+        h += '<tr><td colspan="' + (money() ? 5 : 4) + '" class="sub">— ยังไม่มีรายการเงินสด —</td></tr>';
       cash.forEach(c => {
         h += '<tr class="click" data-po="' + esc(c.no) + '"><td><span class="pono">' + esc(c.no) + "</span></td>" +
           "<td>" + esc(c.sup) + '<div class="sub">' + esc(c.item) + "</div></td>" +
-          '<td class="num">' + baht(c.amt) + "</td>" +
+          (money() ? '<td class="num">' + baht(c.amt) + "</td>" : "") +
           '<td class="sub">' + esc(c.cashWhy || "—") + "</td>" +
           "<td>" + (c.qcBypass
             ? '<span class="pill late">ข้าม</span><div class="sub">' + esc(c.qcBypassWhy) +
@@ -3878,7 +3906,7 @@
             {method:"CASH", bank:FROM[valOf("cs_from")] || FROM.PETTY,
              ref:"CS" + String(d).replace(/-/g, "").slice(2) + String(nums.length + 1).padStart(3, "0"),
              fee:0, paidAmt:amt, paidBy:ROLES[role].person, reqBy:ROLES[role].person, apvBy:"—"})],
-          tl:[["วันนี้", ROLES[role].person, "เพิ่มรายการซื้อเงินสด " + baht(amt) +
+          tl:[["วันนี้", ROLES[role].person, "เพิ่มรายการซื้อเงินสด " + bahtIn(amt) +
                 " — ไม่ได้เปิด PO (" + valOf("cs_why").trim() + ")"]]
         };
         if (by) p2.tl.push(["วันนี้", "ระบบ",
@@ -4058,7 +4086,7 @@
         x.paidBy = ROLES[role].person;
         x.lateDays = x.due ? dayDiff(d, thToISO(x.due)) : 0;
         t.p.tl.push(["วันนี้", ROLES[role].person,
-          "บันทึกจ่ายงวดที่ " + x.seq + " " + baht(x.paidAmt) + " · อ้างอิง " + x.ref]);
+          "บันทึกจ่ายงวดที่ " + x.seq + " " + bahtIn(x.paidAmt) + " · อ้างอิง " + x.ref]);
         t.p.tl.push(["วันนี้", "ระบบ", "แจ้งผู้ขายพร้อมสลิปทางอีเมล และแจ้งจัดซื้อใน Lark"]);
         payOpen = null; modals();
         toast(unpaid(t.p).length
@@ -4085,7 +4113,7 @@
         x.status = "APPROVED"; x.apvBy = ROLES[role].person;
         x.reqSt = "APPROVED"; x.apvAt = "วันนี้";
         p.tl.push(["วันนี้", ROLES[role].person,
-          "อนุมัติ " + (x.reqNo || "คำขอจ่าย") + " งวดที่ " + x.seq + " " + baht(x.amount) +
+          "อนุมัติ " + (x.reqNo || "คำขอจ่าย") + " งวดที่ " + x.seq + " " + bahtIn(x.amount) +
           " · มีผล " + esc(x.due || "—")]);
         notify("AC", "act", p.no, "อนุมัติแล้ว — บันทึกการจ่ายได้",
           (x.reqNo || "คำขอจ่าย") + " " + p.no + " " + baht(x.amount) +
@@ -4195,7 +4223,7 @@
         x.reqSt = "PENDING"; x.rejWhy = ""; x.rejBy = ""; x.apvAt = "";
         x.effNote = txt;
         t.p.tl.push(["วันนี้", ROLES[role].person,
-          "ขออนุมัติทำจ่าย " + baht(amt) + " · มีผลวันที่ " + isoToTH(eff)]);
+          "ขออนุมัติทำจ่าย " + bahtIn(amt) + " · มีผลวันที่ " + isoToTH(eff)]);
         if (stamp) t.p.tl.push(["วันนี้", "ระบบ",
           "ประทับข้อความลงบน " + (dc ? dc.n : "เอกสารที่แนบ") + " (" +
           (valOf("pr_size") || "13") + "pt · ตำแหน่ง " + Math.round(prPosNow().x) + "/" +
@@ -4211,7 +4239,7 @@
         // บัญชีตั้งเรื่องจากตารางงวดไม่ใช่การจบขั้นตอนของ PO — เดินขั้นให้จะข้ามงานคนอื่น
         if ((st(t.p) || {}).c === "DOC_HANDOVER") advance(t.p, "ส่งมอบเอกสารครบชุด + ขออนุมัติทำจ่าย");
         else t.p.tl.push(["วันนี้", ROLES[role].person,
-          "ตั้งเรื่องขอจ่ายงวดที่ " + x.seq + " " + baht(amt) + " ตาม " + x.billNo]);
+          "ตั้งเรื่องขอจ่ายงวดที่ " + x.seq + " " + bahtIn(amt) + " ตาม " + x.billNo]);
         toast("ส่งให้" + ROLES[PAY_APPROVER].name + "อนุมัติแล้ว — ทุกยอดต้องผ่านผู้จัดการ");
         render(); return;
       }
@@ -4386,6 +4414,8 @@
 
   function renderMain() {
     const m = $("#main");
+    // กันทางอ้อม — สลับบทบาทแล้วค้างอยู่หน้าที่บทบาทใหม่ไม่มีสิทธิ์ ต้องเด้งกลับ ไม่ใช่วาดต่อ
+    if (!canSee(page)) { page = "home"; subtab = ""; }
     if (page === "detail") m.innerHTML = pageDetail();
     else if (page === "po") m.innerHTML = pagePo();
     else if (page === "req") m.innerHTML = pageReq();

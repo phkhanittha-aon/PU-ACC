@@ -42,6 +42,14 @@ function click(attr, data) {
   clickH({ target: { closest(sel) { return sel === "[" + attr + "]" ? { dataset: data } : null; } } });
 }
 const ROLES = ["SR", "QC", "LS", "WH", "AC", "ACH", "GM"];
+// อ่านจากไฟล์จริงว่าบทบาทไหนห้ามเห็นยอดเงิน — ไม่ฮาร์ดโค้ดรายชื่อไว้ที่นี่
+// เพิ่มบทบาทใหม่ในระบบเมื่อไหร่ เครื่องตรวจยอดเงินรั่วก็ครอบคลุมให้ทันที
+const MONEY_ROLE = {};
+src.replace(/(\w+)\s*:\s*\{\s*name:[^{}]*?money:\s*(true|false)/g,
+  (_, k, v) => { MONEY_ROLE[k] = v === "true"; return ""; });
+if (Object.keys(MONEY_ROLE).length !== ROLES.length)
+  throw new Error("อ่านสิทธิ์เห็นเงินจาก prototype.html ไม่ครบ (ได้ " +
+    Object.keys(MONEY_ROLE).length + " จาก " + ROLES.length + ")");
 const PAGES = { home: [""], po: ["ACTIVE","DONE","CANCELLED","SEARCH"], req: ["PRICE","CLAIM","ITEM"],
                 inbox: [""], admin: ["ISSUES","SAP","QCAPP","STAGES","DOCS","FILES","USERS"], report: [""] };
 const POS = ["PO-26-0042","PO-26-0051","CS-26-0007","PO-O326060001","PO-26-0060","PO-26-0038","PO-26-0029","PO-26-0033","PO-26-0045","PO-26-0031","PO-26-0025","PO-26-0019","PO-26-0012"];
@@ -1071,7 +1079,8 @@ if (!/P13/.test(formFields.py_err.innerHTML))
   bad.push("ผู้อนุมัติบันทึกการจ่ายเองได้ (P13) — ผิดหลักแยกหน้าที่ระดับคน");
 
 // หน้าตั้งค่าต้องบอกว่า QC มีแอปตรวจรับอยู่แล้ว ไม่สร้างฟอร์มซ้ำ
-click("data-role", { role: "QC" });
+// (ดูด้วยบทบาทจัดซื้อ — QC เองไม่เห็นเมนูตั้งค่าแล้ว เพราะยอดเงินอยู่ในนั้น)
+click("data-role", { role: "SR" });
 click("data-page", { page: "admin" });
 click("data-sub", { sub: "SAP" });
 d = nodes["#main"].innerHTML;
@@ -1079,8 +1088,82 @@ if (!/Incoming Inspection/.test(d)) bad.push("หน้าตั้งค่า�
 if (!/ไม่ทำฟอร์มตรวจรับซ้ำ/.test(d)) bad.push("ไม่ได้ระบุว่าระบบนี้จะไม่สร้างฟอร์มตรวจซ้ำ");
 if (!/Mech/.test(d)) bad.push("ไม่ได้ครอบคลุมสายงาน Mech");
 
+/* ---------- เครื่องตรวจยอดเงินรั่ว ----------
+   กติกาใน docs/03-roles-screens.md: QC · โลจิสติกส์ · คลัง ไม่เห็นยอดเงินเลย
+   เพื่อไม่ให้ผลตรวจถูกกดดันด้วยมูลค่าของล็อต
+
+   เคยพลาดมาแล้ว — การ์ด "แผนกก่อนหน้าส่งอะไรมาให้คุณ" โชว์ยอดใบแจ้งหนี้ให้ QC เห็น
+   เพราะฟีเจอร์ที่เพิ่มทีหลังไม่ได้ผ่านประตู money() ที่มีอยู่แล้ว
+   การกรองที่ handoffCard() แก้อาการ ส่วนนี้แก้สาเหตุ: ของใหม่รอบหน้าทำรั่วซ้ำไม่ได้
+
+   วางไว้ท้ายสุดตั้งใจ — บางหน้าจอมียอดเงินก็ต่อเมื่อมีคำขอจ่ายแล้ว
+   ถ้าสแกนก่อนโฟลว์เดินจบจะไม่เจอ */
+const NOMONEY = ROLES.filter(r => !MONEY_ROLE[r]);
+if (!NOMONEY.length) bad.push("ไม่พบบทบาทที่ห้ามเห็นเงิน — เครื่องตรวจนี้กลายเป็นของหลอก");
+const leaks = [];
+let scans = 0;
+
+function scanScreen(where) {
+  ["#main", "#modal", "#bug"].forEach(k => {
+    scans++;
+    const h = nodes[k].innerHTML || "";
+    // มองหา "฿ ตามด้วยตัวเลข" คือยอดเงินจริงที่ baht() พ่นออกมา
+    // ตัว ฿ เดี่ยว ๆ ที่ใช้เป็นไอคอนหัวข้อ "รายการซื้อเงินสด" ไม่ใช่ยอด ไม่ต้องจับ
+    const m = /฿\s*\d/.exec(h);
+    if (!m) return;
+    const i = m.index;
+    // รายงานข้อความรอบ ๆ ด้วย ไม่ใช่แค่บอกว่าพัง — คนอ่านต้องรู้ว่าไปแก้ตรงไหน
+    const near = h.slice(Math.max(0, i - 120), i + 60)
+      .replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    leaks.push(where + " " + k + " → …" + near + "…");
+  });
+}
+
+for (const r of NOMONEY) {
+  // ล้างของค้างจากบทบาทก่อนหน้าก่อน ไม่งั้นจะโทษผิดคน
+  nodes["#modal"].innerHTML = "";
+  nodes["#bug"].innerHTML = "";
+  click("data-role", { role: r });
+  for (const p of Object.keys(PAGES)) {
+    click("data-page", { page: p });
+    scanScreen(r + "/" + p);
+    for (const s2 of PAGES[p]) {
+      if (!s2) continue;
+      click("data-sub", { sub: s2 });
+      scanScreen(r + "/" + p + "/" + s2);
+    }
+  }
+  for (const po of POS) { click("data-po", { po: po }); scanScreen(r + "/ใบ " + po); }
+  click("data-page", { page: "req" });
+  for (const c of ["EX-2026001", "CL-26-0004"]) {
+    click("data-claim", { claim: c });
+    scanScreen(r + "/คำร้อง " + c);
+  }
+  click("data-page", { page: "inbox" });
+  for (let i = 1; i <= 10; i++) { click("data-notif", { notif: String(i) }); scanScreen(r + "/แจ้งเตือน " + i); }
+  click("data-bug", { bug: "open" });
+  scanScreen(r + "/แจ้งปัญหา");
+  click("data-bug", { bug: "close" });
+  // เมนูตั้งค่าระบบต้องไม่โผล่บนแถบนำทางเลย — กันทั้งทางตรงและทางที่ตาเห็น
+  if (/data-page="admin"/.test(nodes["#nav"].innerHTML))
+    bad.push(r + " ยังเห็นเมนูตั้งค่าระบบบนแถบนำทาง");
+}
+// บทบาทฝั่งเงินต้องไม่ถูกกระทบ — ถ้าเงียบไปหมดแปลว่ากรองแรงเกินไป
+click("data-role", { role: "AC" });
+click("data-po", { po: "PO-O326060001" });
+if (nodes["#main"].innerHTML.indexOf("฿") < 0)
+  bad.push("บัญชีเปิดใบเดียวกันแล้วไม่เห็นยอดเงิน — กรองแรงเกินจนคนที่มีสิทธิ์ก็ไม่เห็น");
+if (!/data-page="admin"/.test(nodes["#nav"].innerHTML))
+  bad.push("บัญชีไม่เห็นเมนูตั้งค่าระบบ — กรองเมนูแรงเกินไป");
+
+if (leaks.length) {
+  bad.push("ยอดเงินหลุดไปยังบทบาทที่ไม่มีสิทธิ์เห็น " + leaks.length + " จุด:");
+  leaks.slice(0, 12).forEach(l => bad.push("    " + l));
+}
+
 console.log("เรนเดอร์ทั้งหมด " + n + " ครั้ง + จ่าย + ใช้งานง่าย/SAP + ขอราคา→PO + เงินสด/ไดรฟ์กลาง/รวมไฟล์/ป๊อปอัป\n" +
   "  + ใบตรวจ Food/Mech คนละชุด + ข้อค้างท้ายใบตรวจล็อกจ่าย + เอกสารเรียกเก็บรายงวด\n" +
-  "  + เชื่อมแอปตรวจรับ QC (คิวจับคู่ใบตรวจ + กรอกให้เอง)");
+  "  + เชื่อมแอปตรวจรับ QC (คิวจับคู่ใบตรวจ + กรอกให้เอง)\n" +
+  "  + สแกนยอดเงินรั่ว " + scans + " จุดตรวจ (" + NOMONEY.join(" · ") + ") ไม่พบการหลุด");
 if (bad.length) { console.log("พบปัญหา " + bad.length + ":"); bad.slice(0, 30).forEach(b => console.log("  - " + b)); process.exit(1); }
 console.log("ผ่านทั้งหมด");
