@@ -1088,6 +1088,58 @@ if (!/Incoming Inspection/.test(d)) bad.push("หน้าตั้งค่า�
 if (!/ไม่ทำฟอร์มตรวจรับซ้ำ/.test(d)) bad.push("ไม่ได้ระบุว่าระบบนี้จะไม่สร้างฟอร์มตรวจซ้ำ");
 if (!/Mech/.test(d)) bad.push("ไม่ได้ครอบคลุมสายงาน Mech");
 
+/* ---------- เครื่องตรวจคอนทราสต์ของชุดสี ----------
+   docs/03-roles-screens.md ประกาศว่าสีแผนกทุกสีผ่าน WCAG AA (4.5:1) ทั้งสองโหมด
+   คำประกาศในเอกสารที่ไม่มีเครื่องตรวจอยู่ข้างหลัง คือคำประกาศที่รอวันเพี้ยน
+
+   เคยพลาดมาแล้วตอนเลือกสี — ทองที่ทีมเลือกไว้ (#96731C) วัดได้ 4.15:1 บนพื้นระบบ
+   สวยแต่คนอ่านทั้งวันแล้วล้า จึงเข้มขึ้นหนึ่งขั้นโดยคงเฉดเดิม */
+function relLum(hex) {
+  const v = [1, 3, 5].map(i => {
+    const c = parseInt(hex.substr(i, 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+}
+function ratio(a, b) {
+  const x = relLum(a), y = relLum(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+// อ่านค่าสีจาก prototype.html โดยตรง แก้สีที่ไฟล์แล้วเครื่องตรวจตามทันทีโดยไม่ต้องมาแก้ที่นี่
+function palette(css) {
+  const out = {};
+  css.replace(/(--[\w-]+)\s*:\s*#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/g, (_, k, v) => {
+    out[k] = "#" + (v.length === 3 ? v[0] + v[0] + v[1] + v[1] + v[2] + v[2] : v);   // #fff ก็ต้องอ่านได้
+    return "";
+  });
+  return out;
+}
+const styleSrc = (html.match(/<style>([\s\S]*?)<\/style>/) || ["", ""])[1];
+const lightCss = styleSrc.slice(0, styleSrc.indexOf("@media (prefers-color-scheme:dark)"));
+const darkCss = (styleSrc.match(/:root\[data-theme="dark"\]\{([\s\S]*?)\n  \}/) || ["", ""])[1];
+const FG = ["--sr", "--qc", "--ls", "--wh", "--ac", "--ach", "--gm",
+            "--gold", "--gold-800", "--ink", "--ink-2", "--ink-3",
+            "--go", "--warn", "--stop", "--cold"];
+[["สว่าง", palette(lightCss)], ["มืด", palette(darkCss)]].forEach(([mode, pal]) => {
+  const bgs = [["พื้น", pal["--surface"]], ["การ์ด", pal["--paper"]]];
+  if (!pal["--surface"] || !pal["--paper"]) { bad.push("โหมด" + mode + ": อ่านสีพื้นไม่ได้"); return; }
+  FG.forEach(k => {
+    if (!pal[k]) { bad.push("โหมด" + mode + ": ไม่พบสี " + k); return; }
+    bgs.forEach(([bn, bg]) => {
+      const r = ratio(pal[k], bg);
+      if (r < 4.5) bad.push("คอนทราสต์ตก · โหมด" + mode + " " + k + " (" + pal[k] + ") บน" + bn +
+        " = " + r.toFixed(2) + ":1 ต้องได้ 4.5:1 ขึ้นไป");
+    });
+  });
+});
+// ปุ่มหลักใช้ตัวอักษรเข้มทับทองโลหะ — คู่นี้ต้องผ่านด้วย
+[["สว่าง", palette(lightCss)], ["มืด", palette(darkCss)]].forEach(([mode, pal]) => {
+  if (pal["--gold-400"]) {
+    const r = ratio("#1E1B16", pal["--gold-400"]);
+    if (r < 4.5) bad.push("คอนทราสต์ตก · โหมด" + mode + " ตัวอักษรบนปุ่มทอง = " + r.toFixed(2) + ":1");
+  }
+});
+
 /* ---------- เครื่องตรวจยอดเงินรั่ว ----------
    กติกาใน docs/03-roles-screens.md: QC · โลจิสติกส์ · คลัง ไม่เห็นยอดเงินเลย
    เพื่อไม่ให้ผลตรวจถูกกดดันด้วยมูลค่าของล็อต
@@ -1164,6 +1216,7 @@ if (leaks.length) {
 console.log("เรนเดอร์ทั้งหมด " + n + " ครั้ง + จ่าย + ใช้งานง่าย/SAP + ขอราคา→PO + เงินสด/ไดรฟ์กลาง/รวมไฟล์/ป๊อปอัป\n" +
   "  + ใบตรวจ Food/Mech คนละชุด + ข้อค้างท้ายใบตรวจล็อกจ่าย + เอกสารเรียกเก็บรายงวด\n" +
   "  + เชื่อมแอปตรวจรับ QC (คิวจับคู่ใบตรวจ + กรอกให้เอง)\n" +
-  "  + สแกนยอดเงินรั่ว " + scans + " จุดตรวจ (" + NOMONEY.join(" · ") + ") ไม่พบการหลุด");
+  "  + สแกนยอดเงินรั่ว " + scans + " จุดตรวจ (" + NOMONEY.join(" · ") + ") ไม่พบการหลุด\n" +
+  "  + ตรวจคอนทราสต์ชุดสี " + (FG.length * 4 + 2) + " คู่ ผ่าน WCAG AA ทั้งสองโหมด");
 if (bad.length) { console.log("พบปัญหา " + bad.length + ":"); bad.slice(0, 30).forEach(b => console.log("  - " + b)); process.exit(1); }
 console.log("ผ่านทั้งหมด");

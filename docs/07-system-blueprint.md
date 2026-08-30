@@ -40,7 +40,7 @@
 
 ```mermaid
 graph TD
-  ROOT["MGS DocHub"]
+  ROOT["MGS Document Center"]
 
   ROOT --> G["แถบบนสุด — มีทุกหน้า"]
   G --> G1["ค้นหารวม<br/>PO · SAP · ผู้ขาย · Lot · เคลม"]

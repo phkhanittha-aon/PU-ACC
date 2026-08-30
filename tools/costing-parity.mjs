@@ -2,7 +2,7 @@
  *   python3 tools/costing-extract.py "Costing Mech.xlsx" -o /tmp/py.json --grid /tmp/grid.json
  *   node tools/costing-parity.mjs /tmp/grid.json /tmp/py.json
  *
- * ทำไมต้องมี: กฎเดียวกันถูกเขียนสองที่ (Python ไว้ตรวจสอบ · Apps Script ตัวนำเข้าเข้า Dochub)
+ * ทำไมต้องมี: กฎเดียวกันถูกเขียนสองที่ (Python ไว้ตรวจสอบ · Apps Script ตัวนำเข้าเข้า MGS Document Center)
  * สองฝั่งเพี้ยนจากกันเมื่อไหร่ ตัวเลขที่ทีมเห็นกับตัวเลขที่ตั้งเบิกจริงจะไม่ตรงกันโดยไม่มีใครรู้
  */
 import fs from "fs";
