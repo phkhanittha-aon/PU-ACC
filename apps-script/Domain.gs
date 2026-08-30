@@ -1,0 +1,372 @@
+/**
+ * Domain.gs — ตรรกะทางธุรกิจ
+ * ==========================================================================
+ * ทุกฟังก์ชันที่เขียนข้อมูลต้อง
+ *   1. เช็คสิทธิ์จาก me (ที่มาจาก session) ไม่ใช่จากค่าที่หน้าจอส่งมา
+ *   2. อยู่ใน withLock_ เพื่อกันสองคนเขียนทับกัน
+ *   3. กันกดซ้ำ — กดสองครั้งต้องได้หนึ่งแถว
+ *   4. บันทึก History ค่าเดิม→ค่าใหม่
+ */
+
+/* ยอดเงินที่ต้องฝังกลางประโยคของบรรทัดประวัติ ห่อด้วยตัวคั่นที่มองไม่เห็น
+   ผู้อ่านที่ไม่มีสิทธิ์เห็นเงินจะถูกตัดทั้งก้อนออก (ดู Auth.scrubHistoryLine) */
+var MK = '⁢';
+function bahtIn_(n) { return MK + Num.money(n) + MK; }
+
+var Domain = {
+
+  /* ---------- อ่าน ---------- */
+
+  /** รายการทั้งหมดที่ผู้ใช้คนนี้เห็นได้ — ยอดเงินถูกตัดตามบทบาทก่อนส่งออก */
+  listDeals: function (me) {
+    var pilot = this.pilotSet_();
+    var pilotOnly = String(Config.get('PILOT_ONLY', 'TRUE')).toUpperCase() === 'TRUE';
+    return Repo.readAll(SHEETS.DEALS).map(function (d) {
+      var out = Auth.scrubDeal(me, d);
+      out.stage = Number(d.stage);
+      out.inPilot = pilot[String(d.deal_no)] === true;
+      out.editable = out.inPilot || !pilotOnly;
+      out.owner_dept = (STAGES[out.stage] || {}).o || '';
+      out.stage_name = (STAGES[out.stage] || {}).n || '';
+      return out;
+    });
+  },
+
+  pilotSet_: function () {
+    var set = {};
+    Repo.readAll(SHEETS.PILOT).forEach(function (r) { set[String(r.deal_no).trim()] = true; });
+    return set;
+  },
+
+  /** รายการหนึ่งใบพร้อมทุกอย่างที่หน้าจอต้องใช้ */
+  getDeal: function (me, dealNo) {
+    var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
+    if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+
+    var hand = {};
+    Repo.where(SHEETS.HANDOFF, function (h) {
+      return String(h.deal_no).trim() === String(dealNo).trim();
+    }).forEach(function (h) {
+      hand[h.stage_code] = Json.parse(h.payload_json, {});
+    });
+    // รวมค่าที่ทุกขั้นส่งมาไว้ก้อนเดียว แล้วค่อยตัดเรื่องเงินออกตามบทบาท
+    var flat = {};
+    Object.keys(hand).forEach(function (sc) {
+      Object.keys(hand[sc]).forEach(function (k) { flat[k] = hand[sc][k]; });
+    });
+
+    var pays = Repo.where(SHEETS.PAYMENTS, function (p) {
+      return String(p.deal_no).trim() === String(dealNo).trim();
+    }).sort(function (a, b) { return Number(a.seq) - Number(b.seq); });
+
+    var docs = Repo.where(SHEETS.DOCUMENTS, function (x) {
+      return String(x.deal_no).trim() === String(dealNo).trim();
+    });
+
+    var stages = Repo.where(SHEETS.STAGES, function (s) {
+      return String(s.deal_no).trim() === String(dealNo).trim();
+    }).sort(function (a, b) { return Number(a.seq) - Number(b.seq); });
+
+    var hist = Repo.where(SHEETS.HISTORY, function (h) {
+      return String(h.entity_id).trim() === String(dealNo).trim();
+    }).slice(-40).map(function (h) {
+      return {ts: Fmt.stamp(h.ts), actor: h.actor,
+              text: Auth.scrubHistoryLine(me, h.action)};
+    }).reverse();
+
+    var out = Auth.scrubDeal(me, d);
+    out.stage = Number(d.stage);
+    out.skip = skipOf(d);
+    out.handoff = Auth.scrubHandoff(me, flat);
+    out.payments = Auth.scrubPayments(me, pays);
+    out.documents = docs;
+    out.stageLog = stages;
+    out.history = hist;
+    out.inPilot = this.pilotSet_()[String(dealNo)] === true;
+    return out;
+  },
+
+  /* ---------- เขียน ---------- */
+
+  /** ต้องอยู่ในช่วงทดลองถึงจะแก้ได้ — นอกรายการเปิดให้ดูอย่างเดียว */
+  assertEditable_: function (deal) {
+    if (String(Config.get('PILOT_ONLY', 'TRUE')).toUpperCase() !== 'TRUE') return;
+    if (!this.pilotSet_()[String(deal.deal_no).trim()])
+      throw AppError('NOT_IN_PILOT',
+        'รายการ ' + deal.deal_no + ' ยังไม่อยู่ในช่วงทดลอง — ทำตามขั้นตอนเดิมไปก่อน ' +
+        '(ถ้าต้องการเพิ่ม ให้จัดซื้อหรือบัญชีเพิ่มเลขนี้ในแท็บ Pilot_Scope)');
+  },
+
+  /** บันทึกค่าที่ขั้นนี้ส่งต่อให้ขั้นถัดไป */
+  saveHandoff: function (me, dealNo, payload) {
+    Auth.require(me, 'handoff.save');
+    var self = this;
+    return withLock_(function () {
+      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
+      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      self.assertEditable_(d);
+      var st = Auth.assertStageOwner(me, d);
+      var spec = handOf(st.c, d);
+      if (!spec) throw AppError('NO_HANDOFF', 'ขั้นนี้ไม่มีข้อมูลที่ต้องส่งต่อ');
+
+      // ตรวจช่องบังคับที่ฝั่งเซิร์ฟเวอร์ด้วย ไม่ใช่เชื่อหน้าจออย่างเดียว
+      var missing = spec.f.filter(function (f) {
+        return f.req && String(payload[f.k] === undefined ? '' : payload[f.k]).trim() === '';
+      }).map(function (f) { return f.lb; });
+      if (missing.length)
+        throw AppError('REQUIRED', 'ยังไม่ได้กรอก: ' + missing.join(' · '));
+
+      // ช่องเงิน: บทบาทที่ไม่มีสิทธิ์เห็นเงินส่งค่าเงินมาไม่ได้
+      if (!me.money) {
+        var money = moneyFieldKeys();
+        var bad = Object.keys(payload).filter(function (k) { return money.indexOf(k) >= 0; });
+        if (bad.length)
+          throw AppError('FORBIDDEN_FIELD',
+            'แผนก' + me.roleName + 'ไม่มีสิทธิ์กรอกช่องเกี่ยวกับยอดเงิน');
+      }
+
+      var clean = {};
+      spec.f.forEach(function (f) {
+        if (payload[f.k] !== undefined) clean[f.k] = payload[f.k];
+      });
+
+      var exist = Repo.where(SHEETS.HANDOFF, function (h) {
+        return String(h.deal_no).trim() === String(dealNo).trim() && h.stage_code === st.c;
+      });
+      if (exist.length) {
+        Repo.updateBy2(SHEETS.HANDOFF, 'deal_no', dealNo, 'stage_code', st.c, {
+          payload_json: Json.stringify(clean), saved_at: new Date(), saved_by: me.email
+        });
+      } else {
+        Repo.insert(SHEETS.HANDOFF, {
+          deal_no: dealNo, stage_code: st.c, payload_json: Json.stringify(clean),
+          saved_at: new Date(), saved_by: me.email
+        });
+      }
+      History.log(me.email, 'บันทึกข้อมูลส่งต่อขั้น ' + st.n, 'Deals', dealNo, null, clean);
+      return {saved: Object.keys(clean).length};
+    });
+  },
+
+  /** ปิดขั้นปัจจุบันแล้วเดินไปขั้นถัดไป */
+  advanceStage: function (me, dealNo, note) {
+    Auth.require(me, 'stage.advance');
+    var self = this;
+    return withLock_(function () {
+      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
+      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      self.assertEditable_(d);
+      if (String(d.status) !== 'ACTIVE')
+        throw AppError('NOT_ACTIVE', 'รายการนี้ปิดไปแล้ว เดินขั้นต่อไม่ได้');
+      var st = Auth.assertStageOwner(me, d);
+
+      // ข้อมูลที่ขั้นนี้ต้องส่งต่อ ต้องครบก่อนถึงจะปิดขั้นได้
+      var spec = handOf(st.c, d);
+      if (spec) {
+        var saved = Repo.where(SHEETS.HANDOFF, function (h) {
+          return String(h.deal_no).trim() === String(dealNo).trim() && h.stage_code === st.c;
+        });
+        var got = saved.length ? Json.parse(saved[0].payload_json, {}) : {};
+        var missing = spec.f.filter(function (f) {
+          return f.req && String(got[f.k] === undefined ? '' : got[f.k]).trim() === '';
+        }).map(function (f) { return f.lb; });
+        if (missing.length)
+          throw AppError('REQUIRED',
+            'ยังส่งต่อไม่ได้ ต้องกรอกก่อน: ' + missing.join(' · '));
+      }
+
+      // เอกสารบังคับของขั้นนี้ต้องมีไฟล์แล้ว
+      var needDoc = DOCS.filter(function (dc) { return dc.at === Number(d.stage) && dc.req; });
+      if (needDoc.length) {
+        var have = {};
+        Repo.where(SHEETS.DOCUMENTS, function (x) {
+          return String(x.deal_no).trim() === String(dealNo).trim();
+        }).forEach(function (x) { have[x.doc_code] = true; });
+        var lack = needDoc.filter(function (dc) { return !have[dc.c]; });
+        if (lack.length)
+          throw AppError('NEED_DOC', 'ยังไม่ได้แนบเอกสาร: ' +
+            lack.map(function (x) { return x.n; }).join(' · '));
+      }
+
+      var nxt = nextStage(d);
+      var now = new Date();
+
+      // ปิดบรรทัดขั้นปัจจุบัน
+      var open = Repo.where(SHEETS.STAGES, function (s) {
+        return String(s.deal_no).trim() === String(dealNo).trim() &&
+               Number(s.seq) === Number(d.stage) && String(s.done_at).trim() === '';
+      });
+      if (open.length) {
+        var entered = open[0].entered_at instanceof Date ? open[0].entered_at : now;
+        var hrs = Math.round((now - entered) / 36e5 * 10) / 10;
+        Repo.updateBy2(SHEETS.STAGES, 'deal_no', dealNo, 'seq', d.stage, {
+          done_at: now, done_by: me.email, hours_used: hrs,
+          sla_breached: hrs > Number(open[0].sla_hours || 0) ? 'TRUE' : 'FALSE',
+          note: note || ''
+        });
+      }
+
+      var patch = {updated_at: now};
+      if (nxt < 0) {
+        patch.status = 'COMPLETED';
+        patch.stage = d.stage;
+      } else {
+        patch.stage = nxt;
+        Repo.insert(SHEETS.STAGES, {
+          deal_no: dealNo, seq: nxt, stage_code: STAGES[nxt].c, owner_dept: STAGES[nxt].o,
+          entered_at: now, sla_hours: STAGES[nxt].sla
+        });
+      }
+      var res = Repo.update(SHEETS.DEALS, 'deal_no', dealNo, patch);
+      History.log(me.email, 'ปิดขั้น ' + st.n + (note ? ' — ' + note : ''),
+        'Deals', dealNo, {stage: d.stage}, {stage: patch.stage});
+
+      // แจ้งเตือนต้องไม่ทำให้การบันทึกล้ม — บันทึกสำเร็จแล้วค่อยส่ง
+      if (nxt >= 0) Notify.stageArrived(dealNo, nxt);
+      else Notify.dealClosed(dealNo);
+
+      return {stage: patch.stage, done: nxt < 0};
+    });
+  },
+
+  /* ---------- เรื่องเงิน — แยกหน้าที่บังคับที่เซิร์ฟเวอร์ ---------- */
+
+  /** ตั้งเรื่องขอทำจ่ายงวดหนึ่ง */
+  requestPayment: function (me, dealNo, seq, data) {
+    Auth.require(me, 'pay.request');
+    var self = this;
+    return withLock_(function () {
+      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
+      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      self.assertEditable_(d);
+      var p = self.payment_(dealNo, seq);
+
+      if (isLC(p))
+        throw AppError('LC', 'งวดนี้ชำระผ่าน LC ธนาคารจ่ายตามเอกสาร ไม่ต้องตั้งเบิกในระบบนี้');
+      if (String(p.status) !== 'PENDING')
+        throw AppError('BAD_STATUS',
+          'งวดนี้อยู่สถานะ "' + (PAY_ST[p.status] || {}).t + '" ตั้งเรื่องซ้ำไม่ได้');
+
+      var amt = Num.parse(data.amount);
+      if (amt === null || amt <= 0) throw AppError('BAD_AMOUNT', 'ยอดที่ขอต้องเป็นตัวเลขมากกว่า 0');
+      if (!String(data.billNo || '').trim())
+        throw AppError('NEED_BILL', 'ต้องระบุเลขเอกสารเรียกเก็บของงวดนี้');
+
+      // จ่ายซ้ำด้วยใบเรียกเก็บใบเดิม — ตรวจที่เซิร์ฟเวอร์เพราะเป็นเรื่องเงิน
+      var dupe = Repo.where(SHEETS.PAYMENTS, function (x) {
+        return String(x.deal_no).trim() === String(dealNo).trim() &&
+               Number(x.seq) !== Number(seq) &&
+               String(x.bill_no || '').trim().toLowerCase() ===
+                 String(data.billNo).trim().toLowerCase() &&
+               ['VOID', 'CANCELLED'].indexOf(String(x.status)) < 0;
+      });
+      if (dupe.length)
+        throw AppError('DUP_BILL',
+          'เอกสาร ' + data.billNo + ' ถูกใช้ตั้งเบิกในงวดที่ ' + dupe[0].seq + ' แล้ว');
+
+      var reqNo = Repo.nextNo('PRQ', SHEETS.PAYMENTS, 'req_no');
+      var r = Repo.updateBy2(SHEETS.PAYMENTS, 'deal_no', dealNo, 'seq', seq, {
+        status: 'REQUESTED', amount: amt, req_no: reqNo, req_by: me.email,
+        req_at: new Date(), bill_no: data.billNo, bill_kind: data.billKind || '',
+        bill_amt: Num.parse(data.billAmt) || '', due: data.due || p.due
+      });
+      History.log(me.email, 'ตั้งเรื่องขอจ่ายงวดที่ ' + seq + ' ' + bahtIn_(amt) +
+        ' ตาม ' + data.billNo, 'Payments', dealNo, r.before, r.after);
+      Notify.payRequested(dealNo, seq, reqNo, amt, me);
+      return {reqNo: reqNo};
+    });
+  },
+
+  /** อนุมัติจ่าย — ผู้อนุมัติต้องไม่ใช่ผู้ขอ */
+  approvePayment: function (me, dealNo, seq) {
+    Auth.require(me, 'pay.approve');
+    var self = this;
+    return withLock_(function () {
+      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
+      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      self.assertEditable_(d);
+      var p = self.payment_(dealNo, seq);
+      if (String(p.status) !== 'REQUESTED')
+        throw AppError('BAD_STATUS', 'งวดนี้ยังไม่ได้ตั้งเรื่อง หรืออนุมัติไปแล้ว');
+
+      // P12 — คนขอกับคนอนุมัติต้องไม่ใช่คนเดียวกัน เทียบด้วยอีเมลจริง
+      if (String(p.req_by).trim().toLowerCase() === me.email)
+        throw AppError('SOD',
+          'คุณเป็นผู้ตั้งเรื่องงวดนี้เอง จะอนุมัติเองไม่ได้ — ต้องให้' +
+          ROLES[PAY_APPROVER].name + 'คนอื่นอนุมัติ');
+
+      var r = Repo.updateBy2(SHEETS.PAYMENTS, 'deal_no', dealNo, 'seq', seq, {
+        status: 'APPROVED', apv_by: me.email, apv_at: new Date()
+      });
+      History.log(me.email, 'อนุมัติ ' + p.req_no + ' งวดที่ ' + seq + ' ' +
+        bahtIn_(Num.parse(p.amount) || 0), 'Payments', dealNo, r.before, r.after);
+      Notify.payApproved(dealNo, seq, p.req_no, me);
+      return {ok: true};
+    });
+  },
+
+  /** บันทึกการจ่าย — ผู้บันทึกต้องไม่ใช่ผู้อนุมัติ */
+  recordPayment: function (me, dealNo, seq, data) {
+    Auth.require(me, 'pay.record');
+    var self = this;
+    return withLock_(function () {
+      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
+      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      self.assertEditable_(d);
+      var p = self.payment_(dealNo, seq);
+      if (String(p.status) !== 'APPROVED')
+        throw AppError('BAD_STATUS', 'งวดนี้ยังไม่ได้รับอนุมัติ บันทึกจ่ายไม่ได้');
+
+      // P13 — ผู้อนุมัติบันทึกการจ่ายเองไม่ได้ ผิดหลักแยกหน้าที่ระดับคน
+      if (String(p.apv_by).trim().toLowerCase() === me.email)
+        throw AppError('SOD',
+          'คุณเป็นผู้อนุมัติงวดนี้เอง จะบันทึกการจ่ายเองไม่ได้ — ต้องให้บัญชีคนอื่นบันทึก');
+
+      var paid = Num.parse(data.paidAmt);
+      if (paid === null || paid <= 0) throw AppError('BAD_AMOUNT', 'ยอดที่จ่ายจริงไม่ถูกต้อง');
+      if (!String(data.ref || '').trim())
+        throw AppError('NEED_REF', 'ต้องระบุเลขอ้างอิงจากธนาคาร');
+      if (!data.slipFileId)
+        throw AppError('NEED_SLIP', 'ต้องแนบสลิปก่อนบันทึกการจ่าย');
+
+      var r = Repo.updateBy2(SHEETS.PAYMENTS, 'deal_no', dealNo, 'seq', seq, {
+        status: 'PAID', paid_by: me.email, paid_at: new Date(),
+        method: data.method || '', bank: data.bank || '', ref: data.ref,
+        wht_type: data.whtType || 'GOODS', wht: Num.parse(data.wht) || 0,
+        fee: Num.parse(data.fee) || 0, fee_by: data.feeBy || 'OUR',
+        paid_amt: paid, slip_file_id: data.slipFileId, note: data.note || ''
+      });
+      History.log(me.email, 'บันทึกจ่ายงวดที่ ' + seq + ' ' + bahtIn_(paid) +
+        ' · อ้างอิง ' + data.ref, 'Payments', dealNo, r.before, r.after);
+      Notify.payPaid(dealNo, seq, paid, me);
+      return {ok: true};
+    });
+  },
+
+  payment_: function (dealNo, seq) {
+    var hit = Repo.where(SHEETS.PAYMENTS, function (x) {
+      return String(x.deal_no).trim() === String(dealNo).trim() &&
+             Number(x.seq) === Number(seq);
+    });
+    if (!hit.length) throw AppError('NOT_FOUND', 'ไม่พบงวดที่ ' + seq + ' ของ ' + dealNo);
+    return hit[0];
+  },
+
+  /* ---------- ความเห็นจากผู้ใช้ — หัวใจของช่วงทดลอง ---------- */
+  sendFeedback: function (me, data) {
+    Auth.require(me, 'feedback.send');
+    var msg = String(data.message || '').trim();
+    if (msg.length < 5)
+      throw AppError('TOO_SHORT', 'ช่วยเขียนอธิบายสั้น ๆ ว่าติดตรงไหน อย่างน้อย 5 ตัวอักษร');
+    return withLock_(function () {
+      var id = Repo.nextNo('FB', SHEETS.FEEDBACK, 'fb_id');
+      Repo.insert(SHEETS.FEEDBACK, {
+        fb_id: id, created_at: new Date(), who: me.email, dept: me.dept,
+        severity: data.severity || 'SUGGEST', page: data.page || '',
+        deal_no: data.dealNo || '', message: msg, status: 'NEW'
+      });
+      Notify.feedback(id, me, data.severity || 'SUGGEST', msg, data.page);
+      return {id: id};
+    });
+  }
+};

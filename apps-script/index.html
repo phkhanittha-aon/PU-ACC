@@ -1,0 +1,1099 @@
+<!-- index.html — หน้าจอของ MGS Document Center (Phase 1)
+     ==========================================================================
+     ไฟล์เดียวจบ ไม่มี build step ไม่มี framework
+     ทุกการเรียกเซิร์ฟเวอร์ผ่าน google.script.run และ *ต้องมี* withFailureHandler เสมอ
+     — ไม่งั้นเน็ตหลุดแล้วหน้าค้างโดยผู้ใช้ไม่รู้ว่าเกิดอะไรขึ้น
+
+     ไม่มีปุ่มเลือกบทบาทในไฟล์นี้โดยตั้งใจ
+     บทบาทมาจากตาราง Users ตามอีเมลที่ล็อกอิน หน้าจอเปลี่ยนเองไม่ได้ -->
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+
+  /* ============================================================
+     MGS Document Center — ระบบสีและรูปทรง
+     ทองจากโลโก้บริษัทเป็นแกน แต่ไล่เฉดตามหน้าที่ ไม่ใช่ทองเข้มสีเดียว:
+       เฉดสว่าง = พื้น/โลหะ   เฉดเข้ม = ตัวอักษร
+     ทุกสีที่ใช้กับตัวอักษรผ่าน WCAG AA (4.5:1) ทั้งโหมดสว่างและมืด
+     ============================================================ */
+  :root{
+    /* ทอง — ไล่เฉดจากพื้นถึงตัวอักษร */
+    --gold-50:#FBF7EC; --gold-100:#F5EBD2; --gold-200:#EBD9A8;
+    --gold-400:#D4AF37;                     /* ทองโลหะจากโลโก้ — พื้นปุ่ม/แถบ ใช้ตัวอักษรเข้มทับ */
+    --gold-500:#B99326;
+    --gold:#8A6819;                          /* ทองสำหรับตัวอักษรบนพื้นอ่อน */
+    --gold-800:#6B520F;
+    --gold-bg:var(--gold-50);
+
+    /* พื้นและตัวอักษร — งาช้างอุ่น ให้ทองไม่ลอย */
+    --paper:#fff; --surface:#FAF8F3; --surface-2:#F2EEE4; --shade:#1E1B16;
+    --ink:#1E1B16; --ink-2:#5A5348; --ink-3:#767065;
+    --line:#EAE4D8; --line-2:#D9D1C0;
+
+    /* สีบอกลำดับความสำคัญ — ใช้ความหมายเดียวกันทั้งระบบ */
+    --go:#2F6B45;   --go-bg:#E8F1EA;     /* เสร็จแล้ว ผ่าน */
+    --warn:#9A5A1B; --warn-bg:#FBF0E2;   /* ใกล้ครบกำหนด ต้องดู */
+    --stop:#A33025; --stop-bg:#FBEAE7;   /* เลยกำหนด ติดปัญหา */
+    --cold:#38598F; --cold-bg:#E9EEF7;   /* ข้อมูล อ้างอิง */
+
+    /* สีประจำแผนก — ทองเป็นแกน สีเสริมตัดกันให้แยกออกจากกันได้ในพริบตา */
+    --sr:#8A6819;  --sr-soft:#F7F0DC;
+    --qc:#146B5C;  --qc-soft:#E4F1EE;
+    --ls:#38598F;  --ls-soft:#E9EEF7;
+    --wh:#5E6B3E;  --wh-soft:#EDF0E4;
+    --ac:#A0522D;  --ac-soft:#F8EBE3;
+    --ach:#6B3F6E; --ach-soft:#F2E9F3;
+    --gm:#414A45;  --gm-soft:#EBEDEB;
+
+    --display:"Anuphan","IBM Plex Sans Thai","Leelawadee UI","Noto Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --sans:"IBM Plex Sans Thai","Leelawadee UI","Noto Sans Thai","Sarabun","Thonburi",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+
+    --r-sm:8px; --r-md:14px; --r-lg:20px;
+    --sh-1:0 1px 2px rgba(62,50,26,.05), 0 1px 3px rgba(62,50,26,.04);
+    --sh-2:0 10px 30px rgba(62,50,26,.10), 0 2px 8px rgba(62,50,26,.05);
+    --sh-3:0 24px 60px rgba(30,27,22,.22), 0 6px 18px rgba(30,27,22,.12);
+    --ease:180ms cubic-bezier(.2,.7,.3,1);
+    --rc:var(--sr); --rc-soft:var(--sr-soft);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --gold-50:#241D0F; --gold-100:#2E2513; --gold-200:#4A3B18;
+    --gold-400:#D4AF37; --gold-500:#C9A231;
+    --gold:#E0BC55; --gold-800:#F0D68F;
+    --gold-bg:var(--gold-50);
+
+    --paper:#1E1A14; --surface:#16130E; --surface-2:#2A251C; --shade:#0F0D09;
+    --ink:#F2EDE3; --ink-2:#BDB4A5; --ink-3:#948B7C;
+    --line:#332D23; --line-2:#463E31;
+
+    --go:#5FC28A;   --go-bg:#152618;
+    --warn:#E0A25C; --warn-bg:#2B1F11;
+    --stop:#EE8B80; --stop-bg:#2E1815;
+    --cold:#7793C4; --cold-bg:#161E2C;
+
+    --sr:#C69A38;  --sr-soft:#2A2113;
+    --qc:#3FBFA8;  --qc-soft:#0F2621;
+    --ls:#7793C4;  --ls-soft:#161E2C;
+    --wh:#8B9A66;  --wh-soft:#1C2115;
+    --ac:#C97E58;  --ac-soft:#2A1A12;
+    --ach:#B183B4; --ach-soft:#251A26;
+    --gm:#8B978F;  --gm-soft:#1D211E;
+
+    --sh-1:0 1px 2px rgba(0,0,0,.34), 0 1px 3px rgba(0,0,0,.26);
+    --sh-2:0 10px 30px rgba(0,0,0,.46), 0 2px 8px rgba(0,0,0,.34);
+    --sh-3:0 24px 60px rgba(0,0,0,.60), 0 6px 18px rgba(0,0,0,.44);
+  }}
+  :root[data-theme="dark"]{
+    --gold-50:#241D0F; --gold-100:#2E2513; --gold-200:#4A3B18;
+    --gold-400:#D4AF37; --gold-500:#C9A231;
+    --gold:#E0BC55; --gold-800:#F0D68F;
+    --gold-bg:var(--gold-50);
+
+    --paper:#1E1A14; --surface:#16130E; --surface-2:#2A251C; --shade:#0F0D09;
+    --ink:#F2EDE3; --ink-2:#BDB4A5; --ink-3:#948B7C;
+    --line:#332D23; --line-2:#463E31;
+
+    --go:#5FC28A;   --go-bg:#152618;
+    --warn:#E0A25C; --warn-bg:#2B1F11;
+    --stop:#EE8B80; --stop-bg:#2E1815;
+    --cold:#7793C4; --cold-bg:#161E2C;
+
+    --sr:#C69A38;  --sr-soft:#2A2113;
+    --qc:#3FBFA8;  --qc-soft:#0F2621;
+    --ls:#7793C4;  --ls-soft:#161E2C;
+    --wh:#8B9A66;  --wh-soft:#1C2115;
+    --ac:#C97E58;  --ac-soft:#2A1A12;
+    --ach:#B183B4; --ach-soft:#251A26;
+    --gm:#8B978F;  --gm-soft:#1D211E;
+
+    --sh-1:0 1px 2px rgba(0,0,0,.34), 0 1px 3px rgba(0,0,0,.26);
+    --sh-2:0 10px 30px rgba(0,0,0,.46), 0 2px 8px rgba(0,0,0,.34);
+    --sh-3:0 24px 60px rgba(0,0,0,.60), 0 6px 18px rgba(0,0,0,.44);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--sans);font-size:14.5px;line-height:1.55;
+    -webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  h1,h2,h3{text-wrap:balance;font-family:var(--display);letter-spacing:-.015em}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  @media (prefers-reduced-motion:reduce){*{transition-duration:0ms!important;animation-duration:0ms!important}}
+  :focus-visible{outline:2px solid var(--rc);outline-offset:2px;border-radius:var(--r-sm)}
+  .demo{background:var(--gold-50);color:var(--gold-800);padding:8px 20px;font-size:12.5px;text-align:center;
+    border-bottom:1px solid var(--gold-200)}
+  .demo b{color:var(--gold-800);font-weight:600}
+  /* ---------- แถบบน: โลโก้ + เมนู + เครื่องมือ + ผู้ใช้ ---------- */
+  .app{min-height:100vh;display:flex;flex-direction:column}
+  .topnav{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;
+    display:flex;align-items:center;gap:18px;padding:11px 24px;box-shadow:var(--sh-1)}
+  .brand{display:flex;align-items:center;gap:11px;flex:none;text-decoration:none;color:inherit;
+    background:none;border:0;padding:0;border-radius:var(--r-sm)}
+  .brand .mk{width:34px;height:34px;flex:none;display:block}
+  .brand .tx b{display:block;font-family:var(--display);font-size:16px;font-weight:600;line-height:1.15;letter-spacing:-.02em}
+  .brand .tx span{display:block;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+    font-family:var(--mono);margin-top:1px}
+  nav.mainnav{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+  nav.mainnav::-webkit-scrollbar{display:none}
+  nav.mainnav button{background:none;border:0;padding:8px 15px;border-radius:999px;color:var(--ink-2);
+    font-size:13.5px;white-space:nowrap;display:flex;align-items:center;gap:7px;
+    transition:background var(--ease),color var(--ease)}
+  nav.mainnav button:hover{background:var(--surface-2);color:var(--ink)}
+  nav.mainnav button[aria-current="page"]{background:var(--rc-soft);color:var(--rc);font-weight:600}
+  nav.mainnav .cnt{font-family:var(--mono);font-size:10.5px;font-weight:600;background:var(--surface-2);
+    color:var(--ink-2);padding:1px 7px;border-radius:999px;line-height:1.5}
+  nav.mainnav button[aria-current="page"] .cnt{background:var(--rc);color:var(--paper)}
+  nav.mainnav button:hover .cnt{background:var(--line-2);color:var(--ink)}
+  .subbar{background:var(--surface);border-bottom:1px solid var(--line);padding:8px 24px;
+    display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;position:sticky;top:57px;z-index:25}
+  .rolepick{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .rolepick .lb{font-size:10.5px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em}
+  .rolepick button{background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 9px;
+    font-size:12.5px;display:flex;align-items:center;gap:6px;color:var(--ink-2);
+    transition:border-color var(--ease),color var(--ease),background var(--ease)}
+  .rolepick button:hover{border-color:var(--rc);color:var(--ink)}
+  .rolepick button i{width:8px;height:8px;border-radius:50%;background:var(--rc);display:block;flex:none}
+  .rolepick button[aria-pressed="true"]{border-color:var(--rc);background:var(--rc-soft);color:var(--rc);font-weight:600}
+  .topbar .sp,.subbar .sp{flex:1}
+  .user{display:flex;align-items:center;gap:9px;font-size:12.5px;white-space:nowrap;flex:none}
+  .user .av{width:32px;height:32px;border-radius:50%;background:var(--rc);color:var(--paper);display:grid;place-items:center;
+    font-family:var(--mono);font-size:11px;font-weight:600;flex:none}
+  main{padding:24px;min-width:0;width:100%;max-width:1320px;margin:0 auto;flex:1}
+  .sitefoot{padding:18px 24px 40px;color:var(--ink-3);font-size:11.5px;text-align:center;line-height:1.7}
+  .ph{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;margin-bottom:18px}
+  .ph h1{margin:0;font-size:27px;font-weight:600;letter-spacing:-.025em}
+  .ph .d{color:var(--ink-3);font-size:13px}
+  /* ---------- แท็บสถานะ ---------- */
+  .stabs{display:flex;gap:4px;margin-bottom:18px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .stabs::-webkit-scrollbar{display:none}
+  .stabs button{background:none;border:0;padding:7px 14px;color:var(--ink-2);border-radius:999px;
+    font-size:13.5px;white-space:nowrap;transition:background var(--ease),color var(--ease)}
+  .stabs button:hover{background:var(--surface-2);color:var(--ink)}
+  .stabs button[aria-current="true"]{color:var(--rc);background:var(--rc-soft);font-weight:600}
+  .stabs .n{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:5px}
+  .stabs button[aria-current="true"] .n{color:var(--rc)}
+  /* ---------- ไทล์สรุป — สีบอกลำดับความสำคัญ ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;margin-bottom:20px}
+  .kpi{background:var(--paper);padding:16px 18px 15px;border-radius:var(--r-md);box-shadow:var(--sh-1)}
+  .kpi .n{font-family:var(--display);font-size:32px;font-weight:600;font-variant-numeric:tabular-nums;
+    line-height:1.05;letter-spacing:-.03em}
+  .kpi .k{font-size:12.5px;color:var(--ink-2);margin-top:5px}
+  .kpi.a{background:var(--gold-50)}   .kpi.a .n{color:var(--gold)}
+  .kpi.r{background:var(--stop-bg)}   .kpi.r .n{color:var(--stop)}
+  .kpi.g{background:var(--go-bg)}     .kpi.g .n{color:var(--go)}
+  .kpi.b{background:var(--cold-bg)}   .kpi.b .n{color:var(--cold)}
+  /* ---------- การ์ด ---------- */
+  .card{background:var(--paper);margin-bottom:18px;border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sh-1)}
+  .card>h3{margin:0;padding:14px 18px;font-size:14px;font-weight:600;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;gap:10px;align-items:center;font-family:var(--display)}
+  .card>h3 .c{font-family:var(--sans);font-size:11.5px;color:var(--ink-3);font-weight:400;letter-spacing:0}
+  /* ---------- แถบเครื่องมือ / ค้นหา ---------- */
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;background:var(--paper);
+    border-radius:var(--r-md);margin-bottom:16px;align-items:center;box-shadow:var(--sh-1)}
+  .toolbar input[type=search],.toolbar select{border:1px solid var(--line-2);background:var(--paper);padding:8px 12px;
+    font-size:14px;min-width:0;border-radius:999px}
+  .toolbar input[type=search]{flex:1;min-width:180px}
+  .toolbar label{font-size:12.5px;color:var(--ink-3)}
+  /* ---------- ตาราง ---------- */
+  .tw{overflow-x:auto;background:var(--paper);border-radius:var(--r-md);box-shadow:var(--sh-1)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:680px}
+  th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+  thead th{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+    font-weight:500;background:var(--surface);white-space:nowrap;position:sticky;top:0}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr.click{cursor:pointer;transition:background var(--ease)}
+  tbody tr.click:hover{background:var(--surface)}
+  td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .pono{font-family:var(--mono);font-weight:600;color:var(--ink);white-space:nowrap}
+  .sub{font-size:11.5px;color:var(--ink-3)}
+  /* ---------- ป้ายสถานะ ---------- */
+  .pill{display:inline-block;font-size:11px;padding:3px 10px;white-space:nowrap;font-family:var(--mono);border-radius:999px}
+  .pill.ok{color:var(--go);background:var(--go-bg)}
+  .pill.wait{color:var(--ink-3);background:var(--surface-2)}
+  .pill.late{color:var(--stop);background:var(--stop-bg);font-weight:600}
+  .pill.due{color:var(--warn);background:var(--warn-bg)}
+  .pill.info{color:var(--cold);background:var(--cold-bg)}
+  .dept{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 7px;white-space:nowrap;
+    border-radius:999px;background:var(--surface-2)}
+  /* ---------- แถบเฟส ---------- */
+  .phases{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:16px 18px}
+  /* ---------- หัวเอกสาร ---------- */
+  .dh{background:var(--paper);margin-bottom:18px;border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sh-1)}
+  .dh .top{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;padding:18px 18px 14px}
+  .dh .top .n{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+  .dh .top .t{font-size:17px;font-weight:600;font-family:var(--display)}
+  .dh .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    border-top:1px solid var(--line);background:var(--paper)}
+  .dh .f{background:var(--paper);padding:11px 18px;border-right:1px solid var(--line);
+    border-bottom:1px solid var(--line)}
+  .dh .f .k{font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
+  .dh .f .v{font-size:13.5px;margin-top:2px}
+  .rowline{display:flex;gap:12px;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--line);
+    font-size:13.5px;align-items:flex-start}
+  .rowline:last-of-type{border-bottom:0}
+  .rowline .nm{color:var(--ink-3);flex:none;min-width:140px}
+  .rowline.miss{background:var(--stop-bg)}
+  /* ---------- กล่องข้อความ — ความหมายมาจากสีพื้น ไม่ใช่ไอคอน ---------- */
+  .note{display:flex;gap:10px;padding:12px 16px;font-size:13px;background:var(--cold-bg);color:var(--ink-2);
+    border-radius:var(--r-sm);line-height:1.6}
+  .note b{color:var(--ink)}
+  .note.warn{background:var(--warn-bg);border-left:3px solid var(--warn)}
+  .note.bad{background:var(--stop-bg);border-left:3px solid var(--stop)}
+  .note.good{background:var(--go-bg)}
+  .note.info{background:var(--cold-bg)}
+  .actions{display:flex;flex-wrap:wrap;gap:9px;padding:14px 18px;align-items:center}
+  .actions .hint{font-size:12px;color:var(--ink-3)}
+  .btn{background:var(--paper);border:1px solid var(--line-2);padding:8px 16px;font-size:13.5px;border-radius:999px;
+    color:var(--ink);transition:background var(--ease),border-color var(--ease),transform var(--ease)}
+  .btn:hover{background:var(--surface-2);border-color:var(--line-2)}
+  .btn:active{transform:translateY(1px)}
+  .btn.pri{background:var(--gold-400);border-color:var(--gold-400);color:#1E1B16;font-weight:600}
+  .btn.pri:hover{background:var(--gold-500);border-color:var(--gold-500)}
+  .btn.ok{background:var(--go);border-color:var(--go);color:#fff;font-weight:600}
+  .btn.bad{background:var(--stop);border-color:var(--stop);color:#fff;font-weight:600}
+  .back{background:none;border:0;color:var(--ink-3);font-size:13px;padding:6px 0;margin-bottom:10px;
+    display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-sm)}
+  .back:hover{color:var(--ink)}
+  .tl{padding:10px 18px;max-height:300px;overflow-y:auto}
+  .tl .e{display:grid;grid-template-columns:86px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .tl .e:last-child{border-bottom:0}
+  .tl .e time{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  .steps{padding:6px 18px 14px}
+  .step{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;align-items:flex-start}
+  .step:last-child{border-bottom:0}
+  .step .i{width:24px;height:24px;flex:none;border-radius:50%;background:var(--surface-2);color:var(--ink-3);
+    display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:600}
+  .step.done .i{background:var(--go-bg);color:var(--go)}
+  .step.done .nm{color:var(--ink-2)}
+  .step.now .i{background:var(--gold-400);color:#1E1B16}
+  .step.now{font-weight:600}
+  .step.skip{opacity:.5}
+  .empty{padding:26px 18px;text-align:center;color:var(--ink-3);font-size:13px}
+  /* ---------- ปุ่มเครื่องมือบนแถบบน ---------- */
+  .iconbtn{background:var(--paper);border:1px solid var(--line);padding:6px 13px;font-size:12.5px;border-radius:999px;
+    display:flex;align-items:center;gap:7px;white-space:nowrap;color:var(--ink-2);
+    transition:border-color var(--ease),color var(--ease),background var(--ease)}
+  .iconbtn:hover{border-color:var(--line-2);background:var(--surface);color:var(--ink)}
+  .iconbtn .bdg{font-family:var(--mono);font-size:10px;font-weight:600;background:var(--stop);color:#fff;
+    padding:0 6px;border-radius:999px}
+  .iconbtn.on{border-color:var(--rc);background:var(--rc-soft);color:var(--rc);font-weight:600}
+  /* ---------- รายการแจ้งเตือน ---------- */
+  .nlist .n1{display:grid;grid-template-columns:4px 1fr auto;gap:12px;padding:12px 18px;
+    border-bottom:1px solid var(--line);align-items:start;font-size:13.5px;cursor:pointer;transition:background var(--ease)}
+  .nlist .n1:last-child{border-bottom:0}
+  .nlist .n1:hover{background:var(--surface)}
+  .nlist .n1.unread{background:var(--cold-bg)}
+  .nlist .n1 .ic{align-self:stretch;border-radius:999px;background:var(--line-2);min-height:26px;font-size:0}
+  .nlist .n1 .b{color:var(--ink-2);font-size:12.5px;margin-top:2px}
+  .nlist .n1 time{font-family:var(--mono);font-size:11px;color:var(--ink-3);white-space:nowrap}
+  .nlist .n1.act .ic{background:var(--gold-400)}
+  .nlist .n1.warn .ic{background:var(--stop)}
+  .nlist .n1.info .ic{background:var(--cold)}
+  /* ---------- ผลตรวจก่อนบันทึก ---------- */
+  .chk{display:grid;grid-template-columns:22px 1fr auto;gap:10px;padding:9px 18px;
+    border-bottom:1px solid var(--line);font-size:13.5px;align-items:center}
+  .chk:last-child{border-bottom:0}
+  .chk .m{font-family:var(--mono);font-weight:600;text-align:center}
+  .chk.pass .m{color:var(--go)} .chk.warn .m{color:var(--warn)} .chk.block .m{color:var(--stop)}
+  .chk.block{background:var(--stop-bg)} .chk.warn{background:var(--warn-bg)}
+  .chk .who{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+  /* ---------- ป๊อปอัป ---------- */
+  .bugwrap{position:fixed;inset:0;background:rgba(30,27,22,.44);z-index:55;backdrop-filter:blur(2px)}
+  .bugpanel{position:fixed;right:16px;bottom:16px;width:min(400px,calc(100vw - 32px));max-height:calc(100vh - 32px);
+    overflow-y:auto;background:var(--paper);border-radius:var(--r-lg);box-shadow:var(--sh-3);z-index:56}
+  .bugpanel h3{margin:0;padding:14px 18px;font-size:14px;font-weight:600;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;font-family:var(--display)}
+  .bugpanel h3 button{background:none;border:0;color:var(--ink-3);font-size:18px;line-height:1;padding:2px 6px;
+    border-radius:999px}
+  .bugpanel h3 button:hover{background:var(--surface-2);color:var(--ink)}
+  .bugbody{padding:15px 18px 18px;display:flex;flex-direction:column;gap:12px}
+  .bugbody textarea{border:1px solid var(--line-2);background:var(--paper);padding:9px 12px;font:inherit;
+    font-size:13.5px;min-height:74px;resize:vertical;width:100%;border-radius:var(--r-sm)}
+  .bugbody .fl2{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+  .ctxbox{background:var(--surface);border-radius:var(--r-sm);padding:10px 12px;font-size:11.5px;
+    font-family:var(--mono);color:var(--ink-2);line-height:1.7}
+  .ctxbox b{color:var(--ink)}
+  .bugpanel.wide{width:min(560px,calc(100vw - 32px))}
+  a.btn.qcapp{display:inline-flex;align-items:center;gap:6px;text-decoration:none;
+    background:var(--gold-50);border-color:var(--gold-200);color:var(--gold);font-weight:600}
+  a.btn.qcapp:hover{background:var(--gold-400);border-color:var(--gold-400);color:#1E1B16}
+  .lbl{font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .fld input,.fld select{border:1px solid var(--line-2);background:var(--paper);padding:8px 11px;font:inherit;
+    font-size:13.5px;width:100%;border-radius:var(--r-sm)}
+  .fld input[readonly]{background:var(--surface);color:var(--ink-2)}
+  .fld .req{color:var(--stop)}
+  .errbox{font-size:12.5px;display:flex;flex-direction:column;gap:5px}
+  .errbox .e1{color:var(--stop);background:var(--stop-bg);border-left:3px solid var(--stop);
+    border-radius:var(--r-sm);padding:6px 11px}
+  .errbox .w1{color:var(--warn);background:var(--warn-bg);border-left:3px solid var(--warn);
+    border-radius:var(--r-sm);padding:6px 11px}
+  .chkline{display:flex;gap:8px;align-items:center;font-size:13.5px}
+  /* ---------- กล่อง "ตอนนี้ต้องทำอะไร" ---------- */
+  .todo{background:var(--paper);margin-bottom:18px;border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sh-2)}
+  /* ---------- บล็อกพับเก็บ ---------- */
+  details.blk{background:var(--paper);margin-bottom:18px;border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sh-1)}
+  details.blk>summary{padding:13px 18px;font-size:13.5px;font-weight:600;cursor:pointer;list-style:none;
+    display:flex;justify-content:space-between;gap:10px;align-items:center;font-family:var(--display)}
+  details.blk>summary::-webkit-details-marker{display:none}
+  details.blk>summary::after{content:"▾";color:var(--ink-3);font-size:11px;font-family:var(--sans)}
+  details.blk[open]>summary{border-bottom:1px solid var(--line)}
+  details.blk[open]>summary::after{content:"▴"}
+  details.blk>summary .c{font-family:var(--sans);font-size:11.5px;color:var(--ink-3);font-weight:400}
+  .src{font-family:var(--mono);font-size:9px;letter-spacing:.06em;border-radius:999px;padding:1px 6px;
+    color:var(--cold);background:var(--cold-bg);margin-left:5px;vertical-align:middle;white-space:nowrap}
+  .src.man{color:var(--ink-3);background:var(--surface-2)}
+  .synced{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:11px 18px;border-radius:var(--r-md);
+    background:var(--cold-bg);color:var(--cold);font-size:12.5px;margin-bottom:18px}
+  .synced.stale{background:var(--warn-bg);color:var(--warn)}
+  .synced .sp2{flex:1}
+  .etype{font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.05em;padding:2px 7px;
+    border-radius:999px;white-space:nowrap;margin-left:6px;background:var(--surface-2);color:var(--ink-3)}
+  .etype.cash{color:var(--gold);background:var(--gold-100)}
+  /* ---------- ตัวอย่างข้อความที่จะพิมพ์ลงเอกสาร ---------- */
+  .prev{border-radius:var(--r-sm);background:var(--surface);padding:0;overflow:hidden}
+  /* ---------- ตัวอย่างเอกสารจริง + บล็อกข้อความที่ลากวางได้
+     ตำแหน่งเก็บเป็น 0–100 ของ "พื้นที่ว่าง" แล้วใช้ left:X% คู่กับ translateX(-X%)
+     ทำให้ 0 = ชิดซ้าย · 50 = กึ่งกลาง · 100 = ชิดขวา โดยไม่ต้องวัดขนาดกล่องตอนวาด ---------- */
+  .docprev{border-radius:var(--r-md);background:var(--surface-2);overflow:hidden}
+  /* หน้ากระดาษเป็นสีขาวเสมอทั้งโหมดสว่างและมืด — เอกสารจริงที่พิมพ์ออกมาก็เป็นกระดาษขาว */
+  .page{position:relative;width:100%;max-width:340px;aspect-ratio:1/1.414;background:#fff;color:#1a1a1a;
+    box-shadow:var(--sh-2);border-radius:3px;padding:16px 15px;font-size:7px;line-height:1.6;
+    touch-action:none;user-select:none;overflow:hidden}
+  /* width:max-content จำเป็น — กล่อง absolute ที่ left ใกล้ขอบขวาจะถูกบีบให้แคบตามที่เหลือ
+     ทำให้ข้อความตกบรรทัดทีละ 2–3 ตัวอักษร · max-width คิดจากความกว้างหน้ากระดาษ ไม่ใช่ที่เหลือ */
+  .stampbox{position:absolute;cursor:grab;touch-action:none;white-space:pre-wrap;line-height:1.5;padding:4px 6px;
+    border:1px dashed transparent;border-radius:3px;width:max-content;max-width:58%;transition:border-color 120ms}
+  .droot{font-family:var(--mono);font-size:11.5px;background:var(--surface-2);border-radius:999px;
+    padding:2px 9px;color:var(--ink-2);white-space:nowrap}
+  /* ---------- ใบส่งงาน — สิ่งที่แผนกก่อนหน้าส่งมาให้ ---------- */
+  .hoff{border-left:3px solid var(--rc);border-radius:var(--r-md);background:var(--rc-soft);
+    padding:13px 18px 11px;margin-bottom:16px}
+  .hoff>.ht{font-size:11px;font-family:var(--mono);letter-spacing:.07em;text-transform:uppercase;
+    color:var(--ink-3);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .hoff .grp{margin-bottom:10px}
+  .hoff .grp:last-child{margin-bottom:0}
+  .hoff .gh{font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:5px;display:flex;gap:7px;align-items:center}
+  .hoff .kv{display:grid;grid-template-columns:minmax(120px,auto) 1fr;gap:2px 14px;font-size:13px}
+  .hoff .kv dt{color:var(--ink-3)}
+  .hoff .kv dd{margin:0;font-weight:600;color:var(--ink)}
+  .hoff .kv dd.mono{font-family:var(--mono);font-size:12.5px}
+  .hoff .none{font-size:13px;color:var(--ink-3);font-style:italic}
+  /* ---------- ใบขออนุมัติทำจ่าย ---------- */
+  .apv{border-radius:var(--r-md);background:var(--paper);margin-bottom:18px;overflow:hidden;box-shadow:var(--sh-2)}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);background:var(--shade);
+    color:#F2EDE3;padding:11px 20px;font-size:13.5px;border-radius:999px;opacity:0;pointer-events:none;
+    transition:opacity .2s,transform .2s;z-index:60;max-width:92vw;text-align:center;box-shadow:var(--sh-3)}
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media (prefers-reduced-motion:reduce){#toast{transition:none}}
+  /* ---------- จอแคบ ---------- */
+  @media (max-width:900px){
+    .topnav{padding:10px 14px;gap:12px}
+    .subbar{padding:8px 14px;top:55px}
+    main{padding:16px 14px 40px}
+    .brand .tx{display:none}
+  }
+  /* จอมือถือ: เมนูลงมาอยู่แถวของตัวเองแล้วเลื่อนแนวนอน
+     ชื่อผู้ใช้ยาวไม่เท่ากันในแต่ละแผนก ("คุณประเสริฐ" ยาวสุด) ถ้าดันอยู่แถวเดียวกับเมนู
+     หน้าจะล้นออกไปทางขวาเป็นสิบพิกเซล เหลือไว้แค่วงกลมย่อชื่อซึ่งบอกแผนกด้วยสีอยู่แล้ว */
+  @media (max-width:760px){
+    .topnav{flex-wrap:wrap;row-gap:9px;padding-bottom:9px}
+    nav.mainnav{order:3;flex:1 0 100%;margin:0 -14px;padding:0 14px}
+    .user>span:not(.av){display:none}
+    .subbar{top:auto;position:static}
+  }
+  @media (max-width:820px){
+    .phases{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:640px){
+    .apv .seg{grid-template-columns:1fr}
+    .hoff .kv{grid-template-columns:1fr;gap:0}
+    .hoff .kv dt{margin-top:5px;font-size:12px}
+    .ph h1{font-size:22px}
+  }
+  @media (max-width:520px){.bugpanel{left:16px;right:16px;width:auto;bottom:16px}}
+  @media (max-width:460px){.grid2{grid-template-columns:1fr}}
+  /* ---------- เฉพาะแอปจริง ---------- */
+  .boot{display:grid;place-items:center;min-height:70vh;gap:14px;text-align:center;padding:24px}
+  .boot .sp{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--gold-400);
+    border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.boot .sp{animation:none}}
+  .boot h2{margin:0;font-size:18px}
+  .boot p{margin:0;color:var(--ink-2);max-width:52ch;line-height:1.7}
+  .fail{background:var(--stop-bg);border-left:3px solid var(--stop);border-radius:var(--r-md);
+    padding:14px 18px;color:var(--stop);margin-bottom:16px}
+  .fail b{display:block;margin-bottom:4px}
+  .busy{opacity:.55;pointer-events:none}
+  .ro{background:var(--surface-2);color:var(--ink-2);border-radius:999px;padding:3px 10px;font-size:11px}
+  .fldrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+  .modal{position:fixed;inset:0;background:rgba(30,27,22,.44);z-index:55;display:grid;
+    place-items:center;padding:16px;backdrop-filter:blur(2px)}
+  .sheetbox{background:var(--paper);border-radius:var(--r-lg);box-shadow:var(--sh-3);
+    width:min(620px,100%);max-height:88vh;overflow-y:auto}
+  .sheetbox h3{margin:0;padding:15px 20px;border-bottom:1px solid var(--line);font-size:15px;
+    display:flex;justify-content:space-between;align-items:center;font-family:var(--display)}
+  .sheetbox h3 button{background:none;border:0;font-size:18px;color:var(--ink-3);
+    padding:2px 8px;border-radius:999px}
+  .sheetbox .bd{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+</style>
+
+<div class="demo" id="envbar">MGS Document Center — ช่วงทดลองใช้งาน · ความเห็นของคุณคือสิ่งที่ทำให้ระบบดีขึ้น</div>
+
+<div class="app">
+  <header class="topnav">
+    <button class="brand" data-page="home" aria-label="MGS Document Center — กลับหน้าหลัก">
+      <svg class="mk" viewBox="0 0 40 40" role="img" aria-label="M Global Sourcing">
+        <defs><linearGradient id="mgsGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#E8CC72"/><stop offset=".45" stop-color="#D4AF37"/>
+          <stop offset="1" stop-color="#9A7716"/></linearGradient></defs>
+        <circle cx="20" cy="20" r="19" fill="url(#mgsGold)"/>
+        <circle cx="20" cy="20" r="15.6" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/>
+        <ellipse cx="20" cy="20" rx="7.4" ry="15.6" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width=".9"/>
+        <path d="M6.3 13.2h27.4M6.3 26.8h27.4" stroke="#fff" stroke-opacity=".32" stroke-width=".9"/>
+        <path d="M11 28V12h4.5L20 20.5 24.5 12H29v16h-3.6V17.8l-3.8 6.8h-3.2l-3.8-6.8V28Z" fill="#fff"/>
+      </svg>
+      <span class="tx"><b>MGS Document Center</b><span>procure to pay</span></span>
+    </button>
+    <nav class="mainnav" id="nav"></nav>
+    <div id="tools" style="display:flex;gap:8px;align-items:center"></div>
+    <div class="user" id="user"></div>
+  </header>
+
+  <main id="main">
+    <div class="boot"><div class="sp"></div><h2>กำลังเปิดระบบ</h2>
+      <p>กำลังตรวจสอบสิทธิ์ของคุณจากบัญชี Google ของบริษัท</p></div>
+  </main>
+  <div class="sitefoot">SAP B1 ยังเป็นระบบหลัก · ที่นี่คือเอกสารและสถานะ</div>
+</div>
+<div id="modal"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* กติกาการเขียนสตริงในไฟล์นี้: ใช้ single quote เสมอ
+   แอตทริบิวต์ใน HTML ใช้ double quote จึงใส่ไว้ข้างในได้โดยไม่ต้อง escape
+   ปนสองแบบเมื่อไหร่ เครื่องหมายจะไม่เข้าคู่โดยไม่มีอะไรฟ้องจนขึ้นจริงแล้วหน้าขาว */
+(function () {
+  'use strict';
+
+  var BOOT = null, DEALS = [], DETAIL = null;
+  var page = 'home', openNo = null, busy = false;
+
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+  var baht = function (n) { return '฿' + (Number(n) || 0).toLocaleString('en-US'); };
+  var money = function () { return !!(BOOT && BOOT.me.money); };
+  var can = function (c) { return !!(BOOT && BOOT.can.indexOf(c) >= 0); };
+  var S = function (i) { return (BOOT.flow.STAGES[i] || {}); };
+  var deptName = function (d) { return (BOOT.flow.ROLES[d] || {}).name || d; };
+
+  function toast(msg) {
+    var t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('on');
+    setTimeout(function () { t.classList.remove('on'); }, 3400);
+  }
+
+  /* เรียกเซิร์ฟเวอร์ — ทุกครั้งต้องมีทั้งทางสำเร็จและทางล้มเหลว
+     ไม่งั้นเน็ตหลุดแล้วหน้าค้างโดยผู้ใช้ไม่รู้ว่าเกิดอะไรขึ้น */
+  function call(fn, args, ok) {
+    if (busy) return;
+    busy = true;
+    document.body.classList.add('busy');
+    var done = function () { busy = false; document.body.classList.remove('busy'); };
+    google.script.run
+      .withSuccessHandler(function (res) {
+        done();
+        if (!res) { toast('เซิร์ฟเวอร์ไม่ตอบกลับ กรุณาลองใหม่'); return; }
+        if (!res.ok) { toast(res.error || 'ทำรายการไม่สำเร็จ'); return; }
+        ok(res.data);
+      })
+      .withFailureHandler(function (err) {
+        done();
+        toast('ติดต่อเซิร์ฟเวอร์ไม่ได้ — ' +
+          (err && err.message ? err.message : 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'));
+      })[fn].apply(google.script.run, args || []);
+  }
+
+  /* ---------- เปิดระบบ ---------- */
+  google.script.run
+    .withSuccessHandler(function (res) {
+      if (!res || !res.ok) { bootFail(res || {}); return; }
+      BOOT = res.data;
+      var d = BOOT.me.dept.toLowerCase();
+      document.documentElement.style.setProperty('--rc', 'var(--' + d + ')');
+      document.documentElement.style.setProperty('--rc-soft', 'var(--' + d + '-soft)');
+      loadDeals();
+    })
+    .withFailureHandler(function (e) {
+      bootFail({ error: 'เปิดระบบไม่ได้ — ' +
+        (e && e.message ? e.message : 'ตรวจสอบอินเทอร์เน็ต') });
+    })
+    .apiBoot();
+
+  function bootFail(res) {
+    var hint = '';
+    if (res.code === 'NOT_REGISTERED')
+      hint = '<p>ให้หัวหน้าแผนกเพิ่มอีเมลของคุณในแท็บ <b>Users</b> ของระบบ ' +
+             'แล้วเปิดหน้านี้ใหม่อีกครั้ง</p>';
+    else if (res.code === 'NO_SESSION')
+      hint = '<p>กรุณาเปิดลิงก์นี้ด้วย<b>บัญชี Google ของบริษัท</b> ไม่ใช่บัญชีส่วนตัว</p>';
+    $('#main').innerHTML = '<div class="boot"><h2>เข้าระบบไม่ได้</h2>' +
+      '<div class="fail" style="max-width:60ch;text-align:left"><b>' +
+      esc(res.error || 'ไม่ทราบสาเหตุ') + '</b>' + hint + '</div></div>';
+  }
+
+  function loadDeals() {
+    call('apiListDeals', [], function (list) { DEALS = list; chrome(); render(); });
+  }
+
+  /* ---------- แถบบน ---------- */
+  var NAV = [
+    { k: 'home',  t: 'งานของฉัน' },
+    { k: 'all',   t: 'รายการทั้งหมด' },
+    { k: 'fb',    t: 'ความเห็นจากผู้ใช้', need: 'feedback.list' },
+    { k: 'admin', t: 'ผู้ใช้ในระบบ',     need: 'admin.users' }
+  ];
+
+  function chrome() {
+    var mine = DEALS.filter(isMine).length;
+    $('#nav').innerHTML = NAV.filter(function (n) { return !n.need || can(n.need); })
+      .map(function (n) {
+        return '<button data-page="' + n.k + '"' +
+          (n.k === page ? ' aria-current="page"' : '') + '>' + esc(n.t) +
+          (n.k === 'home' && mine ? '<span class="cnt">' + mine + '</span>' : '') +
+          '</button>';
+      }).join('');
+    $('#tools').innerHTML = '<button class="iconbtn" data-fb="open">แจ้งปัญหา</button>';
+    $('#user').innerHTML = '<span class="av">' + esc(BOOT.me.initials) + '</span><span>' +
+      esc(BOOT.me.name) +
+      '<br><span class="mono" style="font-size:10.5px;color:var(--ink-3)">' +
+      esc(BOOT.me.roleName) + '</span></span>';
+  }
+
+  function isMine(d) {
+    return d.status === 'ACTIVE' && S(d.stage).o === BOOT.me.dept;
+  }
+
+  /* ---------- วาดหน้า ---------- */
+  function render() {
+    var m = $('#main');
+    if (page === 'detail') m.innerHTML = viewDetail();
+    else if (page === 'all') m.innerHTML = viewList(DEALS, 'รายการทั้งหมด');
+    else if (page === 'fb') { m.innerHTML = loadingBox('ความเห็นจากผู้ใช้'); loadFeedback(); }
+    else if (page === 'admin') { m.innerHTML = loadingBox('ผู้ใช้ในระบบ'); loadUsers(); }
+    else m.innerHTML = viewHome();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  function loadingBox(title) {
+    return '<div class="ph"><h1>' + esc(title) + '</h1></div>' +
+      '<div class="boot"><div class="sp"></div></div>';
+  }
+
+  function viewHome() {
+    var mine = DEALS.filter(isMine);
+    var soon = DEALS.filter(function (d) {
+      return d.status === 'ACTIVE' && !isMine(d) && S(d.stage + 1).o === BOOT.me.dept;
+    });
+    var doneN = DEALS.filter(function (d) { return d.status === 'COMPLETED'; }).length;
+
+    var h = '<div class="ph"><h1>สวัสดี ' + esc(BOOT.me.name) + '</h1><span class="d">' +
+      esc(BOOT.me.roleName) + ' · ' +
+      (mine.length ? 'มีงานรอคุณ ' + mine.length + ' รายการ' : 'ไม่มีงานค้างที่คุณ') +
+      '</span></div>';
+
+    if (BOOT.cfg.pilotOnly)
+      h += '<div class="note info" style="margin-bottom:18px"><span>' +
+        '<b>ช่วงทดลองใช้งาน</b> — แก้ไขได้เฉพาะรายการที่ติดป้าย ' +
+        '<span class="pill ok">ทดลอง</span> รายการอื่นเปิดดูได้อย่างเดียว ' +
+        'ทำตามขั้นตอนเดิมไปก่อน</span></div>';
+
+    h += '<div class="kpis">' +
+      '<div class="kpi a"><div class="n">' + mine.length +
+        '</div><div class="k">ต้องทำวันนี้</div></div>' +
+      '<div class="kpi b"><div class="n">' + soon.length +
+        '</div><div class="k">กำลังจะถึงคิวคุณ</div></div>' +
+      '<div class="kpi g"><div class="n">' + doneN +
+        '</div><div class="k">ปิดแล้ว</div></div></div>';
+
+    if (!mine.length)
+      h += '<div class="note good" style="margin-bottom:18px"><span>' +
+        '<b>ตอนนี้ไม่มีอะไรที่คุณต้องทำ</b> — ' +
+        'ระบบจะแจ้งเตือนทาง Lark เมื่อถึงคิวคุณ ไม่ต้องเปิดมานั่งเช็คเอง</span></div>';
+    else h += table('ต้องทำวันนี้', mine);
+
+    if (soon.length) h += table('กำลังจะถึงคิวคุณ — เตรียมตัวได้', soon);
+    return h;
+  }
+
+  function viewList(list, title) {
+    return '<div class="ph"><h1>' + esc(title) + '</h1><span class="d">' +
+      list.length + ' รายการ</span></div>' + table('', list);
+  }
+
+  function table(title, list) {
+    var h = '<div class="card">';
+    if (title)
+      h += '<h3>' + esc(title) + '<span class="c">' + list.length + ' รายการ</span></h3>';
+    if (!list.length) return h + '<div class="empty">— ไม่มีรายการ —</div></div>';
+
+    h += '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ผู้ขาย / สินค้า</th>';
+    if (money()) h += '<th class="num">มูลค่า</th>';
+    h += '<th>ขั้นตอน</th><th>ค้างที่</th><th></th></tr></thead><tbody>';
+
+    list.forEach(function (d) {
+      h += '<tr class="click" data-po="' + esc(d.deal_no) + '">';
+      h += '<td><span class="pono">' + esc(d.deal_no) + '</span>';
+      if (d.b1_po_no) h += '<div class="sub">B1 ' + esc(d.b1_po_no) + '</div>';
+      h += '</td><td>' + esc(d.supplier) + '<div class="sub">' + esc(d.item) + '</div></td>';
+      if (money()) h += '<td class="num">' + baht(d.amount) + '</td>';
+      h += '<td>' + esc(d.stage_name) + '</td>';
+      h += '<td><span class="dept" style="color:var(--' +
+        String(d.owner_dept).toLowerCase() + ')">' + esc(d.owner_dept) + '</span></td>';
+      h += '<td>' + (d.inPilot
+        ? '<span class="pill ok">ทดลอง</span>'
+        : '<span class="ro">ดูอย่างเดียว</span>') + '</td></tr>';
+    });
+    return h + '</tbody></table></div></div>';
+  }
+
+  /* ---------- รายละเอียด ---------- */
+  function openDeal(no) {
+    openNo = no;
+    page = 'detail';
+    DETAIL = null;
+    $('#main').innerHTML = '<div class="boot"><div class="sp"></div><p>กำลังเปิด ' +
+      esc(no) + '</p></div>';
+    chrome();
+    call('apiGetDeal', [no], function (d) { DETAIL = d; render(); });
+  }
+
+  function viewDetail() {
+    var d = DETAIL;
+    if (!d) return '<div class="boot"><div class="sp"></div></div>';
+    var st = S(d.stage);
+    var mine = d.status === 'ACTIVE' && st.o === BOOT.me.dept;
+
+    var h = '<button class="back" data-back="1">← กลับไปรายการ</button>';
+    h += '<div class="dh"><div class="top">';
+    h += '<span class="n">' + esc(d.deal_no) + '</span>';
+    h += '<span class="t">' + esc(d.item || '') + '</span>';
+    h += d.status === 'COMPLETED'
+      ? '<span class="pill ok">เสร็จสิ้น</span>'
+      : '<span class="pill info">' + esc(st.n || '') + '</span>';
+    h += d.inPilot
+      ? '<span class="pill ok">อยู่ในช่วงทดลอง</span>'
+      : '<span class="ro">ดูอย่างเดียว — ยังไม่อยู่ในช่วงทดลอง</span>';
+    h += '</div><div class="fields">';
+
+    var f = [['ผู้ขาย', d.supplier], ['จำนวน', d.qty], ['เลข PO ใน B1', d.b1_po_no],
+             ['สายสินค้า', (BOOT.flow.MODULES[d.module] || {}).n || d.module]];
+    if (money()) {
+      f.push(['มูลค่า', baht(d.amount)]);
+      f.push(['เงื่อนไขจ่าย', d.term_name || d.payment_term]);
+    }
+    f.forEach(function (x) {
+      h += '<div class="f"><div class="k">' + esc(x[0]) + '</div><div class="v">' +
+        esc(x[1] || '—') + '</div></div>';
+    });
+    h += '</div></div>';
+
+    /* ช่องเงินถูกตัดที่เซิร์ฟเวอร์แล้ว ตรงนี้จึงวาดทุกอย่างที่ได้รับมาได้เลย */
+    var hk = Object.keys(d.handoff || {});
+    if (hk.length) {
+      h += '<div class="hoff"><div class="ht">แผนกก่อนหน้าส่งอะไรมาให้คุณ</div><dl class="kv">';
+      hk.forEach(function (k) {
+        h += '<dt>' + esc(labelOf(k)) + '</dt><dd>' + esc(d.handoff[k]) + '</dd>';
+      });
+      h += '</dl></div>';
+    }
+
+    if (mine && d.inPilot) h += stageCard(d, st);
+    else if (d.status === 'ACTIVE')
+      h += '<div class="note info"><span>ตอนนี้งานอยู่ที่ <b>' + esc(deptName(st.o)) +
+        '</b> — ยังไม่ถึงคิวคุณ</span></div>';
+
+    if (money() && d.payments && d.payments.length) h += payCard(d);
+    h += docCard(d);
+
+    if (d.history && d.history.length) {
+      h += '<details class="blk"><summary>ประวัติ<span class="c">' +
+        d.history.length + ' รายการ</span></summary><div class="tl">';
+      d.history.forEach(function (x) {
+        h += '<div class="e"><time>' + esc(x.ts) + '</time><div><b>' + esc(x.actor) +
+          '</b> ' + esc(x.text) + '</div></div>';
+      });
+      h += '</div></details>';
+    }
+    return h;
+  }
+
+  function labelOf(k) {
+    var out = k;
+    Object.keys(BOOT.flow.HAND).forEach(function (sc) {
+      var spec = BOOT.flow.HAND[sc];
+      var all = (spec.f || []).slice();
+      Object.keys(spec.byMod || {}).forEach(function (m) { all = all.concat(spec.byMod[m]); });
+      all.forEach(function (fd) { if (fd.k === k) out = fd.lb; });
+    });
+    return out;
+  }
+
+  function handSpec(code, mod) {
+    var s = BOOT.flow.HAND[code];
+    if (!s) return null;
+    var ex = (s.byMod && s.byMod[mod]) || [];
+    return { to: s.to, f: (s.f || []).concat(ex) };
+  }
+
+  function stageCard(d, st) {
+    var spec = handSpec(st.c, d.module);
+    var h = '<div class="card" style="background:var(--gold-50)">';
+    h += '<h3>ตอนนี้คุณต้องทำ: ' + esc(st.n) + '<span class="c">กำหนด ' +
+      st.sla + ' ชม.</span></h3>';
+
+    if (spec) {
+      h += '<div style="padding:16px 18px"><div class="fldrow">';
+      spec.f.forEach(function (fd) {
+        var v = (d.handoff || {})[fd.k] || '';
+        h += '<div class="fld"><label class="lbl">' + esc(fd.lb);
+        if (fd.req) h += ' <span class="req">*</span>';
+        h += '</label>';
+        if (fd.t === 'sel') {
+          h += '<select id="h_' + fd.k + '"><option value="">— เลือก —</option>';
+          fd.o.forEach(function (o) {
+            h += '<option' + (String(v) === o ? ' selected' : '') + '>' + esc(o) + '</option>';
+          });
+          h += '</select>';
+        } else {
+          var ty = fd.t === 'date' ? 'date' : fd.t === 'num' ? 'number'
+                 : fd.t === 'time' ? 'time' : 'text';
+          h += '<input id="h_' + fd.k + '" type="' + ty + '" value="' + esc(v) + '">';
+        }
+        h += '</div>';
+      });
+      h += '</div></div>';
+    }
+
+    var need = BOOT.flow.DOCS.filter(function (x) { return x.at === d.stage && x.req; });
+    if (need.length) {
+      var have = {};
+      (d.documents || []).forEach(function (x) { have[x.doc_code] = true; });
+      h += '<div class="rowline"><span class="nm">เอกสารที่ต้องแนบ</span><span>';
+      need.forEach(function (x) {
+        h += have[x.c]
+          ? '<span class="pill ok">' + esc(x.n) + ' ✓</span> '
+          : '<button class="btn" data-up="' + esc(x.c) + '">แนบ ' + esc(x.n) + '</button> ';
+      });
+      h += '</span></div>';
+    }
+
+    h += '<div class="actions">';
+    if (spec) h += '<button class="btn" data-act="save">บันทึกข้อมูล</button>';
+    h += '<button class="btn pri" data-act="advance">ส่งต่อขั้นถัดไป</button>';
+    h += '<span class="hint">ส่งต่อแล้วระบบจะแจ้ง Lark ให้แผนกถัดไปเอง</span>';
+    return h + '</div></div>';
+  }
+
+  function payCard(d) {
+    var h = '<div class="card"><h3>การจ่ายเงิน<span class="c">' + d.payments.length +
+      ' งวด</span></h3><div class="tw"><table><thead><tr>' +
+      '<th>งวด</th><th>ประเภท</th><th class="num">ยอด</th>' +
+      '<th>ครบกำหนด</th><th>สถานะ</th><th></th></tr></thead><tbody>';
+
+    d.payments.forEach(function (p) {
+      var stt = BOOT.flow.PAY_ST[p.status] || { t: p.status, cls: 'wait' };
+      var act = '';
+      if (d.inPilot) {
+        if (p.status === 'PENDING' && can('pay.request'))
+          act = '<button class="btn" data-pay="req" data-seq="' + p.seq +
+                '">ตั้งเรื่องขอจ่าย</button>';
+        else if (p.status === 'REQUESTED' && can('pay.approve'))
+          act = '<button class="btn pri" data-pay="apv" data-seq="' + p.seq +
+                '">อนุมัติ</button>';
+        else if (p.status === 'APPROVED' && can('pay.record'))
+          act = '<button class="btn" data-pay="rec" data-seq="' + p.seq +
+                '">บันทึกการจ่าย</button>';
+      }
+      h += '<tr><td>' + esc(p.seq) + '</td><td>' + esc(p.type) + '</td>' +
+        '<td class="num">' + baht(p.amount) + '</td><td>' + esc(p.due) + '</td>' +
+        '<td><span class="pill ' + stt.cls + '">' + esc(stt.t) + '</span></td>' +
+        '<td>' + act + '</td></tr>';
+    });
+    return h + '</tbody></table></div></div>';
+  }
+
+  function docCard(d) {
+    var list = d.documents || [];
+    var h = '<details class="blk"><summary>เอกสารแนบ<span class="c">' +
+      list.length + ' ใบ</span></summary>';
+    if (!list.length) return h + '<div class="empty">ยังไม่มีเอกสาร</div></details>';
+    h += '<div class="tw"><table><thead><tr><th>ประเภท</th><th>ไฟล์</th>' +
+      '<th>เมื่อไหร่</th><th>ใคร</th></tr></thead><tbody>';
+    list.forEach(function (x) {
+      h += '<tr><td>' + esc(x.doc_name) + '</td>' +
+        '<td><span class="mono">' + esc(x.file_name) + '</span></td>' +
+        '<td>' + esc(x.uploaded_at) + '</td><td>' + esc(x.uploaded_by) + '</td></tr>';
+    });
+    return h + '</tbody></table></div></details>';
+  }
+
+  function loadFeedback() {
+    call('apiListFeedback', [], function (list) {
+      var h = '<div class="ph"><h1>ความเห็นจากผู้ใช้</h1><span class="d">' +
+        list.length + ' รายการ · ช่วงทดลองนี้มีไว้เพื่อเก็บสิ่งเหล่านี้</span></div>';
+      if (!list.length) {
+        $('#main').innerHTML = h + '<div class="empty">ยังไม่มีใครส่งความเห็นเข้ามา</div>';
+        return;
+      }
+      h += '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ใคร</th>' +
+        '<th>ระดับ</th><th>เรื่อง</th><th>เมื่อไหร่</th></tr></thead><tbody>';
+      list.forEach(function (fb) {
+        var cls = fb.severity === 'BLOCKER' ? 'late'
+                : fb.severity === 'WRONG' ? 'due' : 'wait';
+        h += '<tr><td><span class="pono">' + esc(fb.fb_id) + '</span></td>' +
+          '<td>' + esc(fb.who) + '<div class="sub">' + esc(fb.dept) + '</div></td>' +
+          '<td><span class="pill ' + cls + '">' + esc(fb.severity) + '</span></td>' +
+          '<td>' + esc(fb.message) + '<div class="sub">' + esc(fb.page || '') + '</div></td>' +
+          '<td>' + esc(fb.created_at) + '</td></tr>';
+      });
+      $('#main').innerHTML = h + '</tbody></table></div>';
+    });
+  }
+
+  function loadUsers() {
+    call('apiListUsers', [], function (list) {
+      var byDept = {};
+      list.forEach(function (u) { (byDept[u.dept] = byDept[u.dept] || []).push(u); });
+
+      var h = '<div class="ph"><h1>ผู้ใช้ในระบบ</h1><span class="d">' + list.length +
+        ' คน · เพิ่มหรือแก้ที่แท็บ Users ในไฟล์ Google Sheet</span></div>';
+      h += '<div class="kpis">';
+      Object.keys(BOOT.flow.ROLES).forEach(function (dp) {
+        var n = (byDept[dp] || []).filter(function (u) {
+          return String(u.is_active).toUpperCase() !== 'FALSE';
+        }).length;
+        h += '<div class="kpi' + (n ? '' : ' r') + '"><div class="n">' + n +
+          '</div><div class="k">' + esc(deptName(dp)) + '</div></div>';
+      });
+      h += '</div>';
+
+      h += '<div class="tw"><table><thead><tr><th>อีเมล</th><th>ชื่อ</th>' +
+        '<th>แผนก</th><th>ใช้งาน</th><th>Lark</th></tr></thead><tbody>';
+      list.forEach(function (u) {
+        h += '<tr><td><span class="mono">' + esc(u.email) + '</span></td>' +
+          '<td>' + esc(u.full_name) + '</td>' +
+          '<td><span class="dept" style="color:var(--' + String(u.dept).toLowerCase() +
+            ')">' + esc(u.dept) + '</span></td>' +
+          '<td>' + (String(u.is_active).toUpperCase() === 'FALSE'
+            ? '<span class="pill wait">ปิด</span>'
+            : '<span class="pill ok">เปิด</span>') + '</td>' +
+          '<td>' + (u.has_lark
+            ? '<span class="pill ok">พร้อม</span>'
+            : '<span class="pill due">ยังไม่ผูก</span>') + '</td></tr>';
+      });
+      $('#main').innerHTML = h + '</tbody></table></div>';
+    });
+  }
+
+  /* ---------- ป๊อปอัป ---------- */
+  function modal(title, bodyHtml, onOk, okLabel) {
+    $('#modal').innerHTML = '<div class="modal"><div class="sheetbox"><h3>' + esc(title) +
+      '<button data-mod="x" aria-label="ปิด">✕</button></h3><div class="bd">' + bodyHtml +
+      '<div class="actions" style="padding:0;justify-content:flex-end">' +
+      '<button class="btn" data-mod="x">ยกเลิก</button>' +
+      '<button class="btn pri" data-mod="ok">' + esc(okLabel || 'บันทึก') +
+      '</button></div></div></div></div>';
+    $('#modal').__ok = onOk;
+  }
+  function closeModal() { $('#modal').innerHTML = ''; $('#modal').__ok = null; }
+  function val(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+  function fld(id, label, type, extra) {
+    return '<div class="fld"><label class="lbl">' + esc(label) + '</label>' +
+      '<input id="' + id + '" type="' + (type || 'text') + '" ' + (extra || '') + '></div>';
+  }
+  function row(label, value) {
+    return '<div class="rowline"><span class="nm">' + esc(label) + '</span><span>' +
+      esc(value) + '</span></div>';
+  }
+
+  /* ---------- การกด ---------- */
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+
+    var nav = t.closest('[data-page]');
+    if (nav) { page = nav.dataset.page; openNo = null; chrome(); render(); return; }
+
+    if (t.closest('[data-back]')) {
+      page = 'home'; openNo = null; chrome(); render(); return;
+    }
+
+    var po = t.closest('[data-po]');
+    if (po) { openDeal(po.dataset.po); return; }
+
+    var mod = t.closest('[data-mod]');
+    if (mod) {
+      if (mod.dataset.mod === 'x') closeModal();
+      else if ($('#modal').__ok) $('#modal').__ok();
+      return;
+    }
+
+    if (t.closest('[data-fb]')) { openFeedback(); return; }
+
+    var act = t.closest('[data-act]');
+    if (act && DETAIL) { doStage(act.dataset.act); return; }
+
+    var pay = t.closest('[data-pay]');
+    if (pay && DETAIL) { doPay(pay.dataset.pay, Number(pay.dataset.seq)); return; }
+
+    var up = t.closest('[data-up]');
+    if (up && DETAIL) { doUpload(up.dataset.up); return; }
+  });
+
+  function openFeedback() {
+    modal('แจ้งปัญหาจากหน้านี้',
+      '<div class="fld"><label class="lbl">ระดับความรุนแรง</label>' +
+      '<select id="fb_sev">' +
+      '<option value="BLOCKER">ทำงานต่อไม่ได้</option>' +
+      '<option value="WRONG">ใช้ได้แต่ผลลัพธ์ผิด</option>' +
+      '<option value="SUGGEST" selected>ข้อเสนอแนะ</option></select></div>' +
+      '<div class="fld"><label class="lbl">เกิดอะไรขึ้น</label>' +
+      '<textarea id="fb_msg" rows="4" style="border:1px solid var(--line-2);' +
+      'border-radius:var(--r-sm);padding:9px 12px;font:inherit;width:100%"></textarea></div>' +
+      '<div class="note info"><span>ข้อความนี้จะเข้ากลุ่ม Lark ทันที ' +
+      'และเก็บไว้ในระบบเพื่อสรุปตอนจบช่วงทดลอง</span></div>',
+      function () {
+        call('apiSendFeedback', [{
+          message: val('fb_msg'),
+          severity: val('fb_sev'),
+          page: page === 'detail' ? 'ใบ ' + openNo : page,
+          dealNo: openNo || ''
+        }], function (r) {
+          closeModal();
+          toast('ส่งแล้ว ' + r.id + ' — ขอบคุณครับ');
+        });
+      }, 'ส่ง');
+  }
+
+  function doStage(what) {
+    var st = S(DETAIL.stage);
+    var spec = handSpec(st.c, DETAIL.module);
+    var payload = {};
+    if (spec) spec.f.forEach(function (fd) { payload[fd.k] = val('h_' + fd.k); });
+
+    if (what === 'save' && spec) {
+      call('apiSaveHandoff', [openNo, payload], function () {
+        toast('บันทึกแล้ว');
+        openDeal(openNo);
+      });
+      return;
+    }
+    if (what !== 'advance') return;
+
+    /* กดปุ่มเดียวจบ — บันทึกก่อนแล้วค่อยส่งต่อ
+       ผู้ใช้ไม่ต้องจำว่าต้องกดบันทึกก่อนถึงจะส่งต่อได้ */
+    var advance = function () {
+      call('apiAdvanceStage', [openNo, ''], function (r) {
+        toast(r.done ? 'ปิดรายการเรียบร้อย' : 'ส่งต่อแล้ว — แจ้งแผนกถัดไปทาง Lark แล้ว');
+        openDeal(openNo);
+      });
+    };
+    if (spec) call('apiSaveHandoff', [openNo, payload], advance);
+    else advance();
+  }
+
+  function doPay(what, seq) {
+    var p = (DETAIL.payments || []).filter(function (x) {
+      return Number(x.seq) === seq;
+    })[0] || {};
+
+    if (what === 'req') {
+      modal('ตั้งเรื่องขอทำจ่าย งวดที่ ' + seq,
+        '<div class="fldrow">' +
+        fld('pr_amt', 'ยอดที่ขอ (บาท)', 'number', 'value="' + (p.amount || '') + '"') +
+        fld('pr_bno', 'เลขเอกสารเรียกเก็บ', 'text') +
+        fld('pr_bamt', 'ยอดในเอกสารเรียกเก็บ', 'number') +
+        fld('pr_due', 'มีผลวันที่', 'date') + '</div>' +
+        '<div class="note info"><span>ทุกงวดต้องแนบเอกสารเรียกเก็บของงวดนั้น — ' +
+        'ระบบจะกันไม่ให้ใช้ใบเดียวกันตั้งเบิกซ้ำสองงวด</span></div>',
+        function () {
+          call('apiRequestPayment', [openNo, seq, {
+            amount: val('pr_amt'), billNo: val('pr_bno'),
+            billAmt: val('pr_bamt'), due: val('pr_due')
+          }], function (r) {
+            closeModal();
+            toast('ตั้งเรื่องแล้ว ' + r.reqNo);
+            openDeal(openNo);
+          });
+        }, 'ส่งขออนุมัติ');
+      return;
+    }
+
+    if (what === 'apv') {
+      modal('อนุมัติจ่าย งวดที่ ' + seq,
+        row('ยอดที่ขอ', baht(p.amount)) +
+        row('ผู้ขอ', p.req_by || '—') +
+        row('เอกสารเรียกเก็บ', p.bill_no || '—') +
+        '<div class="note warn"><span>กดอนุมัติแล้วบัญชีจะทำจ่ายได้ทันที ' +
+        'และผู้อนุมัติจะบันทึกการจ่ายเองไม่ได้</span></div>',
+        function () {
+          call('apiApprovePayment', [openNo, seq], function () {
+            closeModal();
+            toast('อนุมัติแล้ว');
+            openDeal(openNo);
+          });
+        }, 'อนุมัติ');
+      return;
+    }
+
+    if (what === 'rec') {
+      modal('บันทึกการจ่าย งวดที่ ' + seq,
+        '<div class="fldrow">' +
+        fld('py_amt', 'ยอดที่จ่ายจริง', 'number', 'value="' + (p.amount || '') + '"') +
+        fld('py_ref', 'เลขอ้างอิงจากธนาคาร', 'text') +
+        fld('py_bank', 'บัญชีที่จ่าย', 'text') +
+        fld('py_slip', 'รหัสไฟล์สลิป', 'text') + '</div>' +
+        '<div class="note warn"><span>ต้องแนบสลิปก่อนถึงจะบันทึกได้ ' +
+        'และผู้บันทึกต้องไม่ใช่ผู้อนุมัติคนเดียวกัน</span></div>',
+        function () {
+          call('apiRecordPayment', [openNo, seq, {
+            paidAmt: val('py_amt'), ref: val('py_ref'), bank: val('py_bank'),
+            slipFileId: val('py_slip'), method: 'TRANSFER'
+          }], function () {
+            closeModal();
+            toast('บันทึกการจ่ายแล้ว');
+            openDeal(openNo);
+          });
+        }, 'บันทึก');
+    }
+  }
+
+  function doUpload(code) {
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.onchange = function () {
+      var file = inp.files[0];
+      if (!file) return;
+      if (file.size > 20 * 1024 * 1024) { toast('ไฟล์ใหญ่เกิน 20 MB'); return; }
+      var fr = new FileReader();
+      fr.onload = function () {
+        var b64 = String(fr.result).split(',')[1];
+        toast('กำลังอัพโหลด…');
+        call('apiUploadDoc', [openNo, code, file.name, b64, file.type], function (r) {
+          toast('แนบ ' + r.fileName + ' แล้ว');
+          openDeal(openNo);
+        });
+      };
+      fr.onerror = function () { toast('อ่านไฟล์ไม่ได้ ลองเลือกใหม่'); };
+      fr.readAsDataURL(file);
+    };
+    inp.click();
+  }
+})();
+</script>

@@ -77,15 +77,9 @@ var ALIASES = {
 /** คอลัมน์เสริม — ไม่มีก็ทำงานต่อได้ ใช้ทำลายนิ้วมือแถวให้แม่นขึ้นเท่านั้น */
 var OPTIONAL = {'_item': ['product description', 'description', 'item', 'รายการ']};
 
-function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('นำเข้าจาก SAP')
-    .addItem('อ่านไฟล์ Costing (ดูผลก่อนนำเข้า)', 'updateDashboard')
-    .addSeparator()
-    .addItem('นำเข้ารายการใหม่เข้า Document Hub', 'sendReadyToHub')
-    .addItem('ตรวจไฟล์ต้นทางที่จะใช้', 'showSourceInfo')
-    .addToUi();
-}
+/* เมนูของไฟล์นี้ถูกยุบไปรวมกับเมนูหลักใน Setup.gs แล้ว
+   Apps Script ใช้ global scope เดียวกันทั้งโปรเจกต์ — มี onOpen สองที่
+   ตัวหลังจะทับตัวแรกเงียบ ๆ แล้วเมนูหนึ่งชุดจะหายไปโดยไม่มีใครรู้ว่าทำไม */
 
 /* ================= ตัวหลัก ================= */
 
