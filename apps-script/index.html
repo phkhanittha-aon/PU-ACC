@@ -501,11 +501,34 @@
 
   /* เรียกเซิร์ฟเวอร์ — ทุกครั้งต้องมีทั้งทางสำเร็จและทางล้มเหลว
      ไม่งั้นเน็ตหลุดแล้วหน้าค้างโดยผู้ใช้ไม่รู้ว่าเกิดอะไรขึ้น */
+  /* หมดเวลารอเซิร์ฟเวอร์ — Apps Script ปกติตอบภายในไม่กี่วินาที
+     แต่ถ้า session หมดอายุหรือเน็ตหลุดกลางทาง บางครั้ง *ไม่มี* handler ตัวไหนทำงานเลย
+     ถ้าไม่มีตัวจับเวลา หน้าจะติด pointer-events:none ค้างถาวรและกดอะไรไม่ได้อีกเลย */
+  var CALL_TIMEOUT_MS = 30000;
+
   function call(fn, args, ok) {
-    if (busy) return;
+    if (busy) {
+      // เดิมคืนเงียบ ๆ ผู้ใช้กดแล้วไม่มีอะไรเกิดขึ้น เลยดูเหมือนเครื่องค้าง
+      toast('กำลังบันทึกรายการก่อนหน้าอยู่ รอสักครู่แล้วกดใหม่');
+      return;
+    }
     busy = true;
     document.body.classList.add('busy');
-    var done = function () { busy = false; document.body.classList.remove('busy'); };
+
+    var finished = false;
+    var done = function () {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      busy = false;
+      document.body.classList.remove('busy');
+    };
+    var timer = setTimeout(function () {
+      done();
+      toast('เซิร์ฟเวอร์ไม่ตอบใน 30 วินาที — กดใหม่อีกครั้ง ' +
+        'ถ้ายังไม่ได้ให้รีเฟรชหน้า (ข้อมูลที่บันทึกไปแล้วไม่หาย)');
+    }, CALL_TIMEOUT_MS);
+
     google.script.run
       .withSuccessHandler(function (res) {
         done();
@@ -521,8 +544,23 @@
   }
 
   /* ---------- เปิดระบบ ---------- */
+  var bootTimer = setTimeout(function () {
+    if (BOOT) return;
+    $('#main').innerHTML = '<div class="boot"><h2>เปิดระบบไม่สำเร็จ</h2>' +
+      '<div class="fail" style="max-width:64ch;text-align:left">' +
+      '<b>เซิร์ฟเวอร์ไม่ตอบใน 30 วินาที</b>' +
+      '<p>ลองเรียงตามนี้</p><ol style="margin:0;padding-left:20px;line-height:1.9">' +
+      '<li><b>รีเฟรชหน้า</b> หนึ่งครั้งก่อน</li>' +
+      '<li>เปิดลิงก์ด้วย<b>บัญชี Google ของบริษัท</b> — ถ้าเบราว์เซอร์ล็อกอินหลายบัญชี ' +
+      'ให้เปิดในหน้าต่างไม่ระบุตัวตนแล้วล็อกอินบัญชีบริษัทบัญชีเดียว</li>' +
+      '<li>ให้ IT ตรวจว่ากดเมนู <b>ติดตั้งระบบ</b> ในไฟล์ Sheet แล้วหรือยัง</li>' +
+      '<li>ให้ IT ดูแท็บ <b>Errors</b> ในไฟล์ Sheet ว่ามีข้อความอะไรขึ้นมา</li>' +
+      '</ol></div></div>';
+  }, 30000);
+
   google.script.run
     .withSuccessHandler(function (res) {
+      clearTimeout(bootTimer);
       if (!res || !res.ok) { bootFail(res || {}); return; }
       BOOT = res.data;
       var d = BOOT.me.dept.toLowerCase();
@@ -531,6 +569,7 @@
       loadDeals();
     })
     .withFailureHandler(function (e) {
+      clearTimeout(bootTimer);
       bootFail({ error: 'เปิดระบบไม่ได้ — ' +
         (e && e.message ? e.message : 'ตรวจสอบอินเทอร์เน็ต') });
     })
