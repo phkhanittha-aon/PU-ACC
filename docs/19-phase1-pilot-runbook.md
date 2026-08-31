@@ -19,15 +19,70 @@
 ## 2. ติดตั้ง (ครั้งเดียว ~30 นาที)
 
 **2.1 สร้างไฟล์**
-1. สร้าง Google Sheet ใหม่ ตั้งชื่อ `MGS Document Center — ฐานข้อมูล`
-2. เมนู **ส่วนขยาย → Apps Script**
-3. วางไฟล์จาก `apps-script/` ทุกไฟล์ (หรือใช้ `clasp push`)
-   ```bash
-   npm i -g @google/clasp
-   clasp login
-   clasp create --type sheets --title "MGS Document Center" --rootDir apps-script
-   clasp push
-   ```
+
+1. สร้าง Google Sheet ใหม่ใน **Shared drive** (ไม่ใช่ My Drive ของใครคนหนึ่ง)
+   ตั้งชื่อ `MGS Document Center — ฐานข้อมูล`
+2. เมนู **ส่วนขยาย → Apps Script** — จะได้โปรเจกต์สคริปต์ที่ผูกกับ Sheet ใบนี้
+3. เอาโค้ดเข้าโปรเจกต์ ด้วยวิธี **A** หรือ **B**
+
+#### ไฟล์ที่ต้องเอาเข้าทั้งหมด 12 ไฟล์
+
+| ไฟล์ | ชนิดในตัวแก้ไข | บรรทัด | ทำอะไร |
+|---|---|---:|---|
+| `Flow.gs` | Script | 280 | นิยามกระบวนการ 17 ขั้น · เอกสาร · เงื่อนไขจ่าย |
+| `Config.gs` | Script | 165 | ค่าตั้งต้น · ล็อก · จับข้อผิดพลาด |
+| `Repo.gs` | Script | 194 | โครงสร้างตาราง + อ่าน/เขียนชีต |
+| `Auth.gs` | Script | 145 | ตัวตน · สิทธิ์ · ตัดยอดเงินก่อนส่งออก |
+| `Domain.gs` | Script | 372 | เดินขั้น · งวดจ่าย · แยกหน้าที่ |
+| `Lark.gs` | Script | 266 | แจ้งเตือน + งานตามเวลา |
+| `Intake.gs` | Script | 105 | สร้างรายการจากไฟล์ Costing |
+| `Setup.gs` | Script | 215 | ติดตั้ง · เมนู · ตรวจความพร้อม |
+| `Code.gs` | Script | 199 | ประตูเข้าออกของเว็บแอป |
+| `SapCostingImport.gs` | Script | 530 | อ่านไฟล์ Costing จาก SAP |
+| `index.html` | **HTML** | 1,099 | หน้าจอทั้งหมด |
+| `appsscript.json` | manifest | 17 | timezone · scopes · ตั้งค่าเว็บแอป |
+
+**ลำดับการวางไม่สำคัญ** — Apps Script รวมทุกไฟล์เป็น scope เดียวกัน
+
+---
+
+#### วิธี A — คัดลอกวาง (ไม่ต้องติดตั้งอะไร · แนะนำสำหรับครั้งแรก)
+
+1. ในตัวแก้ไข จะมีไฟล์ `Code.gs` เปล่าอยู่แล้ว — เปิดไว้ก่อน ค่อยวางทับตอนถึงคิว
+2. ไฟล์ `.gs` แต่ละไฟล์: กด **+ ข้าง Files → Script**
+   แล้วตั้งชื่อ **ไม่ต้องพิมพ์ `.gs`** (พิมพ์ `Flow` ระบบเติม `.gs` ให้เอง)
+3. `index.html`: กด **+ → HTML** แล้วตั้งชื่อ **`index`** — ห้ามพิมพ์ `.html`
+   > ชื่อต้องเป็น `index` เป๊ะ ๆ เพราะ `Code.gs` เรียก `createTemplateFromFile('index')`
+   > ตั้งชื่ออื่นแล้วจะเปิดเว็บแอปไม่ขึ้น ฟ้องว่าหาไฟล์ไม่เจอ
+4. `appsscript.json`: ปกติซ่อนอยู่ — ไปที่ **⚙ Project Settings** แล้วติ๊ก
+   **"Show 'appsscript.json' manifest file in editor"** ก่อน จึงจะเห็นไฟล์นี้ให้วางทับได้
+
+#### วิธี B — clasp (สำหรับ IT ที่จะอัปเดตโค้ดบ่อย)
+
+**ก่อนอื่น** เปิด Apps Script API ที่ <https://script.google.com/home/usersettings>
+(ปิดอยู่โดยค่าเริ่มต้น — ไม่เปิดแล้ว `clasp push` จะขึ้น `User has not enabled the Apps Script API`)
+
+```bash
+npm i -g @google/clasp
+clasp login                      # ล็อกอินด้วยบัญชีบริษัท
+
+# ใช้ clone ไม่ใช่ create เพราะสร้าง Sheet ไปแล้วในข้อ 1
+# หา Script ID จาก ตัวแก้ไข → ⚙ Project Settings → Script ID
+cd apps-script
+clasp clone <SCRIPT_ID>
+clasp push
+```
+
+> **อย่าใช้ `clasp create --type sheets`** — คำสั่งนั้นสร้าง Sheet **ใบใหม่**
+> จะได้ไฟล์สองใบและโค้ดไปเกาะใบที่ผิด
+>
+> `clasp clone` จะดึง `appsscript.json` ของโปรเจกต์เปล่ามาทับของเรา
+> หลัง clone ให้ `git checkout appsscript.json` เพื่อเอาของเรากลับมา แล้วค่อย `clasp push`
+>
+> `clasp clone` สร้าง `.clasp.json` ซึ่ง `.gitignore` กันไว้แล้ว — เป็นค่าเฉพาะเครื่อง ไม่ต้องขึ้น Git
+
+**ตรวจว่าเข้าครบ**: ในตัวแก้ไขต้องเห็น **10 ไฟล์ `.gs` + `index.html` + `appsscript.json`**
+แล้วกด **Save** หนึ่งครั้ง — ถ้ามีวงเล็บหรือเครื่องหมายคำพูดขาด ตัวแก้ไขจะขีดเส้นแดงให้เห็นทันที
 
 **2.2 ตั้ง Script Properties** (Project Settings → Script properties)
 
