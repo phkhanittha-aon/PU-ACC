@@ -374,6 +374,21 @@ fs.writeFileSync(uiFile, uiJs);
 try { execFileSync('node', ['--check', uiFile], { stdio: 'pipe' }); }
 catch (e) { bad.push('ไวยากรณ์ผิดใน index.html: ' + String(e.stderr).split('\n')[2]); }
 
+/* ================= 13. บริการพิเศษที่โค้ดใช้ ต้องประกาศใน manifest =================
+   Drive.Files.copy คือ Advanced Drive Service ไม่ใช่ DriveApp ธรรมดา
+   ไม่ประกาศใน appsscript.json แล้วจะพังตอนรันจริงด้วย "Drive is not defined"
+   ตอนทดสอบในเครื่องไม่มีอะไรฟ้อง เพราะเราจำลอง Drive ไว้เอง */
+const manifest = JSON.parse(fs.readFileSync(path.join(GS, 'appsscript.json'), 'utf8'));
+const declared = ((manifest.dependencies || {}).enabledAdvancedServices || [])
+  .map(x => x.userSymbol);
+const gsAll = fs.readdirSync(GS).filter(f => f.endsWith('.gs'))
+  .map(f => fs.readFileSync(path.join(GS, f), 'utf8')).join('\n');
+[['Drive', /\bDrive\.[A-Z]/], ['Sheets', /\bSheets\.[A-Z]/], ['Calendar', /\bCalendar\.[A-Z]/]]
+  .forEach(([sym, re]) => {
+    if (re.test(gsAll) && declared.indexOf(sym) < 0)
+      bad.push('โค้ดใช้บริการพิเศษ ' + sym + ' แต่ appsscript.json ไม่ได้ประกาศไว้');
+  });
+
 /* ---------- สรุป ---------- */
 if (bad.length) {
   console.log('พบปัญหา ' + bad.length + ':');
@@ -388,3 +403,4 @@ console.log('  นอกช่วงทดลองแก้ไม่ได้ �
 console.log('  หน้าจอ: ทุกการเรียกมีทางล้มเหลว · ไม่มีปุ่มสลับบทบาท · ไม่ตัดสินสิทธิ์เอง');
 console.log('  ไม่มีชื่อฟังก์ชันชนกันข้ามไฟล์ .gs (' + Object.keys(seen).length + ' ชื่อ)');
 console.log('  ไวยากรณ์ผ่านทุกไฟล์ .gs และสคริปต์ในหน้าจอ');
+console.log('  บริการพิเศษที่โค้ดใช้ประกาศครบใน manifest (' + (declared.join(', ') || 'ไม่มี') + ')');

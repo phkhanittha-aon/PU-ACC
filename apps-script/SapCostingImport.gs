@@ -138,15 +138,36 @@ function showSourceInfo() {
 
 /* ================= อ่านไฟล์ ================= */
 
+/** โฟลเดอร์ที่ให้วางไฟล์ Costing — ตั้งครั้งเดียวใน Script Property ไม่ต้องแก้โค้ด */
+function costingFolderId_() {
+  return PropertiesService.getScriptProperties().getProperty('COSTING_FOLDER_ID') || '';
+}
+
 function findSourceFile_(src) {
-  var it = src.folderId
-    ? DriveApp.getFolderById(src.folderId).getFilesByName(src.file)
-    : DriveApp.getFilesByName(src.file);
+  var folderId = src.folderId || costingFolderId_();
+  /* ไม่ระบุโฟลเดอร์ = ค้นทั้งไดรฟ์ของคนที่กด ซึ่งอันตรายกับข้อมูลเงิน
+     ไฟล์ชื่อเดียวกันที่ค้างอยู่ในโฟลเดอร์ดาวน์โหลดของใครสักคนจะถูกหยิบมาใช้ได้
+     จึงบอกให้ตั้งโฟลเดอร์ก่อน แทนที่จะเดาแล้วเงียบ */
+  if (!folderId)
+    return {ok: false, msg: 'ยังไม่ได้ตั้งโฟลเดอร์ที่วางไฟล์ Costing\n\n' +
+      'ให้ IT ตั้ง Script Property ชื่อ COSTING_FOLDER_ID เป็นไอดีโฟลเดอร์ที่จะวางไฟล์\n' +
+      '(เอาจาก URL ของโฟลเดอร์: drive.google.com/drive/folders/<ไอดี>)\n\n' +
+      'ไม่ตั้งแล้วระบบจะต้องค้นทั้งไดรฟ์ ซึ่งอาจหยิบไฟล์เก่าที่ค้างอยู่ที่อื่นมาใช้'};
+
+  var folder;
+  try {
+    folder = DriveApp.getFolderById(folderId);
+  } catch (e) {
+    return {ok: false, msg: 'เปิดโฟลเดอร์ตาม COSTING_FOLDER_ID ไม่ได้\n\n' +
+      'ตรวจว่าไอดีถูกต้องและบัญชีที่รันมีสิทธิ์เข้าถึงโฟลเดอร์นั้น'};
+  }
+  var it = folder.getFilesByName(src.file);
   var found = [];
   while (it.hasNext()) found.push(it.next());
   if (!found.length)
     return {ok: false, msg: 'ไม่พบไฟล์ชื่อ "' + src.file + '" (สาย ' + src.name + ')\n\n' +
-      'ตรวจว่าเอาไฟล์วางไว้ในโฟลเดอร์ที่ตั้งไว้แล้ว และชื่อไฟล์ตรงกันทุกตัวอักษร'};
+      'ในโฟลเดอร์ "' + folder.getName() + '"\n' +
+      'ตรวจว่าวางไฟล์ถูกโฟลเดอร์แล้ว และชื่อไฟล์ตรงกันทุกตัวอักษร (รวมนามสกุล .xlsx)'};
   // เจอหลายไฟล์ชื่อเดียวกัน = ใช้ไฟล์ที่แก้ล่าสุด แต่บอกใน log ไว้ให้ตามได้
   found.sort(function (a, b) { return b.getLastUpdated() - a.getLastUpdated(); });
   if (found.length > 1)
