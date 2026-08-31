@@ -125,20 +125,83 @@ clasp push
 **ตรวจว่าเข้าครบ**: ในตัวแก้ไขต้องเห็น **10 ไฟล์ `.gs` + `index.html` + `appsscript.json`**
 แล้วกด **Save** หนึ่งครั้ง — ถ้ามีวงเล็บหรือเครื่องหมายคำพูดขาด ตัวแก้ไขจะขีดเส้นแดงให้เห็นทันที
 
-**2.2 ตั้ง Script Properties** (Project Settings → Script properties)
+**2.2 ตั้ง Script Properties** (ตัวแก้ไข Apps Script → ⚙ Project Settings → เลื่อนลงล่างสุด → **Script Properties → Add script property**)
 
-| ชื่อ | ค่า | จำเป็น |
-|---|---|---|
-| `SPREADSHEET_ID` | ไอดีของ Sheet (ระบบเติมให้เองตอนกดติดตั้ง) | ✔ |
-| `DRIVE_ROOT_ID` | ไอดีโฟลเดอร์ใน Shared drive | ✔ |
-| `ADMIN_EMAIL` | อีเมล IT ที่รับแจ้งเมื่อระบบขัดข้อง | ✔ |
-| `LARK_APP_ID` · `LARK_APP_SECRET` | จาก Lark Admin | ✔ |
-| `LARK_GROUP_CHAT_ID` | กลุ่มแจ้งเตือน | ✔ |
-| `LARK_HOST` | `open.larksuite.com` (สากล) หรือ `open.feishu.cn` | |
-| `WEBAPP_URL` | ลิงก์เว็บแอปหลัง deploy — ใส่ทีหลังได้ ใช้ทำลิงก์ในข้อความ Lark | |
-| `ENV` | `PILOT` | |
+| ชื่อ | ได้ค่ามาจากไหน | จำเป็น |
+|---|---|:--:|
+| `SPREADSHEET_ID` | **ไม่ต้องกรอก** — ระบบเติมให้เองตอนกดเมนูติดตั้ง | — |
+| `DRIVE_ROOT_ID` | สร้างโฟลเดอร์ใน Shared drive แล้วเปิดดู · เอาจาก URL | ✔ |
+| `ADMIN_EMAIL` | อีเมลของ IT ที่จะรับแจ้งเมื่อระบบขัดข้อง — เลือกเอง | ✔ |
+| `LARK_APP_ID` · `LARK_APP_SECRET` | Lark Developer Console → แอปของคุณ → Credentials & Basic Info | ✔ |
+| `LARK_GROUP_CHAT_ID` | **กดเมนู "หา chat_id ของกลุ่ม Lark"** ในชีต | ✔ |
+| `LARK_HOST` | `open.larksuite.com` ถ้าล็อกอิน Lark · `open.feishu.cn` ถ้าใช้ Feishu | |
+| `WEBAPP_URL` | ได้หลัง deploy (ข้อ 2.5) แล้วค่อยกลับมาใส่ | |
+| `ENV` | พิมพ์ `PILOT` | |
 
-> **`LARK_APP_SECRET` ห้ามใส่ในโค้ดและห้ามขึ้น Git** — อยู่ใน Script Properties เท่านั้น
+---
+
+#### `DRIVE_ROOT_ID` — เอาจาก URL ของโฟลเดอร์
+
+1. เปิด Google Drive → **Shared drives** → สร้างโฟลเดอร์ `MGS-Documents`
+2. เปิดโฟลเดอร์นั้น แล้วดูที่ URL
+
+```
+https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz012345
+                                       └────────── ค่านี้คือ DRIVE_ROOT_ID ──────────┘
+```
+
+> **ต้องตั้งค่านี้ก่อนกดเมนูติดตั้ง** — ถ้ายังไม่ตั้ง ระบบจะสร้างโฟลเดอร์ให้เองแต่ไปอยู่ใน
+> **"ไดรฟ์ของฉัน" ของคนที่กดติดตั้ง** แปลว่าเอกสารของทั้งบริษัทไปอยู่ในไดรฟ์ส่วนตัวคนเดียว
+> วันที่คนนั้นลาออกแล้วบัญชีถูกปิด ไฟล์หายไปพร้อมกัน
+> (ระบบจะเตือนบนหน้าจอถ้าเกิดกรณีนี้ — ย้ายโฟลเดอร์ไป Shared drive แล้วแก้ค่าให้ตรงได้)
+
+`SPREADSHEET_ID` ถ้าอยากดูเองก็อยู่ใน URL ของ Sheet ที่เดียวกัน:
+`https://docs.google.com/spreadsheets/d/`**`<SPREADSHEET_ID>`**`/edit`
+
+---
+
+#### `LARK_APP_ID` · `LARK_APP_SECRET` — จาก Lark Developer Console
+
+1. เข้า <https://open.larksuite.com/app> (หรือ <https://open.feishu.cn/app> ถ้าใช้ Feishu)
+   ด้วยบัญชีที่มีสิทธิ์สร้างแอป — ถ้าเข้าไม่ได้ต้องให้ **Lark admin** ทำให้
+2. **Create custom app** → ตั้งชื่อ เช่น `MGS Document Center`
+3. เมนู **Credentials & Basic Info** → คัดลอก **App ID** และ **App Secret**
+4. เมนู **Features → Bot** → เปิดใช้งาน (ไม่เปิด bot จะส่งข้อความไม่ได้)
+5. เมนู **Permissions & Scopes** → เพิ่มสิทธิ์
+
+   | สิทธิ์ | ใช้ทำอะไร |
+   |---|---|
+   | `im:message:send_as_bot` | ส่งข้อความในนาม bot |
+   | `im:chat:readonly` | ให้เมนู "หา chat_id ของกลุ่ม" มองเห็นกลุ่ม |
+   | `contact:user.id:readonly` | ส่งข้อความหาคนเป็นรายคนด้วย `lark_user_id` |
+
+6. เมนู **Version Management & Release** → **สร้างเวอร์ชันแล้วขออนุมัติเผยแพร่**
+   > **ข้อนี้ลืมกันบ่อยที่สุด** — ไม่เผยแพร่เวอร์ชัน สิทธิ์ที่เพิ่มไว้จะยังไม่มีผล
+   > เรียก API แล้วจะได้ error ทั้งที่ตั้งค่าครบแล้ว
+
+> `LARK_APP_SECRET` เป็นความลับ — อยู่ใน Script Properties เท่านั้น
+> **ห้ามใส่ในโค้ด ห้ามขึ้น Git ห้ามส่งในแชท**
+
+---
+
+#### `LARK_GROUP_CHAT_ID` — ให้ระบบหาให้
+
+ค่านี้หายากที่สุดเพราะไม่มีที่ไหนในหน้าจอ Lark แสดงตรง ๆ จึงทำเมนูช่วยไว้
+
+1. **เชิญ bot เข้ากลุ่ม**ที่จะใช้แจ้งเตือนก่อน (ในกลุ่ม → เพิ่มสมาชิก → ค้นชื่อแอป)
+2. ใส่ `LARK_APP_ID` กับ `LARK_APP_SECRET` ให้ครบก่อน
+3. ในชีต กดเมนู **MGS Document Center → หา chat_id ของกลุ่ม Lark**
+4. ระบบจะแสดงชื่อกลุ่มพร้อมค่าที่ขึ้นต้นด้วย `oc_` — คัดลอกของกลุ่มที่ต้องการมาใส่
+
+ถ้าขึ้นว่า *ไม่พบกลุ่มที่ bot อยู่* แปลว่ายังไม่ได้เชิญ bot เข้ากลุ่ม
+ถ้าขึ้น error เรื่องสิทธิ์ แปลว่ายังไม่ได้เผยแพร่เวอร์ชันในข้อ 6 ข้างบน
+
+---
+
+#### `WEBAPP_URL` — ได้หลัง deploy
+
+ทำข้อ 2.5 ให้เสร็จก่อน แล้วคัดลอกลิงก์เว็บแอปกลับมาใส่ค่านี้
+ใช้ทำลิงก์ในข้อความ Lark ให้กดจากมือถือเข้าใบงานได้เลย — ไม่ใส่ก็ใช้งานได้ แค่ไม่มีลิงก์ในข้อความ
 
 **2.3 รันติดตั้ง**
 กลับไปที่ Sheet → เมนู **MGS Document Center → ติดตั้งระบบ**

@@ -256,6 +256,42 @@ function jobMorningDigest() {
   });
 }
 
+/**
+ * หา chat_id ของกลุ่มที่ bot อยู่ — ค่าที่หายากที่สุดในบรรดา Script Properties
+ * ปกติต้องไปเรียก API เอง คนติดตั้งจึงติดตรงนี้กันมาก
+ *
+ * ต้องเชิญ bot เข้ากลุ่มก่อน ไม่งั้นจะไม่เห็นกลุ่มนั้น
+ */
+function listLarkGroups() {
+  var r = safely_('หา chat_id ของกลุ่ม Lark', function () {
+    var res = UrlFetchApp.fetch(
+      'https://' + Lark.host() + '/open-apis/im/v1/chats?page_size=50',
+      {method: 'get', muteHttpExceptions: true,
+       headers: {Authorization: 'Bearer ' + Lark.token_()}});
+    var body = Json.parse(res.getContentText(), {});
+    if (body.code !== 0)
+      throw AppError('LARK_LIST',
+        'Lark ปฏิเสธ (' + body.code + '): ' + (body.msg || '') +
+        '\n\nมักเป็นเพราะ app ยังไม่ได้สิทธิ์ im:chat:readonly หรือยังไม่ได้เผยแพร่เวอร์ชัน');
+    return (body.data && body.data.items) || [];
+  });
+
+  if (!r.ok) { SpreadsheetApp.getUi().alert('หาไม่สำเร็จ\n\n' + r.error); return; }
+  if (!r.data.length) {
+    SpreadsheetApp.getUi().alert(
+      'ไม่พบกลุ่มที่ bot อยู่\n\n' +
+      'ให้เชิญ bot เข้ากลุ่มที่ต้องการก่อน แล้วกดเมนูนี้อีกครั้ง');
+    return;
+  }
+  var lines = r.data.map(function (c) {
+    return '· ' + (c.name || '(ไม่มีชื่อ)') + '\n   ' + c.chat_id;
+  });
+  SpreadsheetApp.getUi().alert(
+    'กลุ่มที่ bot อยู่ ' + r.data.length + ' กลุ่ม\n\n' + lines.join('\n\n') +
+    '\n\nคัดลอกค่าที่ขึ้นต้นด้วย oc_ ของกลุ่มที่ต้องการ ' +
+    'ไปใส่ใน Script Property ชื่อ LARK_GROUP_CHAT_ID');
+}
+
 function testLark() {
   var r = safely_('testLark', function () {
     Lark.send_(Props.require('LARK_GROUP_CHAT_ID'), 'chat_id',

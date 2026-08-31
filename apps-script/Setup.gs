@@ -19,6 +19,7 @@ function onOpen() {
     .addItem('อ่านไฟล์ Costing (ดูผลก่อนนำเข้า)', 'updateDashboard')
     .addItem('ตรวจไฟล์ต้นทางที่จะใช้', 'showSourceInfo')
     .addItem('นำเข้ารายการใหม่จาก SAP Costing', 'importFromCosting')
+    .addItem('หา chat_id ของกลุ่ม Lark', 'listLarkGroups')
     .addItem('ทดสอบส่ง Lark', 'testLark')
     .addToUi();
 }
@@ -50,15 +51,18 @@ function setupWorkspace() {
 
   seedConfig_();
   seedUserTemplate_();
-  ensureDriveRoot_();
+  var drive = ensureDriveRoot_();
   installTriggers_();
 
   var msg = 'ติดตั้งเรียบร้อย\n\n' +
     (made.length ? 'สร้างใหม่: ' + made.join(', ') + '\n\n' : '') +
     (kept.length ? 'มีอยู่แล้ว: ' + kept.join(', ') + '\n\n' : '') +
-    'ขั้นต่อไป\n' +
+    'โฟลเดอร์เอกสาร: ' + drive.name + '\n' +
+    (drive.warn ? '\n⚠ ' + drive.warn + '\n' : '') +
+    '\nขั้นต่อไป\n' +
     '1. เปิดแท็บ Users แล้วกรอกอีเมลบริษัทของพนักงานแต่ละแผนก\n' +
     '2. ตั้งค่า Script Properties (LARK_APP_ID, LARK_APP_SECRET, LARK_GROUP_CHAT_ID)\n' +
+    '   หา chat_id ได้จากเมนู "หา chat_id ของกลุ่ม Lark"\n' +
     '3. กดเมนู "ตรวจความพร้อมก่อนเปิดใช้"';
   SpreadsheetApp.getUi().alert(msg);
 }
@@ -196,11 +200,31 @@ function healthCheck() {
   SpreadsheetApp.getUi().alert(out.join('\n'));
 }
 
+/**
+ * โฟลเดอร์เก็บเอกสาร — ต้องอยู่ใน Shared drive
+ *
+ * ถ้ายังไม่ได้ตั้ง DRIVE_ROOT_ID ระบบสร้างให้ได้ แต่จะไปอยู่ใน "ไดรฟ์ของฉัน" ของคนที่กดติดตั้ง
+ * ซึ่งแปลว่าเอกสารของทั้งบริษัทไปอยู่ในไดรฟ์ส่วนตัวของคนคนเดียว
+ * วันที่คนนั้นลาออกแล้วบัญชีถูกปิด ไฟล์หายไปพร้อมกัน — และไม่มีใครรู้จนกว่าจะสาย
+ * จึงต้องบอกให้ชัดว่าไปอยู่ที่ไหน ไม่ใช่สร้างเงียบ ๆ แล้วถือว่าเรียบร้อย
+ */
 function ensureDriveRoot_() {
-  if (Props.get('DRIVE_ROOT_ID')) return Props.get('DRIVE_ROOT_ID');
+  var id = Props.get('DRIVE_ROOT_ID');
+  if (id) {
+    try {
+      var f0 = DriveApp.getFolderById(id);
+      return {id: id, name: f0.getName(), created: false, warn: ''};
+    } catch (e) {
+      return {id: id, name: '(เปิดไม่ได้)', created: false,
+              warn: 'DRIVE_ROOT_ID ที่ตั้งไว้เปิดไม่ได้ — ตรวจว่าไอดีถูกและมีสิทธิ์เข้าถึง'};
+    }
+  }
   var f = DriveApp.createFolder('MGS-Documents');
   Props.set('DRIVE_ROOT_ID', f.getId());
-  return f.getId();
+  return {id: f.getId(), name: f.getName(), created: true,
+          warn: 'สร้างโฟลเดอร์ "MGS-Documents" ให้แล้วใน *ไดรฟ์ของฉัน* ของคุณ\n' +
+                'ควรย้ายไปไว้ใน Shared drive แล้วแก้ DRIVE_ROOT_ID ให้ตรงกับโฟลเดอร์ใหม่\n' +
+                'ถ้าปล่อยไว้ เอกสารของทั้งบริษัทจะอยู่ในไดรฟ์ส่วนตัวของคุณคนเดียว'};
 }
 
 function installTriggers_() {
