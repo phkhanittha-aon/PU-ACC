@@ -475,8 +475,77 @@
 /* กติกาการเขียนสตริงในไฟล์นี้: ใช้ single quote เสมอ
    แอตทริบิวต์ใน HTML ใช้ double quote จึงใส่ไว้ข้างในได้โดยไม่ต้อง escape
    ปนสองแบบเมื่อไหร่ เครื่องหมายจะไม่เข้าคู่โดยไม่มีอะไรฟ้องจนขึ้นจริงแล้วหน้าขาว */
+/* ---------- ตัวเฝ้าดูตัวเล็ก แยก <script> ออกมาโดยตั้งใจ ----------
+   ถ้าสคริปต์ก้อนใหญ่มี syntax error (เช่นวางไฟล์ไม่ครบ ตัดกลางคัน)
+   ทั้งก้อนจะไม่ถูกรันเลยแม้แต่บรรทัดแรก ตัวจับ error ที่อยู่ในก้อนนั้นจึงไม่ช่วยอะไร
+   ก้อนเล็กนี้อยู่คนละ <script> จึงรอดและรายงานแทนได้
+   อาการที่แก้: หมุนค้างตลอดและกดปุ่มแล้วไม่มีอะไรเกิดขึ้น */
+window.__MGS = {started: false, booted: false};
+setTimeout(function () {
+  if (window.__MGS.booted) return;
+  var m = document.getElementById('main');
+  if (!m || m.getAttribute('data-crashed')) return;
+  m.setAttribute('data-crashed', '1');
+
+  var why = window.__MGS.started
+    ? '<b>สคริปต์ทำงานแล้ว แต่เซิร์ฟเวอร์ไม่ตอบกลับ</b>' +
+      '<p>ปัญหาอยู่ฝั่งเซิร์ฟเวอร์หรือสิทธิ์ ไม่ใช่ไฟล์หน้าจอ ลองตามลำดับ</p>' +
+      '<ol style="margin:0;padding-left:20px;line-height:2">' +
+      '<li>เบราว์เซอร์ล็อกอิน Google หลายบัญชีอยู่หรือเปล่า — ' +
+      'เปิดใน<b>หน้าต่างไม่ระบุตัวตน</b> แล้วล็อกอินบัญชีบริษัทบัญชีเดียว</li>' +
+      '<li>ตอน Deploy เลือก <b>Execute as: Me</b> หรือยัง</li>' +
+      '<li>ให้ IT กด <b>▶ Run</b> ที่ฟังก์ชัน <code>apiBoot</code> ในตัวแก้ไข ' +
+      'จะเห็นข้อความผิดพลาดจริงทันที</li></ol>'
+    : '<b>สคริปต์ของหน้าจอไม่ได้ทำงานเลย</b>' +
+      '<p>เกือบทุกครั้งเกิดจาก<b>วางไฟล์ index.html ไม่ครบ</b></p>' +
+      '<ol style="margin:0;padding-left:20px;line-height:2">' +
+      '<li>เปิด <code>index.html</code> ในตัวแก้ไข เลื่อนลงล่างสุด ' +
+      'บรรทัดสุดท้ายต้องเป็น <code>&lt;/script&gt;</code></li>' +
+      '<li>ถ้าไม่ใช่ ลบทั้งไฟล์แล้ววางใหม่ทั้งก้อน แล้ว <b>Deploy → New version</b></li></ol>' +
+      '<p>กด <b>F12 → Console</b> จะเห็นบรรทัดสีแดงบอกว่าพังตรงไหน</p>';
+
+  m.innerHTML = '<div class="boot"><h2>เปิดระบบไม่สำเร็จ</h2>' +
+    '<div class="fail" style="max-width:70ch;text-align:left">' + why + '</div></div>';
+}, 15000);
+</script>
+
+<script>
+/* ตัวรับข้อผิดพลาดระดับหน้า — ต้องอยู่นอก IIFE และมาก่อนทุกอย่าง
+   ถ้าสคริปต์ตายกลางทาง (วางไฟล์ไม่ครบ · พิมพ์ตก · เบราว์เซอร์เก่า)
+   ตัวรับคลิกจะไม่ถูกติดตั้ง หน้าจะหมุนค้างและกดอะไรก็ไม่มีอะไรเกิดขึ้น
+   เดิมเงียบสนิทจนไม่รู้จะไปดูตรงไหน ตอนนี้พ่นสาเหตุขึ้นหน้าจอเลย */
+window.addEventListener('error', function (e) {
+  var m = document.getElementById('main');
+  if (!m || m.getAttribute('data-crashed')) return;
+  m.setAttribute('data-crashed', '1');
+  m.innerHTML = '<div class="boot"><h2>หน้าจอทำงานไม่ได้</h2>' +
+    '<div class="fail" style="max-width:66ch;text-align:left">' +
+    '<b>สคริปต์หยุดทำงาน</b><p style="font-family:monospace;font-size:12px;' +
+    'white-space:pre-wrap;line-height:1.7">' +
+    String(e.message || e) + '\n' + (e.filename || '') + ' บรรทัด ' + (e.lineno || '?') +
+    '</p><p>สาเหตุที่พบบ่อย: วางไฟล์ <b>index.html</b> ไม่ครบทั้งไฟล์ ' +
+    '(ต้องมี 1,172 บรรทัด บรรทัดสุดท้ายคือ <code>&lt;/script&gt;</code>) ' +
+    'ให้ IT วางทับใหม่ทั้งไฟล์แล้ว Deploy เวอร์ชันใหม่</p></div></div>';
+});
+
 (function () {
   'use strict';
+  window.__MGS.started = true;          // บอกตัวเฝ้าดูว่าสคริปต์ก้อนนี้รันแล้ว
+
+  /* เปิดผ่านลิงก์เว็บแอปที่ deploy แล้วเท่านั้น
+     ถ้าเปิดจากตัวอย่างในตัวแก้ไข หรือเปิดไฟล์ตรง ๆ จะไม่มี google.script.run
+     เดิมบรรทัดถัดไปจะโยน TypeError แล้วหน้าตายเงียบ */
+  if (typeof google === 'undefined' || !google.script || !google.script.run) {
+    document.getElementById('main').innerHTML =
+      '<div class="boot"><h2>เปิดหน้านี้ผิดทาง</h2>' +
+      '<div class="fail" style="max-width:60ch;text-align:left">' +
+      '<b>หน้านี้ต้องเปิดผ่านลิงก์เว็บแอปที่ deploy แล้วเท่านั้น</b>' +
+      '<p>ลิงก์ที่ถูกต้องลงท้ายด้วย <code>/exec</code> ' +
+      'ได้จาก Apps Script → Deploy → Manage deployments</p>' +
+      '<p>เปิดจากปุ่มดูตัวอย่างในตัวแก้ไข หรือเปิดไฟล์ HTML ตรง ๆ จะใช้ไม่ได้ ' +
+      'เพราะไม่มีช่องทางคุยกับเซิร์ฟเวอร์</p></div></div>';
+    return;
+  }
 
   var BOOT = null, DEALS = [], DETAIL = null;
   var page = 'home', openNo = null, busy = false;
@@ -561,6 +630,7 @@
   google.script.run
     .withSuccessHandler(function (res) {
       clearTimeout(bootTimer);
+      window.__MGS.booted = true;
       if (!res || !res.ok) { bootFail(res || {}); return; }
       BOOT = res.data;
       var d = BOOT.me.dept.toLowerCase();
@@ -570,6 +640,7 @@
     })
     .withFailureHandler(function (e) {
       clearTimeout(bootTimer);
+      window.__MGS.booted = true;
       bootFail({ error: 'เปิดระบบไม่ได้ — ' +
         (e && e.message ? e.message : 'ตรวจสอบอินเทอร์เน็ต') });
     })

@@ -368,11 +368,19 @@ fs.readdirSync(GS).filter(f => f.endsWith('.gs')).forEach(f => {
   try { execFileSync('node', ['--check', js], { stdio: 'pipe' }); }
   catch (e) { bad.push('ไวยากรณ์ผิดใน ' + f + ': ' + String(e.stderr).split('\n')[2]); }
 });
-const uiJs = (uiRaw.match(/<script>([\s\S]*)<\/script>/) || ['', ''])[1];
-const uiFile = path.join(tmp, 'ui.js');
-fs.writeFileSync(uiFile, uiJs);
-try { execFileSync('node', ['--check', uiFile], { stdio: 'pipe' }); }
-catch (e) { bad.push('ไวยากรณ์ผิดใน index.html: ' + String(e.stderr).split('\n')[2]); }
+// ไฟล์มีหลาย <script> โดยตั้งใจ (ตัวเฝ้าดูแยกก้อนเพื่อให้รอดจาก syntax error ของก้อนใหญ่)
+// ต้องตรวจทีละก้อน ดึงรวมกันแล้วจะกลายเป็น JS ที่ผิดไวยากรณ์เอง
+const blocks = [...uiRaw.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+ck(blocks.length >= 2, 'index.html ควรมีสคริปต์อย่างน้อย 2 ก้อน (ตัวเฝ้าดู + ตัวหลัก)');
+blocks.forEach((code, i) => {
+  const uiFile = path.join(tmp, 'ui' + i + '.js');
+  fs.writeFileSync(uiFile, code);
+  try { execFileSync('node', ['--check', uiFile], { stdio: 'pipe' }); }
+  catch (e) {
+    bad.push('ไวยากรณ์ผิดใน index.html สคริปต์ก้อนที่ ' + (i + 1) + ': ' +
+      String(e.stderr).split('\n')[2]);
+  }
+});
 
 /* ================= 13. บริการพิเศษที่โค้ดใช้ ต้องประกาศใน manifest =================
    Drive.Files.copy คือ Advanced Drive Service ไม่ใช่ DriveApp ธรรมดา
