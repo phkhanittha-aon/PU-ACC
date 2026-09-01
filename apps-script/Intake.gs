@@ -31,11 +31,38 @@ function importFromCosting() {
     (d.problems.length ? '\nข้อมูลไม่ครบ ' + d.problems.length + ' แถว:\n' +
        d.problems.slice(0, 10).join('\n') : '') +
     (src.problems.length ? '\n\nหมายเหตุจากไฟล์:\n' + src.problems.join('\n') : '') +
-    '\n\nรายการใหม่ยัง *ไม่* อยู่ในช่วงทดลอง — เพิ่มเลขที่ต้องการลงแท็บ Pilot_Scope ก่อน');
+    '\n\nรายการใหม่เริ่มที่ขั้น "' + STAGES[d.startStage].n + '" — เจ้าของขั้นคือ' +
+    ROLES[STAGES[d.startStage].o].name + '\n' +
+    (d.skippedDocs.length
+      ? '\n⚠ เอกสารที่จะไม่มีใครแนบ เพราะข้ามขั้นนั้นไปแล้ว:\n' +
+        d.skippedDocs.map(function (x) { return '   · ' + x.n; }).join('\n') +
+        '\n   ถ้าจำเป็นต้องเก็บ ให้ลด IMPORT_START_STAGE ในแท็บ Config\n'
+      : '') +
+    '\nรายการใหม่ยัง *ไม่* อยู่ในช่วงทดลอง — เพิ่มเลขที่ต้องการลงแท็บ Pilot_Scope ก่อน');
 }
 
 var Intake = {
   run: function (me, rows) {
+    /* รายการที่นำเข้ามาต้องเริ่มที่ขั้นที่ "จัดซื้อแนบ PO ที่เซ็นแล้ว" (ขั้นที่ 8)
+       ไม่ใช่ขั้นรับใบแจ้งหนี้
+
+       รอบแรกผมตั้งไว้ที่ขั้นรับใบแจ้งหนี้ ด้วยเหตุผลว่าไฟล์ Costing คือ PO ที่ SAP
+       ออกไปแล้วและกำลังรอจ่าย — ซึ่งจริงในแง่ของ SAP แต่ผิดในแง่ของระบบนี้
+       เพราะระบบนี้มีไว้เก็บเอกสาร การข้ามไปขั้น 12 ทำให้ไม่มีใครแนบเอกสาร 4 ใบนี้เลย
+       PI · PO ที่เซ็นครบ · ผลตรวจรับ QC · ใบรับสินค้า
+       แล้วตอนตรวจ 3 ทางก่อนปิดบัญชีจะไม่มี PO ให้เทียบ
+
+       ปรับได้ที่แท็บ Config คีย์ IMPORT_START_STAGE โดยไม่ต้องแก้โค้ด */
+    var startStage = Config.num('IMPORT_START_STAGE', 8);
+    if (!STAGES[startStage])
+      throw AppError('BAD_CONFIG',
+        'ค่า IMPORT_START_STAGE = ' + startStage + ' ไม่ใช่ขั้นที่มีอยู่จริง (0-' +
+        (STAGES.length - 1) + ')');
+
+    /* เริ่มกลางทางแปลว่าเอกสารของขั้นก่อนหน้าจะไม่มีใครแนบ
+       ต้องบอกให้เห็นตอนนำเข้า ไม่ใช่ไปเจอตอนตรวจ 3 ทางแล้วปิดบัญชีไม่ได้ */
+    var skippedDocs = DOCS.filter(function (d) { return d.req && d.at < startStage; });
+
     return withLock_(function () {
       var have = {}, haveNo = {};
       Repo.readAll(SHEETS.DEALS).forEach(function (d) {
@@ -67,12 +94,9 @@ var Intake = {
           deal_no: no, entry: 'PO', module: mod, supplier: r.Supplier || '',
           item: r._item || '', amount: amt, currency: r.Currency || 'THB',
           payment_term: term, term_name: tp.n, due_date: r['Due Date'] || '',
-          stage: 12, status: 'ACTIVE', owner_email: '',
+          stage: startStage, status: 'ACTIVE', owner_email: '',
           created_at: now, created_by: me.email, updated_at: now, fingerprint: fp
         };
-        /* เริ่มที่ขั้น "รับใบแจ้งหนี้" (12) โดยตั้งใจ
-           ไฟล์ Costing คือรายการที่ SAP ออก PO ไปแล้วและกำลังรอจ่าย
-           ไม่ใช่รายการที่เพิ่งเริ่มขอราคา — เริ่มที่ขั้น 0 จะให้คนเดินย้อนขั้นที่ทำไปแล้ว */
 
         newDeals.push(deal);
         haveNo[no] = true;
@@ -85,8 +109,9 @@ var Intake = {
           });
         });
         newStages.push({
-          deal_no: no, seq: 12, stage_code: STAGES[12].c, owner_dept: STAGES[12].o,
-          entered_at: now, sla_hours: STAGES[12].sla
+          deal_no: no, seq: startStage, stage_code: STAGES[startStage].c,
+          owner_dept: STAGES[startStage].o, entered_at: now,
+          sla_hours: STAGES[startStage].sla
         });
         created++;
       });
@@ -99,7 +124,8 @@ var Intake = {
         History.log(me.email, 'นำเข้าจากไฟล์ Costing ของ SAP', 'Deals', d.deal_no, null,
           {supplier: d.supplier, term: d.term_name});
       });
-      return {created: created, skipped: skipped, problems: problems};
+      return {created: created, skipped: skipped, problems: problems,
+              startStage: startStage, skippedDocs: skippedDocs};
     });
   }
 };

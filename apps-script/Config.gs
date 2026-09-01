@@ -70,7 +70,8 @@ var CONFIG_DEFAULTS = [
   ['SLA_WARN_PCT',   '80',     'เตือนเมื่อใช้เวลาไปกี่ % ของ SLA'],
   ['DIGEST_HOUR',    '8',      'ส่งสรุปคิวงานตอนเช้ากี่โมง'],
   ['PILOT_ONLY',     'TRUE',   'TRUE = แก้ไขได้เฉพาะรายการที่อยู่ในแท็บ Pilot_Scope'],
-  ['LARK_ON',        'TRUE',   'FALSE = ปิดการส่ง Lark ชั่วคราว (ใช้ตอนทดสอบ)']
+  ['LARK_ON',        'TRUE',   'FALSE = ปิดการส่ง Lark ชั่วคราว (ใช้ตอนทดสอบ)'],
+  ['IMPORT_START_STAGE', '8', 'รายการที่นำเข้าจาก Costing เริ่มที่ขั้นไหน (8 = จัดซื้อแนบ PO ที่เซ็นแล้ว)']
 ];
 
 var Fmt = {
