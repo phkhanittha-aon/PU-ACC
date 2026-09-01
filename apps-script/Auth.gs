@@ -58,26 +58,26 @@ var Auth = {
      deny by default: คำสั่งที่ไม่ได้เขียนไว้ในตารางนี้ ไม่มีใครเรียกได้ */
   CAN: {
     // ดูข้อมูล — ทุกแผนกดูรายการได้ (ยอดเงินถูกตัดตามบทบาทอยู่แล้ว)
-    'list':          ['SR','QC','LS','WH','AC','ACH','GM','IT'],
+    'list':          ['SR','QC','LS','WH','AC','AC_FN','AC_TH','ACH','GM','IT'],
     'get':           ['SR','QC','LS','WH','AC','ACH','GM','IT'],
     'feedback.send': ['SR','QC','LS','WH','AC','ACH','GM','IT'],
-    'feedback.list': ['SR','AC','ACH','GM','IT'],
+    'feedback.list': ['SR','AC','AC_FN','AC_TH','ACH','GM','IT'],
 
     // เดินงาน — เช็คเพิ่มอีกชั้นว่าเป็นเจ้าของขั้นนั้นจริงไหม (ดู assertStageOwner)
-    'stage.advance': ['SR','QC','LS','WH','AC','ACH','GM'],
-    'handoff.save':  ['SR','QC','LS','WH','AC','ACH','GM'],
-    'doc.upload':    ['SR','QC','LS','WH','AC','ACH','GM'],
+    'stage.advance': ['SR','QC','LS','WH','AC','AC_FN','AC_TH','ACH','GM'],
+    'handoff.save':  ['SR','QC','LS','WH','AC','AC_FN','AC_TH','ACH','GM'],
+    'doc.upload':    ['SR','QC','LS','WH','AC','AC_FN','AC_TH','ACH','GM'],
 
     // เรื่องเงิน — เฉพาะแผนกที่มีสิทธิ์เห็นเงิน
-    'pay.request':   ['SR','AC'],
+    'pay.request':   ['SR','AC','AC_FN','AC_TH'],
     'pay.approve':   ['ACH','GM'],
-    'pay.record':    ['AC'],
+    'pay.record':    ['AC','AC_FN','AC_TH'],
 
     // ตั้งค่าระบบ — ทะเบียนซื้อเงินสดมียอดเงินอยู่ข้างใน
-    'admin.read':    ['SR','AC','ACH','GM','IT'],
+    'admin.read':    ['SR','AC','AC_FN','AC_TH','ACH','GM','IT'],
     'admin.users':   ['IT','GM'],
-    'admin.pilot':   ['SR','AC','IT','GM'],
-    'sap.import':    ['SR','AC','IT']
+    'admin.pilot':   ['SR','AC','AC_FN','AC_TH','IT','GM'],
+    'sap.import':    ['SR','AC','AC_FN','AC_TH','IT']
   },
 
   /** ปฏิเสธคำสั่งที่บทบาทนี้ไม่มีสิทธิ์ — เรียกก่อนทำงานทุกครั้ง */
@@ -95,10 +95,14 @@ var Auth = {
   assertStageOwner: function (me, deal) {
     var st = STAGES[Number(deal.stage)];
     if (!st) throw AppError('BAD_STAGE', 'รายการนี้ไม่มีขั้นที่ต้องทำแล้ว');
-    if (st.o !== me.dept)
+    // ขั้นของบัญชีแตกเป็นต่างประเทศ/ในประเทศตามสกุลเงินของใบนี้
+    var want = ownerDeptOf(Number(deal.stage), deal);
+    if (!deptCovers(me.dept, want))
       throw AppError('NOT_YOUR_STAGE',
-        'ขั้น "' + st.n + '" เป็นงานของแผนก' + (ROLES[st.o] ? ROLES[st.o].name : st.o) +
-        ' ไม่ใช่ของคุณ');
+        'ขั้น "' + st.n + '" ของใบนี้เป็นงานของ' + (ROLES[want] ? ROLES[want].name : want) +
+        ' ไม่ใช่ของคุณ' +
+        (want === 'AC_FN' || want === 'AC_TH'
+          ? ' (แยกตามสกุลเงิน — ใบนี้เป็น ' + (deal.currency || 'THB') + ')' : ''));
     return st;
   },
 

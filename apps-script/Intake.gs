@@ -33,6 +33,12 @@ function importFromCosting() {
     (src.problems.length ? '\n\nหมายเหตุจากไฟล์:\n' + src.problems.join('\n') : '') +
     '\n\nรายการใหม่เริ่มที่ขั้น "' + STAGES[d.startStage].n + '" — เจ้าของขั้นคือ' +
     ROLES[STAGES[d.startStage].o].name + '\n' +
+    (Object.keys(d.noOwner).length
+      ? '\n⚠ กลุ่มที่ยังไม่ได้ระบุเจ้าของงานในแท็บ Assignments:\n' +
+        Object.keys(d.noOwner).map(function (g) {
+          return '   · ' + ((MODULES[g] && MODULES[g].n) || g) + ' — ' + d.noOwner[g] + ' ใบ';
+        }).join('\n') + '\n   รายการเหล่านี้จะแจ้งเตือนทั้งแผนกแทนการแจ้งเจ้าของคนเดียว\n'
+      : '') +
     (d.skippedDocs.length
       ? '\n⚠ เอกสารที่จะไม่มีใครแนบ เพราะข้ามขั้นนั้นไปแล้ว:\n' +
         d.skippedDocs.map(function (x) { return '   · ' + x.n; }).join('\n') +
@@ -62,6 +68,17 @@ var Intake = {
     /* เริ่มกลางทางแปลว่าเอกสารของขั้นก่อนหน้าจะไม่มีใครแนบ
        ต้องบอกให้เห็นตอนนำเข้า ไม่ใช่ไปเจอตอนตรวจ 3 ทางแล้วปิดบัญชีไม่ได้ */
     var skippedDocs = DOCS.filter(function (d) { return d.req && d.at < startStage; });
+
+    /* เจ้าของงานรายใบ — แบ่งตามกลุ่มสินค้าตามที่ทีมทำงานกันจริง
+       ตาราง Assignments: กลุ่ม → อีเมลจัดซื้อที่ดูแลกลุ่มนั้น
+       ไม่มีในตาราง = ปล่อยว่าง แล้วแจ้งทั้งแผนกแทน ไม่ใช่เดาว่าเป็นของใคร */
+    var ownerOfGroup = {};
+    Repo.readAll(SHEETS.ASSIGN).forEach(function (a) {
+      var g = String(a.group_code || '').trim().toUpperCase();
+      var e = String(a.sr_email || '').trim().toLowerCase();
+      if (g && e) ownerOfGroup[g] = e;
+    });
+    var noOwner = {};
 
     return withLock_(function () {
       var have = {}, haveNo = {};
@@ -94,10 +111,11 @@ var Intake = {
           deal_no: no, entry: 'PO', module: mod, supplier: r.Supplier || '',
           item: r._item || '', amount: amt, currency: r.Currency || 'THB',
           payment_term: term, term_name: tp.n, due_date: r['Due Date'] || '',
-          stage: startStage, status: 'ACTIVE', owner_email: '',
+          stage: startStage, status: 'ACTIVE', owner_email: ownerOfGroup[mod] || '',
           created_at: now, created_by: me.email, updated_at: now, fingerprint: fp
         };
 
+        if (!ownerOfGroup[mod]) noOwner[mod] = (noOwner[mod] || 0) + 1;
         newDeals.push(deal);
         haveNo[no] = true;
         have[fp] = true;
@@ -125,7 +143,7 @@ var Intake = {
           {supplier: d.supplier, term: d.term_name});
       });
       return {created: created, skipped: skipped, problems: problems,
-              startStage: startStage, skippedDocs: skippedDocs};
+              startStage: startStage, skippedDocs: skippedDocs, noOwner: noOwner};
     });
   }
 };

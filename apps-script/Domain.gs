@@ -26,7 +26,7 @@ var Domain = {
       out.stage = Number(d.stage);
       out.inPilot = pilot[String(d.deal_no)] === true;
       out.editable = out.inPilot || !pilotOnly;
-      out.owner_dept = (STAGES[out.stage] || {}).o || '';
+      out.owner_dept = ownerDeptOf(out.stage, d) || '';
       out.stage_name = (STAGES[out.stage] || {}).n || '';
       return out;
     });
@@ -213,7 +213,8 @@ var Domain = {
       } else {
         patch.stage = nxt;
         Repo.insert(SHEETS.STAGES, {
-          deal_no: dealNo, seq: nxt, stage_code: STAGES[nxt].c, owner_dept: STAGES[nxt].o,
+          deal_no: dealNo, seq: nxt, stage_code: STAGES[nxt].c,
+          owner_dept: ownerDeptOf(nxt, d),        // บัญชีแยกสองฝั่งตามสกุลเงิน
           entered_at: now, sla_hours: STAGES[nxt].sla
         });
       }

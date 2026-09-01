@@ -51,6 +51,7 @@ function setupWorkspace() {
 
   seedConfig_();
   seedUserTemplate_();
+  seedAssignments_();
   var drive = ensureDriveRoot_();
   installTriggers_();
 
@@ -102,6 +103,21 @@ function seedUserTemplate_() {
     SpreadsheetApp.newDataValidation()
       .requireValueInList(['TRUE', 'FALSE'], true).setAllowInvalid(false).build());
   sh.setColumnWidth(1, 240).setColumnWidth(2, 170).setColumnWidth(10, 380);
+}
+
+/**
+ * ตารางเจ้าของงาน — กลุ่มสินค้าไหน จัดซื้อคนไหนดูแล
+ * ใส่แถวของทุกกลุ่มไว้ให้ แล้วให้หัวหน้าจัดซื้อกรอกอีเมลทับ
+ * ปล่อยว่างได้ ระบบจะแจ้งทั้งแผนกแทน — ดีกว่าเดาว่าเป็นของใคร
+ */
+function seedAssignments_() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.ASSIGN);
+  if (sh.getLastRow() > 1) return;
+  var rows = Object.keys(MODULES).map(function (m) {
+    return [m, MODULES[m].n, '', 'กรอกอีเมลจัดซื้อที่ดูแลกลุ่มนี้ — ว่างไว้ = แจ้งทั้งแผนก'];
+  });
+  sh.getRange(2, 1, rows.length, COLS.Assignments.length).setValues(rows);
+  sh.setColumnWidth(3, 240).setColumnWidth(4, 380);
 }
 
 /** เพิ่มผู้ใช้ทีละคนจากเมนู — สะดวกกว่าพิมพ์ในชีตเมื่อเพิ่มคนเดียว */

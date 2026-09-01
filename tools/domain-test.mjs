@@ -140,7 +140,8 @@ const api = new Function(...names, src + `
   ; return {apiBoot, apiListDeals, apiGetDeal, apiSaveHandoff, apiAdvanceStage,
             apiRequestPayment, apiApprovePayment, apiRecordPayment, apiSendFeedback,
             apiListUsers, apiAddToPilot, Repo, SHEETS, COLS, Auth, Domain, Config,
-            STAGES, DOCS, ROLES, buildPayments, setupWorkspace};
+            STAGES, DOCS, ROLES, buildPayments, setupWorkspace,
+            ownerDeptOf, deptCovers, isForeign};
 `)(...names.map(n => g[n]));
 
 /* ---------- เตรียมข้อมูลทดสอบ ---------- */
@@ -409,6 +410,59 @@ ck(poDoc && poDoc.at >= startStage,
    'ขั้นเริ่มต้นเลยขั้นที่ต้องแนบ PO ไปแล้ว — จะไม่มีใครแนบ PO ตลอดทั้งกระบวนการ');
 ck(poDoc && poDoc.o === 'SR', 'เอกสาร PO ที่เซ็นแล้วต้องเป็นของจัดซื้อ');
 
+/* ================= 15. บัญชีแยกต่างประเทศ/ในประเทศ + เจ้าของงานรายใบ ================= */
+const F = api;      // Flow ถูกโหลดเข้า scope เดียวกับไฟล์อื่นแล้ว เหมือนบน Apps Script
+ck(F.ownerDeptOf(14, {currency: 'THB'}) === 'AC_TH', 'ใบสกุล THB ไม่ได้เข้าคิวบัญชีในประเทศ');
+ck(F.ownerDeptOf(14, {currency: 'USD'}) === 'AC_FN', 'ใบสกุล USD ไม่ได้เข้าคิวบัญชีต่างประเทศ');
+ck(F.ownerDeptOf(14, {}) === 'AC_TH', 'ใบที่ไม่ระบุสกุลเงินควรถือเป็นในประเทศ');
+ck(F.ownerDeptOf(10, {currency: 'USD'}) === 'QC', 'ขั้นที่ไม่ใช่ของบัญชีถูกแตะไปด้วย');
+ck(F.deptCovers('AC', 'AC_FN') && F.deptCovers('AC', 'AC_TH'),
+   'คนที่ตั้งเป็น AC ควรทำได้ทั้งสองฝั่ง (ทีมเล็กที่ยังไม่แยกคน)');
+ck(!F.deptCovers('AC_TH', 'AC_FN'), 'บัญชีในประเทศไม่ควรทำงานฝั่งต่างประเทศได้');
+
+/* ทุกแผนกต้องมีสีของตัวเอง และสีนั้นต้องอ่านออกจริงทั้งสองโหมด
+   เพิ่มแผนกใหม่แล้วลืมใส่สี หรือใส่สีที่จาง คนอ่านทั้งวันจะล้า
+   ตรวจที่นี่เพราะ smoke.js ตรวจเฉพาะตัวอย่างนำเสนอ ไม่ได้ตรวจแอปจริง */
+const uiCss = fs.readFileSync(path.join(GS, 'index.html'), 'utf8');
+function relLum2(hex) {
+  const v = [1, 3, 5].map(i => {
+    const c = parseInt(hex.substr(i, 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+}
+function ratio2(a, b) {
+  const x = relLum2(a), y = relLum2(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+function palAt(css) {
+  const out = {};
+  css.replace(/(--[\w-]+)\s*:\s*#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/g, (_, k, v) => {
+    out[k] = '#' + (v.length === 3 ? v[0]+v[0]+v[1]+v[1]+v[2]+v[2] : v);
+    return '';
+  });
+  return out;
+}
+const uiStyle = (uiCss.match(/<style>([\s\S]*?)<\/style>/) || ['', ''])[1];
+const uiLight = palAt(uiStyle.slice(0, uiStyle.indexOf('@media (prefers-color-scheme:dark)')));
+const uiDark = palAt((uiStyle.match(/:root\[data-theme="dark"\]\{([\s\S]*?)\n  \}/) || ['', ''])[1]);
+Object.keys(F.ROLES).forEach(d => {
+  const v = '--' + d.toLowerCase();
+  if (!uiLight[v]) { bad.push('ไม่มีสีประจำแผนก ' + d + ' (' + v + ') ในโหมดสว่าง'); return; }
+  if (!uiDark[v]) { bad.push('ไม่มีสีประจำแผนก ' + d + ' (' + v + ') ในโหมดมืด'); return; }
+  const rl = ratio2(uiLight[v], uiLight['--surface']);
+  const rd = ratio2(uiDark[v], uiDark['--paper']);
+  if (rl < 4.5) bad.push('สีแผนก ' + d + ' โหมดสว่าง ' + uiLight[v] + ' = ' + rl.toFixed(2) + ':1 ตกเกณฑ์');
+  if (rd < 4.5) bad.push('สีแผนก ' + d + ' โหมดมืด ' + uiDark[v] + ' = ' + rd.toFixed(2) + ':1 ตกเกณฑ์');
+});
+
+// แผนกใหม่ต้องอยู่ในตารางสิทธิ์เรื่องเงินด้วย ไม่งั้นเข้ามาแล้วทำอะไรไม่ได้
+['AC_FN', 'AC_TH'].forEach(d => {
+  ck(api.Auth.CAN['pay.record'].indexOf(d) >= 0, d + ' บันทึกการจ่ายไม่ได้');
+  ck(api.Auth.CAN['pay.request'].indexOf(d) >= 0, d + ' ตั้งเรื่องขอจ่ายไม่ได้');
+  ck(F.ROLES[d] && F.ROLES[d].money === true, d + ' ต้องเห็นยอดเงิน');
+});
+
 /* ---------- สรุป ---------- */
 if (bad.length) {
   console.log('พบปัญหา ' + bad.length + ':');
@@ -425,3 +479,5 @@ console.log('  ไม่มีชื่อฟังก์ชันชนกั�
 console.log('  ไวยากรณ์ผ่านทุกไฟล์ .gs และสคริปต์ในหน้าจอ');
 console.log('  บริการพิเศษที่โค้ดใช้ประกาศครบใน manifest (' + (declared.join(', ') || 'ไม่มี') + ')');
 console.log('  รายการที่นำเข้าเริ่มที่ขั้นที่จัดซื้อแนบ PO — ไม่ข้ามเอกสาร PO');
+console.log('  บัญชีแยกสองคิวตามสกุลเงิน · สีทุกแผนกผ่านคอนทราสต์ทั้งสองโหมด (' +
+  Object.keys(F.ROLES).length + ' แผนก)');

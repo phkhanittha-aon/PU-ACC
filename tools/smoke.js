@@ -41,15 +41,15 @@ new Function(src)();
 function click(attr, data) {
   clickH({ target: { closest(sel) { return sel === "[" + attr + "]" ? { dataset: data } : null; } } });
 }
-const ROLES = ["SR", "QC", "LS", "WH", "AC", "ACH", "GM"];
+const ROLES = ["SR", "QC", "LS", "WH", "AC", "ACH", "GM"];   // บทบาทที่ตัวอย่างมีให้กดสลับ
 // อ่านจากไฟล์จริงว่าบทบาทไหนห้ามเห็นยอดเงิน — ไม่ฮาร์ดโค้ดรายชื่อไว้ที่นี่
 // เพิ่มบทบาทใหม่ในระบบเมื่อไหร่ เครื่องตรวจยอดเงินรั่วก็ครอบคลุมให้ทันที
 const MONEY_ROLE = {};
 src.replace(/(\w+)\s*:\s*\{\s*name:[^{}]*?money:\s*(true|false)/g,
   (_, k, v) => { MONEY_ROLE[k] = v === "true"; return ""; });
-if (Object.keys(MONEY_ROLE).length !== ROLES.length)
+if (Object.keys(MONEY_ROLE).length < ROLES.length)
   throw new Error("อ่านสิทธิ์เห็นเงินจาก prototype.html ไม่ครบ (ได้ " +
-    Object.keys(MONEY_ROLE).length + " จาก " + ROLES.length + ")");
+    Object.keys(MONEY_ROLE).length + " จาก " + ROLES.length + " อย่างน้อย)");
 const PAGES = { home: [""], po: ["ACTIVE","DONE","CANCELLED","SEARCH"], req: ["PRICE","CLAIM","ITEM"],
                 inbox: [""], admin: ["ISSUES","SAP","QCAPP","STAGES","DOCS","FILES","USERS"], report: [""] };
 const POS = ["PO-26-0042","PO-26-0051","CS-26-0007","PO-O326060001","PO-26-0060","PO-26-0038","PO-26-0029","PO-26-0033","PO-26-0045","PO-26-0031","PO-26-0025","PO-26-0019","PO-26-0012"];
@@ -1117,9 +1117,12 @@ function palette(css) {
 const styleSrc = (html.match(/<style>([\s\S]*?)<\/style>/) || ["", ""])[1];
 const lightCss = styleSrc.slice(0, styleSrc.indexOf("@media (prefers-color-scheme:dark)"));
 const darkCss = (styleSrc.match(/:root\[data-theme="dark"\]\{([\s\S]*?)\n  \}/) || ["", ""])[1];
-const FG = ["--sr", "--qc", "--ls", "--wh", "--ac", "--ach", "--gm",
-            "--gold", "--gold-800", "--ink", "--ink-2", "--ink-3",
-            "--go", "--warn", "--stop", "--cold"];
+/* ไล่สีประจำแผนกจากรายชื่อบทบาทจริง ไม่เขียนรายชื่อตายตัว
+   เพิ่มแผนกใหม่ (เช่น บัญชีต่างประเทศ/ในประเทศ) แล้วเครื่องตรวจตามทันที
+   เคยพลาดมาแล้ว: เพิ่มแผนก IT แต่ลืมใส่สี ป้ายแผนกเลยไม่มีสี */
+const DEPT_VARS = Object.keys(MONEY_ROLE).map(d => "--" + d.toLowerCase());
+const FG = DEPT_VARS.concat(["--gold", "--gold-800", "--ink", "--ink-2", "--ink-3",
+                             "--go", "--warn", "--stop", "--cold"]);
 [["สว่าง", palette(lightCss)], ["มืด", palette(darkCss)]].forEach(([mode, pal]) => {
   const bgs = [["พื้น", pal["--surface"]], ["การ์ด", pal["--paper"]]];
   if (!pal["--surface"] || !pal["--paper"]) { bad.push("โหมด" + mode + ": อ่านสีพื้นไม่ได้"); return; }

@@ -19,7 +19,11 @@ var ROLES = {
   QC:  {name:'QC',            en:'Quality',    money:false, lvl:'staff', mgr:'GM'},
   LS:  {name:'โลจิสติกส์',    en:'Logistics',  money:false, lvl:'staff', mgr:'GM'},
   WH:  {name:'คลังสินค้า',    en:'Warehouse',  money:false, lvl:'staff', mgr:'GM'},
-  AC:  {name:'บัญชี',         en:'Accounting', money:true,  lvl:'staff', mgr:'ACH'},
+  /* บัญชีแยกเป็นสองคิวตามที่ทีมใช้จริง — คนละคนกัน งานคนละแบบ
+     AC (ไม่มีคำต่อท้าย) ยังใช้ได้ หมายถึงคนที่ทำได้ทั้งสองฝั่ง เผื่อทีมเล็กที่ยังไม่แยก */
+  AC:    {name:'บัญชี',              en:'Accounting',   money:true, lvl:'staff', mgr:'ACH'},
+  AC_FN: {name:'บัญชีต่างประเทศ',    en:'AP Foreign',   money:true, lvl:'staff', mgr:'ACH'},
+  AC_TH: {name:'บัญชีในประเทศ',      en:'AP Domestic',  money:true, lvl:'staff', mgr:'ACH'},
   ACH: {name:'หัวหน้าบัญชี',  en:'AC Head',    money:true,  lvl:'mgr'},
   GM:  {name:'ผู้บริหาร',     en:'GM',         money:true,  lvl:'mgr'},
   IT:  {name:'ผู้ดูแลระบบ',   en:'IT Admin',   money:false, lvl:'admin'}
@@ -28,6 +32,33 @@ var ROLES = {
    ผู้ดูแลที่อนุมัติเอกสารเองได้ทำให้ระบบตรวจสอบเป็นแค่การตกแต่ง (docs/03) */
 
 var PAY_APPROVER = 'ACH';   // ทุกยอดผ่านหัวหน้าบัญชี ไม่มีเกณฑ์วงเงินยกเว้น
+
+/* ---------- บัญชีต่างประเทศ / ในประเทศ ----------
+   ตาราง STAGES เขียนเจ้าของขั้นไว้ว่า 'AC' เฉย ๆ เพราะขั้นตอนเหมือนกันทั้งสองฝั่ง
+   ต่างกันแค่ "ใครทำ" ซึ่งขึ้นกับสกุลเงินของใบนั้น จึงตัดสินตอนใช้งาน ไม่ใช่ตอนนิยาม flow
+   เพิ่มสกุลเงินในประเทศใหม่ = เพิ่มใน LOCAL_CCY ไม่ต้องแก้ฟังก์ชัน */
+var LOCAL_CCY = ['THB'];
+
+function isForeign(deal) {
+  var c = String((deal && deal.currency) || '').trim().toUpperCase();
+  if (!c) return false;                       // ไม่ระบุสกุล ถือว่าในประเทศ
+  return LOCAL_CCY.indexOf(c) < 0;
+}
+
+/** แผนกที่ถือขั้นนี้ของใบนี้จริง ๆ — ขั้นของบัญชีแตกเป็นสองฝั่งตามสกุลเงิน */
+function ownerDeptOf(stageIdx, deal) {
+  var st = STAGES[stageIdx];
+  if (!st) return '';
+  if (st.o !== 'AC') return st.o;
+  return isForeign(deal) ? 'AC_FN' : 'AC_TH';
+}
+
+/* คนที่ตั้งเป็น 'AC' เฉย ๆ ทำงานได้ทั้งสองฝั่ง — ทีมเล็กที่ยังไม่แยกคนจะได้ไม่ติด */
+var DEPT_FAMILY = {AC_FN: 'AC', AC_TH: 'AC'};
+function deptCovers(meDept, wantDept) {
+  if (meDept === wantDept) return true;
+  return DEPT_FAMILY[wantDept] === meDept;
+}
 
 var PHASES = [
   {code:'BUY',  name:'จัดซื้อ',    from:0,  to:8},
@@ -274,6 +305,7 @@ if (typeof module !== 'undefined' && module.exports) {
     NEEDS_MOD:NEEDS_MOD, FIELD_AT:FIELD_AT, PAY_TERMS:PAY_TERMS, PAY_ST:PAY_ST,
     DONE_PAY:DONE_PAY, BILLDOC:BILLDOC, WHT:WHT, UNKNOWN_TERM:UNKNOWN_TERM,
     modOf:modOf, handOf:handOf, needsOf:needsOf, moneyFieldKeys:moneyFieldKeys,
+    isForeign:isForeign, ownerDeptOf:ownerDeptOf, deptCovers:deptCovers, LOCAL_CCY:LOCAL_CCY,
     termPlan:termPlan, buildPayments:buildPayments, isLC:isLC, isDeposit:isDeposit,
     billKind:billKind, cashSkip:cashSkip, skipOf:skipOf, nextStage:nextStage
   };

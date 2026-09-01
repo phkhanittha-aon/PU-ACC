@@ -23,6 +23,7 @@ var SHEETS = {
   HISTORY:  'History',
   CONFIG:   'Config',
   PILOT:    'Pilot_Scope',
+  ASSIGN:   'Assignments',
   ERRORS:   'Errors'
 };
 
@@ -52,6 +53,7 @@ var COLS = {
   History: ['ts', 'actor', 'action', 'entity', 'entity_id', 'before_json', 'after_json'],
   Config: ['config_key', 'config_value', 'note'],
   Pilot_Scope: ['deal_no', 'added_at', 'added_by', 'note'],
+  Assignments: ['group_code', 'group_name', 'sr_email', 'note'],
   Errors: ['ts', 'who', 'where', 'message']
 };
 

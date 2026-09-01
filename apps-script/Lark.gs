@@ -120,10 +120,23 @@ var Notify = {
       var st = STAGES[stageIdx];
       if (!st) return;
       var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo) || {};
+      var want = ownerDeptOf(stageIdx, d);
       var body = 'รายการ ' + dealNo + ' · ' + (d.supplier || '') + '\n' +
         (d.item || '') + '\nกำหนดเสร็จภายใน ' + st.sla + ' ชม.' + this.link_(dealNo);
+
+      /* ถ้าใบนี้มีเจ้าของงานระบุไว้ และเจ้าของอยู่แผนกที่ถือขั้นนี้ ส่งหาเจ้าของคนเดียวพอ
+         ไม่ต้องยิงทั้งแผนก — คนอื่นจะได้ไม่ต้องอ่านงานที่ไม่ใช่ของตัวเอง */
+      var owner = String(d.owner_email || '').trim().toLowerCase();
+      if (owner) {
+        var ou = Repo.findBy(SHEETS.USERS, 'email', owner);
+        if (ou && deptCovers(String(ou.dept).trim().toUpperCase(), want) &&
+            String(ou.is_active).toUpperCase() !== 'FALSE') {
+          Lark.queue(owner, '[ถึงคิวคุณ] ' + st.n, body, dealNo, 'act');
+          return;
+        }
+      }
       Repo.where(SHEETS.USERS, function (u) {
-        return String(u.dept).trim().toUpperCase() === st.o &&
+        return deptCovers(String(u.dept).trim().toUpperCase(), want) &&
                String(u.is_active).toUpperCase() !== 'FALSE' && String(u.email).trim();
       }).forEach(function (u) {
         Lark.queue(u.email, '[ถึงคิวคุณ] ' + st.n, body, dealNo, 'act');
@@ -150,8 +163,10 @@ var Notify = {
     try {
       var body = 'รายการ ' + dealNo + ' งวดที่ ' + seq + '\nอนุมัติโดย ' + me.name +
         '\nขั้นต่อไป: บัญชีบันทึกการจ่าย (ต้องเป็นคนละคนกับผู้อนุมัติ)' + this.link_(dealNo);
+      var dl = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo) || {};
+      var acSide = isForeign(dl) ? 'AC_FN' : 'AC_TH';
       Repo.where(SHEETS.USERS, function (u) {
-        return String(u.dept).trim().toUpperCase() === 'AC' &&
+        return deptCovers(String(u.dept).trim().toUpperCase(), acSide) &&
                String(u.is_active).toUpperCase() !== 'FALSE' &&
                String(u.email).trim().toLowerCase() !== me.email;
       }).forEach(function (u) {
