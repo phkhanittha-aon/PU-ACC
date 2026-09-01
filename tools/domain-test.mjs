@@ -139,7 +139,8 @@ const names = Object.keys(g);
 const api = new Function(...names, src + `
   ; return {apiBoot, apiListDeals, apiGetDeal, apiSaveHandoff, apiAdvanceStage,
             apiRequestPayment, apiApprovePayment, apiRecordPayment, apiSendFeedback,
-            apiListUsers, apiAddToPilot, Repo, SHEETS, COLS, Auth, Domain, Config,
+            apiListUsers, apiListFeedback, apiAddToPilot, Repo, SHEETS, COLS,
+            Auth, Domain, Config,
             STAGES, DOCS, ROLES, buildPayments, setupWorkspace,
             ownerDeptOf, deptCovers, isForeign};
 `)(...names.map(n => g[n]));
@@ -463,6 +464,36 @@ Object.keys(F.ROLES).forEach(d => {
   ck(F.ROLES[d] && F.ROLES[d].money === true, d + ' ต้องเห็นยอดเงิน');
 });
 
+/* ================= 16. ค่าที่ส่งข้ามไปหน้าจอต้องแปลงได้จริง =================
+   google.script.run แปลงได้เฉพาะ ตัวเลข ข้อความ boolean null Date array object ธรรมดา
+   เจออย่างอื่นแม้แต่ตัวเดียว มันส่ง null ทั้งก้อนโดยไม่มี error ฝั่งเซิร์ฟเวอร์
+   หน้าจอได้ค่าว่างแล้วค้าง ส่วน Execution log ขึ้นว่าสำเร็จ — หาสาเหตุยากมาก
+   เจอจริงตอนขึ้นระบบ: หน้าค้างที่ "กำลังเปิดระบบ" พร้อมข้อความ เซิร์ฟเวอร์ไม่ตอบกลับ */
+function transferable(v, path, out) {
+  if (v === null) return;
+  const t = typeof v;
+  if (t === 'number' || t === 'boolean' || t === 'string') return;
+  if (v instanceof Date) return;
+  if (Array.isArray(v)) { v.forEach((x, i) => transferable(x, path + '[' + i + ']', out)); return; }
+  if (t === 'object') {
+    Object.keys(v).forEach(k => transferable(v[k], path + '.' + k, out));
+    return;
+  }
+  out.push(path + ' เป็น ' + t);          // function / undefined / symbol
+}
+[['apiBoot', () => api.apiBoot()],
+ ['apiListDeals', () => api.apiListDeals()],
+ ['apiGetDeal', () => api.apiGetDeal(DEAL)],
+ ['apiListUsers', () => api.apiListUsers()],
+ ['apiListFeedback', () => api.apiListFeedback()]].forEach(([name, run]) => {
+  const res = as(U.ac, run);
+  const probs = [];
+  transferable(res, name, probs);
+  ck(probs.length === 0, 'ค่าที่ ' + name + ' ส่งกลับแปลงข้ามไปหน้าจอไม่ได้: ' + probs.join(', '));
+  // _row เป็นของใช้ภายใน ไม่ควรหลุดไปหน้าจอ
+  ck(!JSON.stringify(res).includes('"_row"'), name + ' ส่ง _row ที่ใช้ภายในไปหน้าจอด้วย');
+});
+
 /* ---------- สรุป ---------- */
 if (bad.length) {
   console.log('พบปัญหา ' + bad.length + ':');
@@ -481,3 +512,4 @@ console.log('  บริการพิเศษที่โค้ดใช้�
 console.log('  รายการที่นำเข้าเริ่มที่ขั้นที่จัดซื้อแนบ PO — ไม่ข้ามเอกสาร PO');
 console.log('  บัญชีแยกสองคิวตามสกุลเงิน · สีทุกแผนกผ่านคอนทราสต์ทั้งสองโหมด (' +
   Object.keys(F.ROLES).length + ' แผนก)');
+console.log('  ค่าที่ทุก API ส่งกลับแปลงข้ามไปหน้าจอได้จริง');

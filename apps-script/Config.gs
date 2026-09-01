@@ -137,12 +137,47 @@ function withLock_(fn, timeoutMs) {
 }
 
 /**
+ * ทำให้ค่าที่ส่งข้ามไปหน้าจอ "แปลงได้แน่นอน"
+ * ==========================================================================
+ * google.script.run แปลงได้เฉพาะ ตัวเลข · ข้อความ · boolean · null · Date · array · object ธรรมดา
+ * เจออย่างอื่นแม้แต่ตัวเดียวในก้อน มันจะส่ง **null ทั้งก้อน** ให้หน้าจอโดยไม่มี error
+ * หน้าจอจึงได้ค่าว่างแล้วค้าง โดยฝั่งเซิร์ฟเวอร์มองว่าทำงานสำเร็จ
+ *
+ * ตัวที่เล็ดลอดเข้ามาได้บ่อยจากชีต
+ *   - Date จากเซลล์วันที่ (แปลงได้ แต่ทำให้ก้อนใหญ่และเวลาเพี้ยนข้าม timezone)
+ *   - undefined จากคอลัมน์ที่หัวตารางว่าง
+ *   - _row ที่ Repo แปะไว้ใช้ภายใน หน้าจอไม่ได้ใช้
+ * แปลงทุกอย่างเป็นค่าง่าย ๆ ก่อนส่งออก ตัดปัญหาทั้งชุด
+ */
+function safeOut_(v, depth) {
+  var d = depth || 0;
+  if (d > 8) return null;                       // กันโครงสร้างวนซ้ำ
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date) return isNaN(v.getTime()) ? '' : Fmt.stamp(v);
+  var t = typeof v;
+  if (t === 'number') return isFinite(v) ? v : '';
+  if (t === 'boolean' || t === 'string') return v;
+  if (t === 'function') return '';
+  if (Object.prototype.toString.call(v) === '[object Array]')
+    return v.map(function (x) { return safeOut_(x, d + 1); });
+  if (t === 'object') {
+    var o = {};
+    Object.keys(v).forEach(function (k) {
+      if (k === '_row') return;                 // ใช้ภายใน หน้าจอไม่ต้องรู้
+      o[k] = safeOut_(v[k], d + 1);
+    });
+    return o;
+  }
+  return String(v);
+}
+
+/**
  * ห่อทุกฟังก์ชันที่หน้าจอเรียก — คืนผลแบบมีโครงสร้างเสมอ ไม่โยน exception ข้ามฝั่ง
  * ผลลัพธ์: {ok:true, data:...} หรือ {ok:false, code:..., error:'ข้อความที่ผู้ใช้อ่านรู้เรื่อง'}
  */
 function safely_(name, fn) {
   try {
-    return {ok:true, data:fn()};
+    return {ok:true, data:safeOut_(fn())};
   } catch (e) {
     if (isAppError_(e)) return {ok:false, code:e.code, error:String(e.message)};
     ErrorLog.write(name, e);

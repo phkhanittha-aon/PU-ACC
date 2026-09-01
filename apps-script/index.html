@@ -610,7 +610,13 @@ window.addEventListener('error', function (e) {
     google.script.run
       .withSuccessHandler(function (res) {
         done();
-        if (!res) { toast('เซิร์ฟเวอร์ไม่ตอบกลับ กรุณาลองใหม่'); return; }
+        if (!res) {
+          // เซิร์ฟเวอร์รันสำเร็จแต่แปลงค่ากลับมาไม่ได้ — ต้องบอกว่าคำสั่งไหน
+          // ไม่งั้น IT ไม่รู้จะไปกด Run ฟังก์ชันไหนในตัวแก้ไข
+          toast('คำสั่ง ' + fn + ' ส่งข้อมูลกลับมาไม่ได้ — ' +
+            'ให้ IT กด Run ที่ฟังก์ชันนี้ในตัวแก้ไขเพื่อดูสาเหตุ');
+          return;
+        }
         if (!res.ok) { toast(res.error || 'ทำรายการไม่สำเร็จ'); return; }
         ok(res.data);
       })
