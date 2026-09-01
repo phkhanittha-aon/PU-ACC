@@ -244,9 +244,12 @@ var Domain = {
 
       if (isLC(p))
         throw AppError('LC', 'งวดนี้ชำระผ่าน LC ธนาคารจ่ายตามเอกสาร ไม่ต้องตั้งเบิกในระบบนี้');
-      if (String(p.status) !== 'PENDING')
+      /* ตั้งเรื่องได้จากยังไม่ตั้ง หรือจากที่ถูกตีกลับมาให้แก้
+         ถ้าตีกลับแล้วส่งใหม่ไม่ได้ คนจะไปส่งกันนอกระบบแทน */
+      if (['PENDING', 'REJECTED'].indexOf(String(p.status)) < 0)
         throw AppError('BAD_STATUS',
           'งวดนี้อยู่สถานะ "' + (PAY_ST[p.status] || {}).t + '" ตั้งเรื่องซ้ำไม่ได้');
+      var isResubmit = String(p.status) === 'REJECTED';
 
       var amt = Num.parse(data.amount);
       if (amt === null || amt <= 0) throw AppError('BAD_AMOUNT', 'ยอดที่ขอต้องเป็นตัวเลขมากกว่า 0');
@@ -265,20 +268,88 @@ var Domain = {
         throw AppError('DUP_BILL',
           'เอกสาร ' + data.billNo + ' ถูกใช้ตั้งเบิกในงวดที่ ' + dupe[0].seq + ' แล้ว');
 
-      var reqNo = Repo.nextNo('PRQ', SHEETS.PAYMENTS, 'req_no');
+      // ส่งใหม่ให้ใช้เลขคำขอเดิม จะได้ตามเรื่องเดียวกันต่อได้ ไม่ใช่เรื่องใหม่
+      var reqNo = isResubmit && p.req_no ? String(p.req_no)
+                                        : Repo.nextNo('PRQ', SHEETS.PAYMENTS, 'req_no');
       var r = Repo.updateBy2(SHEETS.PAYMENTS, 'deal_no', dealNo, 'seq', seq, {
         status: 'REQUESTED', amount: amt, req_no: reqNo, req_by: me.email,
         req_at: new Date(), bill_no: data.billNo, bill_kind: data.billKind || '',
-        bill_amt: Num.parse(data.billAmt) || '', due: data.due || p.due
+        bill_amt: Num.parse(data.billAmt) || '', due: data.due || p.due,
+        chk_by: '', chk_at: ''            // ส่งใหม่ต้องให้บัญชีตรวจใหม่
       });
-      History.log(me.email, 'ตั้งเรื่องขอจ่ายงวดที่ ' + seq + ' ' + bahtIn_(amt) +
-        ' ตาม ' + data.billNo, 'Payments', dealNo, r.before, r.after);
-      Notify.payRequested(dealNo, seq, reqNo, amt, me);
-      return {reqNo: reqNo};
+      History.log(me.email,
+        (isResubmit ? 'แก้แล้วส่งใหม่ งวดที่ ' : 'ตั้งเรื่องขอจ่ายงวดที่ ') + seq + ' ' +
+        bahtIn_(amt) + ' ตาม ' + data.billNo, 'Payments', dealNo, r.before, r.after);
+      Notify.payRequested(dealNo, seq, reqNo, amt, me, isResubmit);
+      return {reqNo: reqNo, resubmit: isResubmit};
     });
   },
 
-  /** อนุมัติจ่าย — ผู้อนุมัติต้องไม่ใช่ผู้ขอ */
+  /**
+   * บัญชีตรวจเอกสารของคำขอ — ด่านก่อนถึงหัวหน้าบัญชี
+   * ตรวจว่าเอกสารเรียกเก็บถูกต้องครบถ้วนไหม ก่อนกินเวลาหัวหน้า
+   */
+  checkPayment: function (me, dealNo, seq, note) {
+    Auth.require(me, 'pay.check');
+    var self = this;
+    return withLock_(function () {
+      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
+      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      self.assertEditable_(d);
+      var p = self.payment_(dealNo, seq);
+      if (String(p.status) !== 'REQUESTED')
+        throw AppError('BAD_STATUS',
+          'งวดนี้อยู่สถานะ "' + (PAY_ST[p.status] || {}).t + '" ตรวจสอบไม่ได้');
+
+      // ผู้ตรวจต้องไม่ใช่ผู้ตั้งเรื่อง — ตรวจงานตัวเองไม่ใช่การตรวจ
+      if (String(p.req_by).trim().toLowerCase() === me.email)
+        throw AppError('SOD', 'คุณเป็นผู้ตั้งเรื่องงวดนี้เอง จะตรวจสอบเองไม่ได้');
+
+      var r = Repo.updateBy2(SHEETS.PAYMENTS, 'deal_no', dealNo, 'seq', seq, {
+        status: 'CHECKED', chk_by: me.email, chk_at: new Date(),
+        note: note || p.note || ''
+      });
+      History.log(me.email, 'บัญชีตรวจเอกสารงวดที่ ' + seq + ' ผ่าน' +
+        (note ? ' — ' + note : ''), 'Payments', dealNo, r.before, r.after);
+      Notify.payChecked(dealNo, seq, p.req_no, me);
+      return {ok: true};
+    });
+  },
+
+  /**
+   * ตีกลับคำขอพร้อมเหตุผล — ใช้ได้ทั้งด่านตรวจของบัญชีและด่านอนุมัติของหัวหน้า
+   * บังคับให้เขียนเหตุผล เพราะ "ตีกลับเฉย ๆ" ทำให้ผู้ขอต้องเดาว่าต้องแก้อะไร
+   * แล้วก็จะไปถามกันในไลน์อยู่ดี ซึ่งคือปัญหาที่ระบบนี้ตั้งใจแก้
+   */
+  rejectPayment: function (me, dealNo, seq, reason) {
+    Auth.require(me, 'pay.reject');
+    var self = this;
+    var why = String(reason || '').trim();
+    if (why.length < 5)
+      throw AppError('NEED_REASON',
+        'ต้องเขียนเหตุผลที่ตีกลับอย่างน้อย 5 ตัวอักษร — ผู้ขอจะได้รู้ว่าต้องแก้อะไร');
+
+    return withLock_(function () {
+      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
+      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      self.assertEditable_(d);
+      var p = self.payment_(dealNo, seq);
+      if (['REQUESTED', 'CHECKED'].indexOf(String(p.status)) < 0)
+        throw AppError('BAD_STATUS',
+          'งวดนี้อยู่สถานะ "' + (PAY_ST[p.status] || {}).t + '" ตีกลับไม่ได้');
+
+      var r = Repo.updateBy2(SHEETS.PAYMENTS, 'deal_no', dealNo, 'seq', seq, {
+        status: 'REJECTED', rej_by: me.email, rej_at: new Date(), rej_note: why,
+        rej_count: (Num.parse(p.rej_count) || 0) + 1
+      });
+      History.log(me.email, 'ตีกลับคำขอจ่ายงวดที่ ' + seq + ' — ' + why,
+        'Payments', dealNo, r.before, r.after);
+      Notify.payRejected(dealNo, seq, p.req_no, why, me, p.req_by);
+      return {ok: true};
+    });
+  },
+
+  /** อนุมัติจ่าย — ต้องผ่านการตรวจของบัญชีก่อน และผู้อนุมัติต้องไม่ใช่ผู้ขอ/ผู้ตรวจ */
   approvePayment: function (me, dealNo, seq) {
     Auth.require(me, 'pay.approve');
     var self = this;
@@ -287,14 +358,21 @@ var Domain = {
       if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
       self.assertEditable_(d);
       var p = self.payment_(dealNo, seq);
-      if (String(p.status) !== 'REQUESTED')
-        throw AppError('BAD_STATUS', 'งวดนี้ยังไม่ได้ตั้งเรื่อง หรืออนุมัติไปแล้ว');
+      if (String(p.status) === 'REQUESTED')
+        throw AppError('NEED_CHECK',
+          'งวดนี้ยังไม่ผ่านการตรวจของบัญชี — ให้บัญชีตรวจเอกสารก่อน');
+      if (String(p.status) !== 'CHECKED')
+        throw AppError('BAD_STATUS',
+          'งวดนี้อยู่สถานะ "' + (PAY_ST[p.status] || {}).t + '" อนุมัติไม่ได้');
 
       // P12 — คนขอกับคนอนุมัติต้องไม่ใช่คนเดียวกัน เทียบด้วยอีเมลจริง
       if (String(p.req_by).trim().toLowerCase() === me.email)
         throw AppError('SOD',
           'คุณเป็นผู้ตั้งเรื่องงวดนี้เอง จะอนุมัติเองไม่ได้ — ต้องให้' +
           ROLES[PAY_APPROVER].name + 'คนอื่นอนุมัติ');
+      // ผู้ตรวจกับผู้อนุมัติก็ต้องคนละคน ไม่งั้นด่านตรวจกับด่านอนุมัติเป็นด่านเดียวกัน
+      if (String(p.chk_by).trim().toLowerCase() === me.email)
+        throw AppError('SOD', 'คุณเป็นผู้ตรวจเอกสารงวดนี้เอง จะอนุมัติเองไม่ได้');
 
       var r = Repo.updateBy2(SHEETS.PAYMENTS, 'deal_no', dealNo, 'seq', seq, {
         status: 'APPROVED', apv_by: me.email, apv_at: new Date()

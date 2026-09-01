@@ -89,6 +89,18 @@ function apiRequestPayment(dealNo, seq, data) {
   });
 }
 
+function apiCheckPayment(dealNo, seq, note) {
+  return safely_('ตรวจสอบเอกสารคำขอจ่าย', function () {
+    return Domain.checkPayment(Auth.me(), String(dealNo), Number(seq), String(note || ''));
+  });
+}
+
+function apiRejectPayment(dealNo, seq, reason) {
+  return safely_('ตีกลับคำขอจ่าย', function () {
+    return Domain.rejectPayment(Auth.me(), String(dealNo), Number(seq), String(reason || ''));
+  });
+}
+
 function apiApprovePayment(dealNo, seq) {
   return safely_('อนุมัติจ่าย', function () {
     return Domain.approvePayment(Auth.me(), String(dealNo), Number(seq));

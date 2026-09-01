@@ -144,32 +144,73 @@ var Notify = {
     } catch (e) { ErrorLog.write('Notify.stageArrived', e); }
   },
 
-  /** ขออนุมัติจ่าย — ส่งหาผู้อนุมัติเป็นรายคน ยอดเงินอยู่ในข้อความส่วนตัวได้ */
-  payRequested: function (dealNo, seq, reqNo, amt, me) {
+  /** คนในแผนกหนึ่ง ๆ ที่ยังใช้งานอยู่ (ตัดคนที่ระบุออกได้) */
+  deptUsers_: function (dept, exceptEmail) {
+    return Repo.where(SHEETS.USERS, function (u) {
+      return deptCovers(String(u.dept).trim().toUpperCase(), dept) &&
+             String(u.is_active).toUpperCase() !== 'FALSE' &&
+             String(u.email).trim() &&
+             String(u.email).trim().toLowerCase() !== String(exceptEmail || '').toLowerCase();
+    });
+  },
+
+  /** ฝั่งบัญชีที่ต้องดูใบนี้ — ต่างประเทศหรือในประเทศ ตามสกุลเงิน */
+  acSideOf_: function (dealNo) {
+    var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo) || {};
+    return isForeign(d) ? 'AC_FN' : 'AC_TH';
+  },
+
+  /** จัดซื้อตั้งเรื่อง → บัญชีต้องตรวจ (ยอดเงินอยู่ในข้อความส่วนตัวได้ ไม่เข้ากลุ่ม) */
+  payRequested: function (dealNo, seq, reqNo, amt, me, isResubmit) {
     try {
+      var head = isResubmit ? '[แก้แล้วส่งใหม่ รอตรวจ] ' : '[รอบัญชีตรวจสอบ] ';
       var body = 'รายการ ' + dealNo + ' งวดที่ ' + seq + '\nยอด ' + Num.money(amt) +
         '\nผู้ขอ: ' + me.name + this.link_(dealNo);
-      Repo.where(SHEETS.USERS, function (u) {
-        return String(u.dept).trim().toUpperCase() === PAY_APPROVER &&
-               String(u.is_active).toUpperCase() !== 'FALSE' &&
-               String(u.email).trim().toLowerCase() !== me.email;
-      }).forEach(function (u) {
-        Lark.queue(u.email, '[รออนุมัติจ่าย] ' + reqNo, body, dealNo, 'act');
+      this.deptUsers_(this.acSideOf_(dealNo), me.email).forEach(function (u) {
+        Lark.queue(u.email, head + reqNo, body, dealNo, 'act');
       });
     } catch (e) { ErrorLog.write('Notify.payRequested', e); }
+  },
+
+  /** บัญชีตรวจผ่าน → หัวหน้าบัญชีต้องอนุมัติ */
+  payChecked: function (dealNo, seq, reqNo, me) {
+    try {
+      var body = 'รายการ ' + dealNo + ' งวดที่ ' + seq +
+        '\nบัญชีตรวจเอกสารแล้วโดย ' + me.name + this.link_(dealNo);
+      this.deptUsers_(PAY_APPROVER, me.email).forEach(function (u) {
+        Lark.queue(u.email, '[รออนุมัติจ่าย] ' + reqNo, body, dealNo, 'act');
+      });
+    } catch (e) { ErrorLog.write('Notify.payChecked', e); }
+  },
+
+  /**
+   * ตีกลับ — ต้องถึงมือผู้ขอให้ได้ เพราะเขาคือคนที่ต้องลงมือแก้
+   * ส่งหาผู้ขอเป็นรายคนก่อน แล้วค่อยแจ้งจัดซื้อทั้งแผนกให้รู้ว่ามีของค้าง
+   */
+  payRejected: function (dealNo, seq, reqNo, why, me, reqBy) {
+    try {
+      var body = 'รายการ ' + dealNo + ' งวดที่ ' + seq + ' (' + (reqNo || '—') + ')\n' +
+        'ผู้ตีกลับ: ' + me.name + ' (' + me.roleName + ')\n' +
+        'เหตุผล: ' + why + '\n' +
+        'แก้แล้วกดส่งใหม่ได้ที่ใบเดิม ใช้เลขคำขอเดิม' + this.link_(dealNo);
+
+      var to = String(reqBy || '').trim().toLowerCase();
+      var sent = {};
+      if (to) { Lark.queue(to, '[ถูกตีกลับ ต้องแก้] ' + dealNo, body, dealNo, 'warn'); sent[to] = 1; }
+      // แจ้งจัดซื้อคนอื่นด้วย เผื่อผู้ขอลาหรือย้ายงาน เรื่องจะได้ไม่ค้าง
+      this.deptUsers_('SR').forEach(function (u) {
+        var e = String(u.email).trim().toLowerCase();
+        if (sent[e]) return;
+        Lark.queue(e, '[คำขอจ่ายถูกตีกลับ] ' + dealNo, body, dealNo, 'warn');
+      });
+    } catch (e) { ErrorLog.write('Notify.payRejected', e); }
   },
 
   payApproved: function (dealNo, seq, reqNo, me) {
     try {
       var body = 'รายการ ' + dealNo + ' งวดที่ ' + seq + '\nอนุมัติโดย ' + me.name +
         '\nขั้นต่อไป: บัญชีบันทึกการจ่าย (ต้องเป็นคนละคนกับผู้อนุมัติ)' + this.link_(dealNo);
-      var dl = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo) || {};
-      var acSide = isForeign(dl) ? 'AC_FN' : 'AC_TH';
-      Repo.where(SHEETS.USERS, function (u) {
-        return deptCovers(String(u.dept).trim().toUpperCase(), acSide) &&
-               String(u.is_active).toUpperCase() !== 'FALSE' &&
-               String(u.email).trim().toLowerCase() !== me.email;
-      }).forEach(function (u) {
+      this.deptUsers_(this.acSideOf_(dealNo), me.email).forEach(function (u) {
         Lark.queue(u.email, '[อนุมัติแล้ว รอทำจ่าย] ' + reqNo, body, dealNo, 'act');
       });
     } catch (e) { ErrorLog.write('Notify.payApproved', e); }

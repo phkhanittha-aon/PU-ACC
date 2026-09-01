@@ -139,7 +139,8 @@ const names = Object.keys(g);
 const api = new Function(...names, src + `
   ; return {apiBoot, apiListDeals, apiGetDeal, apiSaveHandoff, apiAdvanceStage,
             apiRequestPayment, apiApprovePayment, apiRecordPayment, apiSendFeedback,
-            apiListUsers, apiListFeedback, apiAddToPilot, Repo, SHEETS, COLS,
+            apiListUsers, apiListFeedback, apiAddToPilot, apiCheckPayment,
+            apiRejectPayment, Repo, SHEETS, COLS,
             Auth, Domain, Config,
             STAGES, DOCS, ROLES, buildPayments, setupWorkspace,
             ownerDeptOf, deptCovers, isForeign};
@@ -218,6 +219,9 @@ ck(acView.ok && acView.data.payments.length > 0, 'บัญชีไม่เห
 /* ================= 2. สิทธิ์รายคำสั่ง ================= */
 const forbid = as(U.qc, () => api.apiRequestPayment(DEAL, 1, { amount: 100, billNo: 'X' }));
 ck(!forbid.ok && forbid.code === 'FORBIDDEN', 'QC ตั้งเรื่องขอจ่ายได้ ทั้งที่ไม่มีสิทธิ์');
+// จัดซื้อเป็นคนตั้งเรื่อง บัญชีเป็นคนตรวจ — บัญชีตั้งเรื่องเองไม่ได้
+const acReq = as(U.ac, () => api.apiRequestPayment(DEAL, 1, { amount: 100, billNo: 'Y' }));
+ck(!acReq.ok && acReq.code === 'FORBIDDEN', 'บัญชีตั้งเรื่องขอจ่ายเองได้');
 const forbid2 = as(U.ls, () => api.apiListUsers());
 ck(!forbid2.ok, 'โลจิสติกส์ดูตารางผู้ใช้ได้ ทั้งที่ไม่มีสิทธิ์');
 const notReg = as('stranger@example.com', () => api.apiListDeals());
@@ -229,35 +233,38 @@ ck(!notMine.ok && notMine.code === 'NOT_YOUR_STAGE',
    'QC ปิดขั้นของบัญชีได้ (ขั้นปัจจุบันคือรับใบแจ้งหนี้ เจ้าของคือ AC)');
 
 /* ================= 4. แยกหน้าที่เรื่องเงิน ================= */
-const req = as(U.ac, () => api.apiRequestPayment(DEAL, 1, {
+const req = as(U.sr, () => api.apiRequestPayment(DEAL, 1, {
   amount: 130000, billNo: 'INV-ABC-0804', billKind: 'INVOICE', billAmt: 130000
 }));
-ck(req.ok, 'บัญชีตั้งเรื่องขอจ่ายไม่ได้ — ' + (req.error || ''));
+ck(req.ok, 'จัดซื้อตั้งเรื่องขอจ่ายไม่ได้ — ' + (req.error || ''));
 
 // จ่ายซ้ำด้วยใบเรียกเก็บใบเดิม
 api.Repo.insert(api.SHEETS.PAYMENTS, { deal_no: DEAL, seq: 2, type: 'งวดทดสอบ',
   amount: 1000, status: 'PENDING', is_lc: 'FALSE' });
-const dupBill = as(U.ac, () => api.apiRequestPayment(DEAL, 2, {
+const dupBill = as(U.sr, () => api.apiRequestPayment(DEAL, 2, {
   amount: 1000, billNo: 'INV-ABC-0804'
 }));
 ck(!dupBill.ok && dupBill.code === 'DUP_BILL', 'ตั้งเบิกซ้ำด้วยใบเรียกเก็บใบเดิมได้');
 
 // ตั้งเรื่องซ้ำงวดเดิม (กดสองครั้ง)
-const twice = as(U.ac, () => api.apiRequestPayment(DEAL, 1, {
+const twice = as(U.sr, () => api.apiRequestPayment(DEAL, 1, {
   amount: 130000, billNo: 'INV-ABC-0805'
 }));
 ck(!twice.ok && twice.code === 'BAD_STATUS', 'กดตั้งเรื่องซ้ำงวดเดิมแล้วได้สองครั้ง');
 
 // ผู้ขออนุมัติเอง (บัญชีไม่มีสิทธิ์อนุมัติอยู่แล้ว) — ทดสอบกรณีหัวหน้าบัญชีตั้งเรื่องเอง
 api.Repo.insert(api.SHEETS.PAYMENTS, { deal_no: DEAL, seq: 3, type: 'งวดทดสอบ 2',
-  amount: 500, status: 'REQUESTED', is_lc: 'FALSE', req_by: U.ach, req_no: 'PRQ-26-9999' });
+  amount: 500, status: 'CHECKED', is_lc: 'FALSE', req_by: U.ach, req_no: 'PRQ-26-9999',
+  chk_by: U.ac });
 const selfApprove = as(U.ach, () => api.apiApprovePayment(DEAL, 3));
 ck(!selfApprove.ok && selfApprove.code === 'SOD',
    'ผู้ตั้งเรื่องอนุมัติงวดของตัวเองได้ (P12)');
 const otherApprove = as(U.ach2, () => api.apiApprovePayment(DEAL, 3));
 ck(otherApprove.ok, 'หัวหน้าบัญชีคนอื่นอนุมัติไม่ได้ — ' + (otherApprove.error || ''));
 
-// ผู้อนุมัติบันทึกจ่ายเอง
+// ผู้อนุมัติบันทึกจ่ายเอง — งวดที่ 1 ต้องผ่านด่านตรวจของบัญชีก่อน
+const chk1 = as(U.ac, () => api.apiCheckPayment(DEAL, 1, ''));
+ck(chk1.ok, 'บัญชีตรวจงวดที่ 1 ไม่ได้ — ' + (chk1.error || ''));
 const apv = as(U.ach, () => api.apiApprovePayment(DEAL, 1));
 ck(apv.ok, 'อนุมัติงวดที่ 1 ไม่ได้ — ' + (apv.error || ''));
 api.Repo.update(api.SHEETS.USERS, 'email', U.ach, { dept: 'AC' });   // สมมติหัวหน้าถูกย้ายมาบัญชี
@@ -460,7 +467,8 @@ Object.keys(F.ROLES).forEach(d => {
 // แผนกใหม่ต้องอยู่ในตารางสิทธิ์เรื่องเงินด้วย ไม่งั้นเข้ามาแล้วทำอะไรไม่ได้
 ['AC_FN', 'AC_TH'].forEach(d => {
   ck(api.Auth.CAN['pay.record'].indexOf(d) >= 0, d + ' บันทึกการจ่ายไม่ได้');
-  ck(api.Auth.CAN['pay.request'].indexOf(d) >= 0, d + ' ตั้งเรื่องขอจ่ายไม่ได้');
+  ck(api.Auth.CAN['pay.check'].indexOf(d) >= 0, d + ' ตรวจสอบเอกสารไม่ได้');
+  ck(api.Auth.CAN['pay.reject'].indexOf(d) >= 0, d + ' ตีกลับไม่ได้');
   ck(F.ROLES[d] && F.ROLES[d].money === true, d + ' ต้องเห็นยอดเงิน');
 });
 

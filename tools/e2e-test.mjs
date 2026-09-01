@@ -157,7 +157,8 @@ const names = Object.keys(g);
 const app = new Function(...names, src + `
   ; return {setupWorkspace, apiBoot, apiListDeals, apiGetDeal, apiSaveHandoff,
             apiAdvanceStage, apiRequestPayment, apiApprovePayment, apiRecordPayment,
-            apiUploadDoc, apiAddToPilot, apiSendFeedback, Repo, SHEETS, Intake, Auth,
+            apiUploadDoc, apiAddToPilot, apiSendFeedback, apiCheckPayment,
+            apiRejectPayment, Repo, SHEETS, Intake, Auth,
             STAGES, DOCS, usersReport_, healthCheck};
 `)(...names.map(n => g[n]));
 
@@ -332,9 +333,50 @@ const pays = app.Repo.readAll(app.SHEETS.PAYMENTS).filter(p => p.deal_no === DEA
 ck(pays.length > 0, 'ไม่มีงวดจ่ายให้ทำ');
 if (pays.length) {
   const seq = Number(pays[0].seq);
-  const rq = as(U.AC_TH, () => app.apiRequestPayment(DEAL, seq, {
+  /* สายอนุมัติสี่มือ: จัดซื้อตั้งเรื่อง → บัญชีตรวจ → หัวหน้าอนุมัติ → บัญชีบันทึกจ่าย
+     พร้อมทดสอบทางตีกลับซึ่งเป็นเส้นทางที่เกิดจริงบ่อยกว่าทางผ่านฉลุย */
+  const rq = as(U.SR, () => app.apiRequestPayment(DEAL, seq, {
     amount: 130000, billNo: 'INV-ABC-0804', billAmt: 130000}));
-  ck(rq.ok, 'ตั้งเรื่องขอจ่ายไม่ผ่าน: ' + (rq.error || ''));
+  ck(rq.ok, 'จัดซื้อตั้งเรื่องขอจ่ายไม่ผ่าน: ' + (rq.error || ''));
+
+  const acCant = as(U.AC_TH, () => app.apiRequestPayment(DEAL, 99, {
+    amount: 1, billNo: 'X'}));
+  ck(!acCant.ok, 'บัญชีตั้งเรื่องขอจ่ายเองได้ (ต้องเป็นจัดซื้อเท่านั้น)');
+
+  const early = as(U.ACH, () => app.apiApprovePayment(DEAL, seq));
+  ck(!early.ok && early.code === 'NEED_CHECK',
+     'อนุมัติได้ทั้งที่บัญชียังไม่ได้ตรวจ (ต้องบังคับให้ตรวจก่อน)');
+
+  const noWhy = as(U.AC_TH, () => app.apiRejectPayment(DEAL, seq, ''));
+  ck(!noWhy.ok && noWhy.code === 'NEED_REASON', 'ตีกลับได้โดยไม่ต้องเขียนเหตุผล');
+
+  const larkBefore = larkSent.length;
+  const rej = as(U.AC_TH, () => app.apiRejectPayment(DEAL, seq,
+    'ใบแจ้งหนี้ไม่มีเลขผู้เสียภาษีของผู้ขาย ขอใบใหม่'));
+  ck(rej.ok, 'บัญชีตีกลับไม่ผ่าน: ' + (rej.error || ''));
+  const rejMsgs = larkSent.slice(larkBefore)
+    .map(m => JSON.parse(m.content).text).join('\n');
+  ck(/ถูกตีกลับ|ตีกลับ/.test(rejMsgs), 'ตีกลับแล้วไม่มีการแจ้งเตือน');
+  ck(/เลขผู้เสียภาษี/.test(rejMsgs), 'การแจ้งเตือนไม่ได้บอกเหตุผลที่ตีกลับ');
+  step.push('บัญชีตีกลับพร้อมเหตุผล → แจ้งเตือนถึงผู้ขอ');
+
+  const rowRej = app.Repo.readAll(app.SHEETS.PAYMENTS)
+    .filter(x => x.deal_no === DEAL && Number(x.seq) === seq)[0];
+  ck(String(rowRej.status) === 'REJECTED', 'ตีกลับแล้วสถานะไม่เปลี่ยน');
+  ck(String(rowRej.rej_note).includes('เลขผู้เสียภาษี'), 'ไม่ได้เก็บหมายเหตุที่ตีกลับ');
+
+  // จัดซื้อแก้แล้วส่งใหม่ ต้องได้เลขคำขอเดิม จะได้ตามเรื่องเดียวกันต่อได้
+  const again = as(U.SR, () => app.apiRequestPayment(DEAL, seq, {
+    amount: 130000, billNo: 'INV-ABC-0804-R1', billAmt: 130000}));
+  ck(again.ok, 'แก้แล้วส่งใหม่ไม่ผ่าน: ' + (again.error || ''));
+  ck(again.ok && again.data.reqNo === rq.data.reqNo, 'ส่งใหม่แล้วเลขคำขอเปลี่ยน');
+  step.push('จัดซื้อแก้แล้วส่งใหม่ ใช้เลขคำขอเดิม');
+
+  const selfChk = as(U.SR, () => app.apiCheckPayment(DEAL, seq, ''));
+  ck(!selfChk.ok, 'ผู้ตั้งเรื่องตรวจงานตัวเองได้');
+  const chk = as(U.AC_TH, () => app.apiCheckPayment(DEAL, seq, 'เอกสารครบแล้ว'));
+  ck(chk.ok, 'บัญชีตรวจสอบไม่ผ่าน: ' + (chk.error || ''));
+
   const ap = as(U.ACH, () => app.apiApprovePayment(DEAL, seq));
   ck(ap.ok, 'อนุมัติจ่ายไม่ผ่าน: ' + (ap.error || ''));
   const selfRec = as(U.ACH, () => app.apiRecordPayment(DEAL, seq, {
@@ -343,7 +385,7 @@ if (pays.length) {
   const rec = as(U.AC_TH, () => app.apiRecordPayment(DEAL, seq, {
     paidAmt: 130000, ref: 'KB26083000456', slipFileId: 'FILE_1'}));
   ck(rec.ok, 'บันทึกการจ่ายไม่ผ่าน: ' + (rec.error || ''));
-  step.push('ตั้งเบิก → อนุมัติ → บันทึกจ่าย ครบ · ผู้อนุมัติบันทึกเองไม่ได้');
+  step.push('ตั้งเรื่อง(SR) → ตรวจ(บัญชี) → อนุมัติ(หัวหน้า) → บันทึกจ่าย(บัญชี) ครบสี่มือ');
 }
 
 /* ---------- สรุป ---------- */

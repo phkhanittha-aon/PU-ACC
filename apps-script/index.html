@@ -936,18 +936,31 @@ window.addEventListener('error', function (e) {
       var stt = BOOT.flow.PAY_ST[p.status] || { t: p.status, cls: 'wait' };
       var act = '';
       if (d.inPilot) {
-        if (p.status === 'PENDING' && can('pay.request'))
-          act = '<button class="btn" data-pay="req" data-seq="' + p.seq +
-                '">ตั้งเรื่องขอจ่าย</button>';
-        else if (p.status === 'REQUESTED' && can('pay.approve'))
-          act = '<button class="btn pri" data-pay="apv" data-seq="' + p.seq +
-                '">อนุมัติ</button>';
-        else if (p.status === 'APPROVED' && can('pay.record'))
-          act = '<button class="btn" data-pay="rec" data-seq="' + p.seq +
-                '">บันทึกการจ่าย</button>';
+        var b = [];
+        if ((p.status === 'PENDING' || p.status === 'REJECTED') && can('pay.request'))
+          b.push('<button class="btn' + (p.status === 'REJECTED' ? ' pri' : '') +
+            '" data-pay="req" data-seq="' + p.seq + '">' +
+            (p.status === 'REJECTED' ? 'แก้แล้วส่งใหม่' : 'ตั้งเรื่องขอจ่าย') + '</button>');
+        if (p.status === 'REQUESTED' && can('pay.check'))
+          b.push('<button class="btn pri" data-pay="chk" data-seq="' + p.seq +
+            '">ตรวจสอบผ่าน</button>');
+        if (p.status === 'CHECKED' && can('pay.approve'))
+          b.push('<button class="btn pri" data-pay="apv" data-seq="' + p.seq +
+            '">อนุมัติ</button>');
+        // ทุกด่านที่ตรวจได้ ต้องตีกลับได้ด้วย
+        if ((p.status === 'REQUESTED' || p.status === 'CHECKED') && can('pay.reject'))
+          b.push('<button class="btn bad" data-pay="rej" data-seq="' + p.seq +
+            '">ตีกลับ</button>');
+        if (p.status === 'APPROVED' && can('pay.record'))
+          b.push('<button class="btn" data-pay="rec" data-seq="' + p.seq +
+            '">บันทึกการจ่าย</button>');
+        act = b.join(' ');
       }
-      h += '<tr><td>' + esc(p.seq) + '</td><td>' + esc(p.type) + '</td>' +
-        '<td class="num">' + baht(p.amount) + '</td><td>' + esc(p.due) + '</td>' +
+      h += '<tr><td>' + esc(p.seq) + '</td><td>' + esc(p.type);
+      if (p.status === 'REJECTED' && p.rej_note)
+        h += '<div class="sub" style="color:var(--stop)">ตีกลับ: ' + esc(p.rej_note) +
+             (p.rej_by ? ' — ' + esc(p.rej_by) : '') + '</div>';
+      h += '</td><td class="num">' + baht(p.amount) + '</td><td>' + esc(p.due) + '</td>' +
         '<td><span class="pill ' + stt.cls + '">' + esc(stt.t) + '</span></td>' +
         '<td>' + act + '</td></tr>';
     });
@@ -1160,10 +1173,46 @@ window.addEventListener('error', function (e) {
       return;
     }
 
+    if (what === 'chk') {
+      modal('ตรวจสอบเอกสาร งวดที่ ' + seq,
+        row('ยอดที่ขอ', baht(p.amount)) +
+        row('ผู้ขอ', p.req_by || '—') +
+        row('เอกสารเรียกเก็บ', p.bill_no || '—') +
+        '<div class="fld"><label class="lbl">หมายเหตุ (ถ้ามี)</label>' +
+        '<input id="ck_note" type="text"></div>' +
+        '<div class="note info"><span>ตรวจแล้วเรื่องจะขึ้นไปให้หัวหน้าบัญชีอนุมัติ ' +
+        'ถ้าเอกสารไม่ครบให้กดตีกลับแทน</span></div>',
+        function () {
+          call('apiCheckPayment', [openNo, seq, val('ck_note')], function () {
+            closeModal(); toast('ตรวจสอบผ่านแล้ว ส่งให้หัวหน้าบัญชีอนุมัติ'); openDeal(openNo);
+          });
+        }, 'ตรวจสอบผ่าน');
+      return;
+    }
+
+    if (what === 'rej') {
+      modal('ตีกลับคำขอ งวดที่ ' + seq,
+        row('ยอดที่ขอ', baht(p.amount)) +
+        row('ผู้ขอ', p.req_by || '—') +
+        '<div class="fld"><label class="lbl">เหตุผลที่ตีกลับ <span class="req">*</span></label>' +
+        '<textarea id="rj_why" rows="3" style="border:1px solid var(--line-2);' +
+        'border-radius:var(--r-sm);padding:9px 12px;font:inherit;width:100%" ' +
+        'placeholder="เช่น ใบแจ้งหนี้ไม่มีเลขผู้เสียภาษีของผู้ขาย"></textarea></div>' +
+        '<div class="note warn"><span>เหตุผลจะถูกส่งไปหาผู้ขอทาง Lark ทันที ' +
+        'และเก็บไว้ในประวัติของใบนี้ถาวร</span></div>',
+        function () {
+          call('apiRejectPayment', [openNo, seq, val('rj_why')], function () {
+            closeModal(); toast('ตีกลับแล้ว แจ้งผู้ขอทาง Lark เรียบร้อย'); openDeal(openNo);
+          });
+        }, 'ตีกลับ');
+      return;
+    }
+
     if (what === 'apv') {
       modal('อนุมัติจ่าย งวดที่ ' + seq,
         row('ยอดที่ขอ', baht(p.amount)) +
         row('ผู้ขอ', p.req_by || '—') +
+        row('บัญชีผู้ตรวจ', p.chk_by || '—') +
         row('เอกสารเรียกเก็บ', p.bill_no || '—') +
         '<div class="note warn"><span>กดอนุมัติแล้วบัญชีจะทำจ่ายได้ทันที ' +
         'และผู้อนุมัติจะบันทึกการจ่ายเองไม่ได้</span></div>',
