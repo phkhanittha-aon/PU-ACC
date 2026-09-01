@@ -113,14 +113,21 @@ var Auth = {
   /** ฟิลด์ที่เป็นเรื่องเงินในรายการหนึ่งใบ */
   MONEY_DEAL_FIELDS: ['amount', 'currency', 'payment_term', 'term_name'],
 
-  /** ตัดยอดเงินออกจากรายการเดียว */
+  /* ฟิลด์ที่ระบบใช้ภายใน ไม่มีใครควรได้รับ ไม่ว่าบทบาทไหน
+     fingerprint คือลายนิ้วมือกันนำเข้าซ้ำ ประกอบด้วย สาย|PO|รายการ|**ยอดเงิน**|วันครบกำหนด
+     ส่งออกไปแปลว่ายอดเงินหลุดไปกับมันด้วย ทั้งที่ตัดคอลัมน์ amount ออกไปแล้ว
+     เจอตอนทดสอบเดินทั้งกระบวนการจริง — เครื่องตรวจเดิมไม่เจอเพราะข้อมูลทดสอบไม่มีค่านี้ */
+  INTERNAL_DEAL_FIELDS: ['fingerprint'],
+
+  /** ตัดยอดเงินและฟิลด์ภายในออกจากรายการเดียว */
   scrubDeal: function (me, deal) {
-    if (me.money) return deal;
     var out = {};
     Object.keys(deal).forEach(function (k) {
-      if (Auth.MONEY_DEAL_FIELDS.indexOf(k) < 0) out[k] = deal[k];
+      if (Auth.INTERNAL_DEAL_FIELDS.indexOf(k) >= 0) return;
+      if (!me.money && Auth.MONEY_DEAL_FIELDS.indexOf(k) >= 0) return;
+      out[k] = deal[k];
     });
-    out._moneyHidden = true;
+    if (!me.money) out._moneyHidden = true;
     return out;
   },
 
