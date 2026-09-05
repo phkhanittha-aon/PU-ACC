@@ -159,7 +159,7 @@ const app = new Function(...names, src + `
             apiAdvanceStage, apiRequestPayment, apiApprovePayment, apiRecordPayment,
             apiUploadDoc, apiAddToPilot, apiSendFeedback, apiCheckPayment,
             apiRejectPayment, apiConfirmShortClose, apiPulse,
-            Repo, SHEETS, Intake, Auth,
+            Repo, SHEETS, Intake, Auth, ownerDeptOf,
             STAGES, DOCS, usersReport_, healthCheck};
 `)(...names.map(n => g[n]));
 
@@ -186,11 +186,12 @@ ck(before && !before.ok && before.code === 'NOT_REGISTERED',
 step.push('ยังไม่กรอกอีเมล — ระบบปฏิเสธพร้อมบอกวิธีแก้');
 
 /* ===== 3. หัวหน้าแผนกกรอกอีเมลทับแถวเทมเพลต (เหมือนพิมพ์ในชีตจริง) ===== */
-const U = {SR:'somchai@mglobalsourcing.net', QC:'somying@mglobalsourcing.net',
+const U = {SR:'somchai@mglobalsourcing.net',
+           SR_FD:'malee@mglobalsourcing.net', SR_MC:'ekachai@mglobalsourcing.net', QC:'somying@mglobalsourcing.net',
            LS:'anucha@mglobalsourcing.net', WH:'prasert@mglobalsourcing.net',
            AC_TH:'wipa@mglobalsourcing.net', AC_FN:'nid@mglobalsourcing.net',
            ACH:'aree@mglobalsourcing.net', GM:'gm@mglobalsourcing.net'};
-const NAME = {SR:'สมชาย', QC:'สมหญิง', LS:'อนุชา', WH:'ประเสริฐ',
+const NAME = {SR:'สมชาย', SR_FD:'มาลี', SR_MC:'เอกชัย', QC:'สมหญิง', LS:'อนุชา', WH:'ประเสริฐ',
               AC_TH:'วิภา', AC_FN:'นิด', ACH:'อารีย์', GM:'ผู้จัดการ'};
 const hdr = store['Users'][0];
 const cE = hdr.indexOf('email'), cN = hdr.indexOf('full_name'), cD = hdr.indexOf('dept');
@@ -266,14 +267,20 @@ const det = ok(as(U.SR, () => app.apiGetDeal(DEAL)), 'เปิดใบ (apiGet
 ck(det && det.inPilot === true, 'เพิ่มเข้าช่วงทดลองแล้วแต่ใบยังไม่ติดธง');
 ck(det && Number(det.stage) === 8, 'ใบไม่ได้เริ่มที่ขั้นจัดซื้อแนบ PO');
 
-/* ===== 7. จัดซื้อแนบ PO แล้วส่งต่อ ===== */
-const noDoc = as(U.SR, () => app.apiAdvanceStage(DEAL, ''));
+/* ===== 7. จัดซื้อแนบ PO แล้วส่งต่อ =====
+   ใบนี้เป็นสายอาหาร เจ้าของขั้นจึงเป็น Sourcing Food ไม่ใช่จัดซื้อทั่วไป
+   จัดซื้อทั่วไปดูเฉพาะรายการค่าใช้จ่าย (PO-O…) และทำแทนทีมย่อยไม่ได้ตามนโยบายที่ทีมกำหนด */
+const srOther = as(U.SR, () => app.apiAdvanceStage(DEAL, ''));
+ck(srOther && !srOther.ok && srOther.code === 'NOT_YOUR_STAGE',
+   'จัดซื้อทั่วไปเดินขั้นของใบสายอาหารได้ ทั้งที่ไม่ใช่งานของตัวเอง');
+
+const noDoc = as(U.SR_FD, () => app.apiAdvanceStage(DEAL, ''));
 ck(noDoc && !noDoc.ok && ['NEED_DOC', 'REQUIRED'].indexOf(noDoc.code) >= 0,
    'ส่งต่อได้ทั้งที่ยังไม่ได้แนบ PO และยังไม่ได้กรอกวันนัดส่ง (ต้องบังคับ)');
-ok(as(U.SR, () => app.apiUploadDoc(DEAL, 'PO_SIGNED', 'po.pdf', 'AAAA', 'application/pdf')),
+ok(as(U.SR_FD, () => app.apiUploadDoc(DEAL, 'PO_SIGNED', 'po.pdf', 'AAAA', 'application/pdf')),
    'แนบ PO');
-ok(as(U.SR, () => app.apiSaveHandoff(DEAL, {shipDate:'2026-09-01'})), 'กรอกวันนัดส่ง');
-const adv = ok(as(U.SR, () => app.apiAdvanceStage(DEAL, '')), 'ส่งต่อขั้นถัดไป');
+ok(as(U.SR_FD, () => app.apiSaveHandoff(DEAL, {shipDate:'2026-09-01'})), 'กรอกวันนัดส่ง');
+const adv = ok(as(U.SR_FD, () => app.apiAdvanceStage(DEAL, '')), 'ส่งต่อขั้นถัดไป');
 ck(adv && Number(adv.stage) === 9, 'ส่งต่อแล้วไม่ได้ไปขั้นจองรถ (ได้ ' + (adv && adv.stage) + ')');
 step.push('จัดซื้อแนบ PO + ส่งต่อ → ขั้น ' + app.STAGES[9].n);
 ck(larkSent.length > 0, 'ส่งต่อแล้วไม่มีการแจ้งเตือน Lark');
@@ -296,7 +303,8 @@ step.push('บัญชีสองฝั่งเปิดดูได้ · �
    ตรงนี้คือคำถามที่ทีมถาม: "ทำครบ process แล้วติดตรงไหน"
    เดินทีละขั้นด้วยบทบาทที่ถือขั้นนั้นจริง กรอกเฉพาะช่องที่ระบบขอ
    ขั้นไหนเดินไม่ผ่าน ให้บอกว่าติดที่ขั้นไหน เพราะอะไร */
-const DEPT_USER = {SR:U.SR, QC:U.QC, LS:U.LS, WH:U.WH, ACH:U.ACH, GM:U.GM,
+const DEPT_USER = {SR:U.SR, SR_FD:U.SR_FD, SR_MC:U.SR_MC,
+                   QC:U.QC, LS:U.LS, WH:U.WH, ACH:U.ACH, GM:U.GM,
                    AC:U.AC_TH, AC_FN:U.AC_FN, AC_TH:U.AC_TH};
 const SAMPLE = {text:'ทดสอบ', num:'1', date:'2026-09-15', time:'09:00'};
 const walked = [];
@@ -307,12 +315,10 @@ while (guard++ < 30) {
   if (String(cur.status) !== 'ACTIVE') break;
   const idx = Number(cur.stage);
   const want = app.Auth.CAN ? null : null;
-  const dept = (function () {
-    // แผนกที่ถือขั้นนี้จริง (บัญชีแยกสองฝั่งตามสกุลเงิน)
-    const st = app.STAGES[idx];
-    if (st.o !== 'AC') return st.o;
-    return String(cur.currency).toUpperCase() === 'THB' ? 'AC_TH' : 'AC_FN';
-  })();
+  /* ถามเจ้าของขั้นจากฟังก์ชันจริงของระบบ ไม่คำนวณเองซ้ำ
+     เดิมไฟล์นี้เขียนตรรกะแยกฝั่งบัญชีไว้เอง ซึ่งลอกมาไม่ครบ (ไม่รู้จักการแยกทีมจัดซื้อ)
+     ผลคือทดสอบเดินด้วยคนผิดแผนกแล้วยังผ่าน — เครื่องตรวจที่ลอกตรรกะมาเองจะตามของจริงไม่ทัน */
+  const dept = app.ownerDeptOf(idx, cur);
   const who = DEPT_USER[dept];
   if (!who) { bad.push('ขั้น ' + app.STAGES[idx].n + ' ไม่มีผู้ใช้ของแผนก ' + dept); break; }
 

@@ -115,9 +115,10 @@ SPLIT.forEach(([r, own, other, label]) => {
   if (mine.indexOf(own) < 0) bad.push(label + " ไม่เห็น " + own + " ในคิวของตัวเอง");
   if (mine.indexOf(other) >= 0) bad.push(label + " เห็น " + other + " ซึ่งเป็นงานของอีกทีมในคิวตัวเอง");
 });
-// หัวหน้างานต้องดูแทนได้ทั้งสองทีม ไม่งั้นวันที่ลูกทีมลาก็ไม่มีใครทำ
-[["SR", ["PO-26-0045", "PO-26-0070", "PO-O326070012"], "จัดซื้อทั่วไป"],
- ["AC", ["PO-26-0033", "PO-26-0029"], "หัวหน้าบัญชี"]].forEach(([r, pos, label]) => {
+/* บัญชีทำแทนสองฝั่งได้ (วันที่อีกฝั่งลา งานต้องเดินต่อ)
+   ส่วนจัดซื้อทั่วไป "ทำแทนไม่ได้" ตามที่ทีมกำหนด — เห็นเฉพาะรายการค่าใช้จ่ายของตัวเอง
+   ตรวจแยกกันเพราะเป็นคนละนโยบาย ไม่ใช่ลืมเขียน */
+[["AC", ["PO-26-0033", "PO-26-0029"], "บัญชี (ดูแทนได้ทั้งสองฝั่ง)"]].forEach(([r, pos, label]) => {
   click("data-role", { role: r });
   click("data-page", { page: "home" });
   const mine = myQueueHtml();
@@ -376,7 +377,7 @@ click("data-role", { role: "QC" });
 click("data-po", { po: "PO-26-0038" });
 
 /* ---------- SAP tab ---------- */
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-page", { page: "admin" });
 click("data-sub", { sub: "SAP" });
 d = nodes["#main"].innerHTML;
@@ -395,16 +396,16 @@ d = nodes["#main"].innerHTML;
 if (!/IC-26-0007/.test(d)) bad.push("ไม่ได้เปิดใบขอรหัสของ PO ที่กดมา");
 if (/undefined/.test(d)) bad.push("ใบขอรหัสมีช่องที่ไม่มีข้อมูล (undefined)");
 click("data-ic", { ic: "sap", id: "IC-26-0007" });
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-26-0051" });
 if (!/ดึงข้อมูล PO จาก SAP B1/.test(nodes["#main"].innerHTML))
   bad.push("ได้รหัสสินค้าจาก B1 แล้วแต่ PO ไม่เดินต่อไปขั้นผูก PO");
 
 /* ---------- ดึง PO จาก SAP แทนการพิมพ์เลขเอง ---------- */
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-26-0051" });
 click("data-ic", { ic: "sap", id: "IC-26-0007" });
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-26-0051" });
 if (!/ดึงข้อมูล PO จาก SAP B1/.test(nodes["#main"].innerHTML)) bad.push("ขั้นเปิด PO ไม่มีปุ่มดึงจาก SAP");
 click("data-act", { act: "sappull" });
@@ -414,7 +415,7 @@ if (!/DocNum 102/.test(nodes["#main"].innerHTML) && !/>102\d\d</.test(nodes["#ma
 
 
 /* ---------- ใบขอราคา -> ใบเสนอราคา -> PO (จุดที่ผู้ใช้แจ้งว่าดึงต่อกันไม่ได้) ---------- */
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-page", { page: "req" });
 click("data-sub", { sub: "PRICE" });
 d = nodes["#main"].innerHTML;
@@ -472,7 +473,7 @@ if (!/ไปที่ PO-26-/.test(d)) bad.push("ใบขอราคาที�
 if (/data-qact="add"/.test(d)) bad.push("ใบขอราคาที่แปลงเป็น PO แล้วยังเพิ่มใบเสนอราคาใหม่ได้");
 
 /* ================= 1. รายการซื้อเงินสด (ไม่มี PO) + ข้าม QC ================= */
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-page", { page: "po" });
 d = nodes["#main"].innerHTML;
 if (!/เพิ่มรายการซื้อเงินสด/.test(d)) bad.push("หน้า PO ไม่มีปุ่มเพิ่มรายการซื้อเงินสด");
@@ -528,7 +529,7 @@ if (!/รับเข้าคลัง/.test(d)) bad.push("รายการ�
 /* ================= 4. ป๊อปอัปแนบไฟล์ + หมายเหตุ ประจำขั้นตอน ================= */
 click("data-role", { role: "WH" });
 click("data-po", { po: "PO-26-0033" });   // ขั้นนี้ WH ไม่ได้ถือ — ใช้ PO ที่ WH ถืออยู่แทน
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-26-0038" });
 click("data-role", { role: "WH" });
 click("data-po", { po: "PO-26-0038" });   // stage 11 = รับเข้าคลัง + GR (เจ้าของ WH)
@@ -568,7 +569,7 @@ if (!/PO-26-0038_GR\.jpg/.test(d)) bad.push("แนบไฟล์แล้ว�
 if (!/ของมาไม่ครบ 5 KG/.test(d)) bad.push("หมายเหตุที่พิมพ์ในป๊อปอัปไม่ถูกเก็บ");
 
 /* ============ 4b. ขั้น SR ส่งขอทำจ่าย: ยอดเงิน + Effective date + ประทับข้อความ ============ */
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-26-0045" });   // stage 13 = ส่งมอบเอกสาร เจ้าของ SR
 d = nodes["#main"].innerHTML;
 if (!/ขออนุมัติทำจ่าย<\/button>/.test(d)) bad.push("ขั้นส่งมอบเอกสารไม่มีปุ่มขออนุมัติทำจ่าย");
@@ -716,7 +717,7 @@ if (!/ต้องเลือกเหตุผล/.test(formFields.rj_err.inne
 setFields({rj_why:"ยอดไม่ตรงกับใบแจ้งหนี้", rj_note:"ของรับจริง 340 KG"});
 formFields.rj_err = {innerHTML:""};
 click("data-rej", { rej: "send" });
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-26-0045" });
 d = nodes["#main"].innerHTML;
 if (!/ยอดไม่ตรงกับใบแจ้งหนี้/.test(d)) bad.push("ผู้ขอไม่เห็นเหตุผลที่ถูกตีกลับ");
@@ -778,7 +779,7 @@ if (!/80 KG/.test(d)) bad.push("บัญชีไม่เห็นจำนว
 if (!/40 KG/.test(d)) bad.push("บัญชีไม่เห็นจำนวนที่ QC ตีกลับ — เสี่ยงจ่ายเต็มจำนวน");
 
 // 5) ข้อมูลที่ขั้นก่อนหน้าไม่ได้ส่งมา ต้องเตือน + ถามกลับได้ในคลิกเดียว
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-page", { page: "req" });
 click("data-sub", { sub: "PRICE" });
 click("data-propen", { propen: "PR-26-0004" });
@@ -788,7 +789,7 @@ if (newPo) {
   click("data-po", { po: newPo });
   // เดินไปจนถึงขั้นจองรถ (LS) ซึ่งต้องใช้ "ผู้ขายนัดส่งของวันที่" จาก SR
   for (let i = 0; i < 8; i++) {
-    for (const r of ["SR","GM","LS"]) {
+    for (const r of ["SR_FD","GM","LS"]) {   // ใบสายอาหาร → Sourcing Food เป็นเจ้าของ
       click("data-role", { role: r });
       click("data-po", { po: newPo });
       if (/จองรถรับของ/.test(nodes["#main"].innerHTML) && r === "LS") { i = 99; break; }
@@ -837,7 +838,7 @@ if (/กดแล้วงานจะไปที่ <b>บัญชี/.test(d
 if (!/งานยังอยู่ที่คุณ/.test(d)) bad.push("ไม่ได้บอกว่าขั้นถัดไปยังเป็นของแผนกเดิม");
 
 // 9) ใบขอรหัสสินค้าต้องถูกเปิดให้อัตโนมัติจาก PO ไม่ใช่พาไปหน้าเปล่า
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-26-0051" });
 
 
@@ -867,7 +868,7 @@ setFields({up_file:"bill.jpg", up_note:"", up_none:false, hf_invNo:"BILL-7", hf_
 formFields.up_err={innerHTML:""}; formFields.up_named={textContent:""};
 click("data-act", { act: "done" });
 click("data-uact", { uact: "save" });
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "CS-26-0007" });
 d = nodes["#main"].innerHTML;
 if (/data-act="payreq"/.test(d))
@@ -877,7 +878,8 @@ if (!/จ่ายสดไปแล้ว/.test(d)) bad.push("ขั้นส�
 // เดินรายการเงินสดต่อจนปิด — กฎตรวจสอบเดิมบังคับ "ต้องผูกกับ PO ใน B1" ซึ่งเงินสดไม่มีตามนิยาม
 for (let i = 0; i < 6; i++) {
   let owner = null;
-  for (const r of ["SR","AC","WH","QC","LS","GM"]) {
+  // ไล่หาเจ้าของขั้นจากทุกบทบาทที่เป็นไปได้ — จัดซื้อแยกทีมแล้วจึงต้องมีทีมย่อยด้วย
+  for (const r of ["SR", "SR_FD", "SR_MC", "AC", "AC_TH", "WH", "QC", "LS", "GM"]) {
     click("data-role", { role: r });
     click("data-po", { po: "CS-26-0007" });
     if (/งานนี้อยู่ที่คุณ/.test(nodes["#main"].innerHTML)) { owner = r; break; }
@@ -907,7 +909,7 @@ if (/ยังไม่ได้ผูกกับ PO ใน B1/.test(d))
 /* ================= แยกบทบาทหัวหน้าบัญชี + แอปตรวจรับของ QC ================= */
 
 // คำขอไม่เกินวงเงินต้องไปหาหัวหน้าบัญชี ไม่ใช่คนที่บันทึกจ่าย
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-26-0038" });
 click("data-page", { page: "admin" });
 click("data-sub", { sub: "USERS" });
@@ -987,7 +989,7 @@ if (!/ผลรวมงวดจ่ายเท่ากับมูลค่�
   bad.push("แยกงวดแล้วยอดรวมไม่เท่ามูลค่า PO");
 
 // 3) สายที่สาม: ค่าใช้จ่ายที่ไม่มีของเข้าคลัง — ข้ามขั้น QC และคลัง
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-O326060001" });
 d = nodes["#main"].innerHTML;
 if (!/ค่าใช้จ่ายอื่น/.test(d)) bad.push("รายการค่าใช้จ่ายไม่ได้บอกว่าอยู่สายไหน");
@@ -1091,7 +1093,7 @@ if (!/ข้อค้างจากใบตรวจ/.test(d)) bad.push("บ�
 if (!/ล็อกการจ่ายไว้/.test(d)) bad.push("ใบตรวจผ่านแต่มีข้อค้าง — ไม่ได้ล็อกการจ่าย");
 if (/data-payact="req"/.test(d)) bad.push("มีข้อค้างค้างอยู่แต่ยังตั้งเรื่องขอจ่ายได้");
 
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-po", { po: "PO-26-0038" });
 if (!/data-qcdone="0"/.test(nodes["#main"].innerHTML))
   bad.push("จัดซื้อไม่มีปุ่มบันทึกว่าสรุปข้อค้างแล้ว");
@@ -1130,7 +1132,7 @@ if (!/P13/.test(formFields.py_err.innerHTML))
 
 // หน้าตั้งค่าต้องบอกว่า QC มีแอปตรวจรับอยู่แล้ว ไม่สร้างฟอร์มซ้ำ
 // (ดูด้วยบทบาทจัดซื้อ — QC เองไม่เห็นเมนูตั้งค่าแล้ว เพราะยอดเงินอยู่ในนั้น)
-click("data-role", { role: "SR" });
+click("data-role", { role: "SR_FD" });
 click("data-page", { page: "admin" });
 click("data-sub", { sub: "SAP" });
 d = nodes["#main"].innerHTML;
@@ -1292,6 +1294,18 @@ click("data-role", { role: "WH" });
 click("data-po", { po: "PO-26-0075" });
 if (nodes["#main"].innerHTML.indexOf("ชุดยึดแผง") < 0)
   bad.push("คลังเปิดใบหลายรายการแล้วไม่เห็นรายการสินค้า — รับของไม่ถูก");
+
+/* จัดซื้อทั่วไปเห็นเฉพาะงานของตัวเอง — สายค่าใช้จ่าย (PO-O…) เท่านั้น
+   ตรวจสองทาง: ต้องเห็นของตัวเอง และต้องไม่เห็นของทีมย่อยแม้แต่ใบเดียว */
+click("data-role", { role: "SR" });
+click("data-page", { page: "home" });
+const srOwn = myQueueHtml();
+if (srOwn.indexOf("PO-O326070012") < 0)
+  bad.push("จัดซื้อทั่วไปไม่เห็นรายการค่าใช้จ่ายของตัวเอง");
+["PO-26-0045", "PO-26-0070"].forEach(po => {
+  if (srOwn.indexOf(po) >= 0)
+    bad.push("จัดซื้อทั่วไปเห็น " + po + " ซึ่งเป็นงานของทีมย่อย — ต้องเห็นเฉพาะ PO-O");
+});
 
 if (leaks.length) {
   bad.push("ยอดเงินหลุดไปยังบทบาทที่ไม่มีสิทธิ์เห็น " + leaks.length + " จุด:");

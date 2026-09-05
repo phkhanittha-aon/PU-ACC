@@ -251,16 +251,21 @@ ck(api.ownerDeptOf(8, {deal_no: DEAL, module: 'FOOD'}) === 'SR_FD',
    'ใบสายอาหารไม่ได้ตกเป็นของSourcing Food');
 const wrongTeam = as(U.srFd, () => api.apiAdvanceStage(MECH, ''));
 ck(!wrongTeam.ok && wrongTeam.code === 'NOT_YOUR_STAGE',
-   'Sourcing Foodปิดขั้นของใบสายเครื่องจักรได้');
+   'Sourcing Food ปิดขั้นของใบสายเครื่องจักรได้');
 /* ต้องตรวจ "ทีมที่ถูกต้องทำได้" คู่กันเสมอ
    ถ้าตรวจแต่ด้านที่ต้องถูกปฏิเสธ ระบบที่ปฏิเสธทุกคนก็สอบผ่าน — และการแยกทีมจะกลายเป็นการล็อกงานทิ้ง */
 const rightTeam = as(U.srMc, () => api.apiAdvanceStage(MECH, ''));
 ck(rightTeam.ok || rightTeam.code !== 'NOT_YOUR_STAGE',
-   'Sourcing Mechปิดขั้นของใบสายเครื่องจักรตัวเองไม่ได้ — ' + (rightTeam.error || ''));
-// หัวหน้าจัดซื้อยังต้องทำแทนได้ ไม่งั้นวันที่ลูกทีมลาก็ไม่มีใครเดินงาน
-ck(api.deptCovers('SR', 'SR_MC') && api.deptCovers('SR', 'SR_FD'),
-   'หัวหน้าจัดซื้อทำแทนทีมย่อยไม่ได้');
-ck(!api.deptCovers('SR_FD', 'SR_MC'), 'Sourcing Foodทำงานของสายเครื่องจักรได้');
+   'Sourcing Mech ปิดขั้นของใบสายเครื่องจักรตัวเองไม่ได้ — ' + (rightTeam.error || ''));
+/* นโยบายการ "ทำแทน" ต่างกันสองแผนกโดยตั้งใจ ไม่ใช่ลืมเขียน
+     บัญชี  ทำแทนกันได้ — วันที่อีกฝั่งลา ต้องมีคนเดินงานต่อ ไม่งั้นการจ่ายค้างทั้งวัน
+     จัดซื้อ ทำแทนไม่ได้ — จัดซื้อทั่วไปดูเฉพาะรายการค่าใช้จ่าย (PO-O…) ของตัวเอง
+   คนละเรื่องกับการสืบทอด "สิทธิ์" ซึ่งยังต้องมีอยู่ (ตรวจในหมวดสิทธิ์ด้านล่าง) */
+ck(api.deptCovers('AC', 'AC_FN') && api.deptCovers('AC', 'AC_TH'),
+   'บัญชีทำแทนสองฝั่งไม่ได้ — วันที่มีคนลา งานจ่ายจะค้าง');
+ck(!api.deptCovers('SR', 'SR_MC') && !api.deptCovers('SR', 'SR_FD'),
+   'จัดซื้อทั่วไปยังทำแทนทีมย่อยได้ ทั้งที่ต้องดูเฉพาะงานของตัวเอง');
+ck(!api.deptCovers('SR_FD', 'SR_MC'), 'Sourcing Food ทำงานของสายเครื่องจักรได้');
 
 /* ================= 4. แยกหน้าที่เรื่องเงิน ================= */
 const req = as(U.sr, () => api.apiRequestPayment(DEAL, 1, {

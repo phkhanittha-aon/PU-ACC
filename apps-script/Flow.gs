@@ -63,12 +63,29 @@ function ownerDeptOf(stageIdx, deal) {
   return st.o;
 }
 
-/* คนที่ตั้งเป็น 'AC' หรือ 'SR' เฉย ๆ ทำงานได้ทั้งสองทีมย่อย
-   เผื่อทีมเล็กที่ยังไม่แยกคน และเผื่อวันที่ลูกทีมลาแล้วต้องมีคนทำแทน */
+/* ---------- วงศ์ของแผนก: สองเรื่องที่ต้องแยกกัน ----------
+   ตารางนี้เคยถูกใช้ทำสองหน้าที่พร้อมกัน จนแยกไม่ออกว่าอันไหนคืออันไหน
+
+   1) สืบทอด "สิทธิ์" (ลูก → แม่)  — ใช้ที่ Auth.require
+      Sourcing Food ทำทุกอย่างที่จัดซื้อทำได้ ไม่ต้องไล่เขียนชื่อทีมย่อยทุกบรรทัดในตารางสิทธิ์
+      ข้อนี้ต้องคงไว้เสมอ ไม่งั้นทีมย่อยเข้ามาแล้วทำอะไรไม่ได้เลย
+
+   2) "ทำแทน" ขั้นของทีมย่อย (แม่ → ลูก) — ใช้ที่ deptCovers
+      อันนี้เป็นนโยบาย ไม่ใช่โครงสร้าง และไม่เหมือนกันทุกแผนก */
 var DEPT_FAMILY = {AC_FN: 'AC', AC_TH: 'AC', SR_FD: 'SR', SR_MC: 'SR'};
+
+/* แผนกแม่ที่ "ทำแทนลูกได้"
+     AC  ทำแทนได้ — ทีมบัญชีสองฝั่งทำงานชุดเดียวกัน ต่างแค่สกุลเงิน
+                    วันที่อีกฝั่งลา ต้องมีคนเดินงานต่อได้ ไม่งั้นการจ่ายค้างทั้งวัน
+     SR  ทำแทนไม่ได้ — ตามที่ทีมกำหนด จัดซื้อทั่วไปดูเฉพาะงานของตัวเอง
+                    คือรายการค่าใช้จ่าย (PO-O…) ซึ่งไม่ใช่สายสินค้าของใคร
+                    ผลที่ตามมา: วัน Sourcing Food ลา ไม่มีใครเดินงานสายอาหารแทนได้
+                    ถ้าวันหนึ่งอยากให้ทำแทนได้ เพิ่ม SR ลงตารางนี้บรรทัดเดียวจบ */
+var COVERS_TEAMS = {AC: true};
+
 function deptCovers(meDept, wantDept) {
   if (meDept === wantDept) return true;
-  return DEPT_FAMILY[wantDept] === meDept;
+  return DEPT_FAMILY[wantDept] === meDept && COVERS_TEAMS[meDept] === true;
 }
 
 var PHASES = [
@@ -398,7 +415,8 @@ if (typeof module !== 'undefined' && module.exports) {
     DONE_PAY:DONE_PAY, BILLDOC:BILLDOC, WHT:WHT, UNKNOWN_TERM:UNKNOWN_TERM,
     modOf:modOf, handOf:handOf, needsOf:needsOf, moneyFieldKeys:moneyFieldKeys,
     isForeign:isForeign, ownerDeptOf:ownerDeptOf, deptCovers:deptCovers, LOCAL_CCY:LOCAL_CCY,
-    DEPT_FAMILY:DEPT_FAMILY, MOD_SR:MOD_SR, lineCountOf:lineCountOf,
+    DEPT_FAMILY:DEPT_FAMILY, COVERS_TEAMS:COVERS_TEAMS, MOD_SR:MOD_SR,
+    lineCountOf:lineCountOf,
     parseQty:parseQty, qtyDiff:qtyDiff,
     termPlan:termPlan, buildPayments:buildPayments, isLC:isLC, isDeposit:isDeposit,
     billKind:billKind, cashSkip:cashSkip, skipOf:skipOf, nextStage:nextStage

@@ -668,9 +668,16 @@
     return c ? LOCAL_CCY.indexOf(c) < 0 : false;    // ไม่รู้สกุลเงิน ถือเป็นในประเทศ
   };
   const MOD_SR = {FOOD:"SR_FD", MECH:"SR_MC"};   // OTHER = ค่าใช้จ่าย ไม่ใช่สายสินค้า → จัดซื้อกลาง
+  /* วงศ์ของแผนก ใช้สองเรื่องที่ต้องแยกกัน (ตรงกับ Flow.gs ของระบบจริง)
+       1) สืบทอดสิทธิ์ ลูก → แม่ : Sourcing Food ทำทุกอย่างที่จัดซื้อทำได้ — คงไว้เสมอ
+       2) ทำแทนขั้นของทีมย่อย แม่ → ลูก : เป็นนโยบาย ไม่เหมือนกันทุกแผนก */
   const DEPT_FAMILY = {AC_FN:"AC", AC_TH:"AC", SR_FD:"SR", SR_MC:"SR"};
-  // "ฉันครอบคลุมงานของแผนกนี้ไหม" — หัวหน้างานครอบทีมย่อยได้ แต่ทีมย่อยครอบข้ามกันไม่ได้
-  const covers = (me, want) => me === want || DEPT_FAMILY[want] === me;
+  /* AC ทำแทนได้ — สองฝั่งทำงานชุดเดียวกัน ต่างแค่สกุลเงิน วันที่อีกฝั่งลาต้องมีคนเดินต่อ
+     SR ทำแทนไม่ได้ — จัดซื้อทั่วไปดูเฉพาะรายการค่าใช้จ่าย (PO-O…) ของตัวเอง */
+  const COVERS_TEAMS = {AC:true};
+  // "ฉันครอบคลุมงานของแผนกนี้ไหม"
+  const covers = (me, want) =>
+    me === want || (DEPT_FAMILY[want] === me && COVERS_TEAMS[me] === true);
   const famOf = r => DEPT_FAMILY[r] || r;
   /* "ฉันอยู่ในวงศ์นี้ไหม" — ใช้กับสิทธิ์ที่เป็นของทั้งแผนก ไม่ได้ผูกกับใบใดใบหนึ่ง
      เช่น ปุ่มออกใบเคลมเป็นงานของจัดซื้อทั้งแผนก ไม่ว่าจะสายอาหารหรือเครื่องจักร */
@@ -1859,7 +1866,10 @@
 
   /* ข้อค้างจากใบตรวจที่ยังไม่สรุป — เดิมอยู่แต่ในไฟล์ PDF ท้ายใบ ไม่มีใครเห็น
      ใครสรุปได้: จัดซื้อ (คุยกับผู้ขาย) · QC (เรื่องคุณภาพ) · ผู้จัดการ */
+  /* ใครสรุปข้อค้างจากใบตรวจได้ — เทียบเป็น "วงศ์" ไม่ใช่ชื่อบทบาทตรง ๆ
+     ไม่งั้น Sourcing Food/Mech ซึ่งเป็นคนคุยกับผู้ขายจริงจะกดไม่ได้ */
   const CAN_CLOSE_QC = ["SR", "QC", "GM", "ACH"];
+  const canCloseQc = () => CAN_CLOSE_QC.indexOf(famOf(role)) >= 0;
   function qcOpenCard(p) {
     const items = p.qcOpen || [];
     if (!items.length) return "";
@@ -1879,7 +1889,7 @@
         '<dl class="kv"><dt>ผู้บันทึก</dt><dd>' + esc(x.by) + " · " + esc(x.at) + "</dd>" +
         (done ? "<dt>สรุปว่า</dt><dd>" + esc(x.closeWhy || "—") + " · โดย " + esc(x.closeBy) + "</dd>" : "") +
         "</dl>" +
-        (!done && CAN_CLOSE_QC.indexOf(role) >= 0 && isActive(p)
+        (!done && canCloseQc() && isActive(p)
           ? '<div class="fl2" style="justify-content:flex-start;gap:8px">' +
             '<input type="text" id="qc_why_' + i + '" placeholder="สรุปว่าอย่างไร เช่น ผู้ขายยอมเปลี่ยนกล่องให้ล็อตหน้า">' +
             '<button class="btn ok" data-qcdone="' + i + '">บันทึกว่าสรุปแล้ว</button></div>'
