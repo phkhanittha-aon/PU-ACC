@@ -225,6 +225,16 @@ var Notify = {
     } catch (e) { ErrorLog.write('Notify.payPaid', e); }
   },
 
+  /** ยอมรับของขาดแล้วปิดใบ — ต้องให้ทุกฝ่ายรู้ เพราะกระทบยอดที่จะจ่าย */
+  shortClose: function (dealNo, vr, why, me) {
+    try {
+      Lark.queue('', '[จบ PO ทั้งที่รับไม่ครบ] ' + dealNo,
+        'ขาด ' + Math.abs(vr.diff) + ' ' + vr.unit +
+        ' (' + Math.abs(vr.pct) + '%)\nผู้ยืนยัน: ' + me.name + ' (' + me.roleName + ')' +
+        '\nเหตุผล: ' + why + this.link_(dealNo), dealNo, 'warn');
+    } catch (e) { ErrorLog.write('Notify.shortClose', e); }
+  },
+
   dealClosed: function (dealNo) {
     try {
       Lark.queue('', '[ปิดรายการ] ' + dealNo,

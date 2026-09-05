@@ -158,7 +158,8 @@ const app = new Function(...names, src + `
   ; return {setupWorkspace, apiBoot, apiListDeals, apiGetDeal, apiSaveHandoff,
             apiAdvanceStage, apiRequestPayment, apiApprovePayment, apiRecordPayment,
             apiUploadDoc, apiAddToPilot, apiSendFeedback, apiCheckPayment,
-            apiRejectPayment, Repo, SHEETS, Intake, Auth,
+            apiRejectPayment, apiConfirmShortClose, apiPulse,
+            Repo, SHEETS, Intake, Auth,
             STAGES, DOCS, usersReport_, healthCheck};
 `)(...names.map(n => g[n]));
 
@@ -387,6 +388,86 @@ if (pays.length) {
   ck(rec.ok, 'บันทึกการจ่ายไม่ผ่าน: ' + (rec.error || ''));
   step.push('ตั้งเรื่อง(SR) → ตรวจ(บัญชี) → อนุมัติ(หัวหน้า) → บันทึกจ่าย(บัญชี) ครบสี่มือ');
 }
+
+/* ===== 12. ทวนสอบการตรวจยอดจ่าย และการรับของเกิน/ขาด ===== */
+const D2 = 'PO-M226050002';                 // ใบสกุล USD ยอด 420,000
+ok(as(U.SR, () => app.apiAddToPilot(D2, 'ทดสอบ')), 'เพิ่มใบที่สองเข้าช่วงทดลอง');
+const p2 = app.Repo.readAll(app.SHEETS.PAYMENTS).filter(x => x.deal_no === D2);
+// ใบนี้เงื่อนไข 30% advance + 70% L/C จึงมีสองงวด งวดที่สองเป็น LC
+ck(p2.length === 2, 'ใบสกุล USD ควรมี 2 งวด (ได้ ' + p2.length + ')');
+const lcRow = p2.filter(x => String(x.status) === 'LC')[0];
+ck(!!lcRow, 'ไม่มีงวดที่เป็น LC');
+if (lcRow) {
+  const lcTry = as(U.SR, () => app.apiRequestPayment(D2, Number(lcRow.seq), {
+    amount: 1000, billNo: 'X1'}));
+  ck(!lcTry.ok && lcTry.code === 'LC', 'ตั้งเบิกงวด LC ได้ ทั้งที่ธนาคารจ่ายเอง');
+}
+const dep = p2.filter(x => String(x.status) === 'PENDING')[0];
+if (dep) {
+  // ขอเกินยอดของงวด/ของใบ ต้องถูกปฏิเสธ
+  const over = as(U.SR, () => app.apiRequestPayment(D2, Number(dep.seq), {
+    amount: 9999999, billNo: 'PI-001'}));
+  ck(!over.ok && over.code === 'OVER_PO',
+     'ขอจ่ายเกินยอดคงเหลือของใบได้ (พิมพ์เลขเกินมาแล้วไม่มีอะไรทัก)');
+  // ขอเกินยอดในเอกสารเรียกเก็บ ต้องถูกปฏิเสธ
+  const overBill = as(U.SR, () => app.apiRequestPayment(D2, Number(dep.seq), {
+    amount: 126000, billNo: 'PI-001', billAmt: 100000}));
+  ck(!overBill.ok && overBill.code === 'OVER_BILL', 'ขอจ่ายเกินยอดในเอกสารเรียกเก็บได้');
+  const okReq = as(U.SR, () => app.apiRequestPayment(D2, Number(dep.seq), {
+    amount: 126000, billNo: 'PI-001', billAmt: 126000}));
+  ck(okReq.ok, 'ขอจ่ายตามยอดที่ถูกต้องไม่ผ่าน: ' + (okReq.error || ''));
+  step.push('เพดานยอดจ่าย: เกินยอดใบ · เกินยอดเอกสารเรียกเก็บ · งวด LC — กันได้ทั้งสามแบบ');
+}
+
+/* ===== 13. รับของไม่ครบ ต้องกดยืนยันก่อนปิดใบ ===== */
+const D3 = 'PO-F126050003';
+app.Repo.insert(app.SHEETS.DEALS, {
+  deal_no: D3, entry: 'PO', module: 'FOOD', supplier: 'ABC Foods', item: 'ปลาแซลมอน',
+  amount: 50000, currency: 'THB', payment_term: 'UNKNOWN', due_date: '2026-10-01',
+  stage: 16, status: 'ACTIVE', created_at: new Date()});
+app.Repo.insert(app.SHEETS.STAGES, {deal_no: D3, seq: 16, stage_code: 'AC_CLOSE',
+  owner_dept: 'AC', entered_at: new Date(), sla_hours: 48});
+app.Repo.insert(app.SHEETS.PILOT, {deal_no: D3, added_at: new Date(), added_by: U.SR});
+// QC บอกใบแจ้งหนี้ 500 KG แต่คลังรับเข้าจริง 470 KG
+app.Repo.insert(app.SHEETS.HANDOFF, {deal_no: D3, stage_code: 'QC_INCOMING',
+  payload_json: JSON.stringify({invQty: '500 KG', qtyOk: '470 KG'}), saved_at: new Date()});
+app.Repo.insert(app.SHEETS.HANDOFF, {deal_no: D3, stage_code: 'GR',
+  payload_json: JSON.stringify({qtyIn: '470 KG', grNo: 'GR-1'}), saved_at: new Date()});
+
+const closeShort = as(U.AC_TH, () => app.apiAdvanceStage(D3, ''));
+ck(!closeShort.ok && closeShort.code === 'QTY_SHORT',
+   'ปิดใบได้ทั้งที่รับของขาด 30 KG โดยไม่มีใครยืนยัน');
+const noWhy2 = as(U.AC_TH, () => app.apiConfirmShortClose(D3, ''));
+ck(!noWhy2.ok, 'ยืนยันจบ PO ได้โดยไม่ต้องเขียนเหตุผล');
+const conf = as(U.AC_TH, () => app.apiConfirmShortClose(D3,
+  'ผู้ขายส่งได้เท่านี้ ตกลงกันแล้วว่าไม่ส่งเพิ่ม จ่ายตามที่รับจริง'));
+ck(conf.ok, 'ยืนยันจบ PO ไม่ผ่าน: ' + (conf.error || ''));
+ck(conf.ok && Math.abs(conf.data.diff) === 30, 'คำนวณส่วนต่างผิด (ได้ ' +
+   (conf.ok ? conf.data.diff : '?') + ')');
+const closeNow = as(U.AC_TH, () => app.apiAdvanceStage(D3, ''));
+ck(closeNow.ok, 'ยืนยันแล้วยังปิดใบไม่ได้: ' + (closeNow.error || ''));
+step.push('รับของขาด 30 KG → ปิดไม่ได้จนกว่าจะยืนยันพร้อมเหตุผล → ปิดได้');
+
+/* ===== 14. นำเข้าซ้ำ — PO เดิมต้องไม่ขึ้นใหม่ และต้องบอกถ้ายอดเปลี่ยน ===== */
+const again2 = as(U.SR, () => { const me = app.Auth.me(); return app.Intake.run(me, rows); });
+ck(again2 && again2.created === 0, 'นำเข้าไฟล์เดิมซ้ำแล้วสร้างรายการใหม่ (ได้ ' +
+   (again2 && again2.created) + ')');
+ck(again2 && again2.inProgress.length > 0,
+   'ไม่ได้รายงานว่ามี PO ที่ดำเนินเอกสารไปแล้วถูกข้าม');
+const rowsChanged = rows.map(r => Object.assign({}, r, {Price: r.Price + 5000}));
+const chg = as(U.SR, () => { const me = app.Auth.me(); return app.Intake.run(me, rowsChanged); });
+ck(chg && chg.created === 0, 'ยอดเปลี่ยนแล้วสร้างใบใหม่ซ้ำ');
+ck(chg && chg.changed.length === 2,
+   'ไม่ได้เตือนว่ายอดใน SAP ไม่ตรงกับในระบบ (ได้ ' + (chg && chg.changed.length) + ')');
+step.push('นำเข้าซ้ำ: ไม่สร้างใบซ้ำ · บอกว่าใบไหนดำเนินการอยู่ · เตือนเมื่อยอดใน SAP เปลี่ยน');
+
+/* ===== 15. สถานะเรียลไทม์ ===== */
+const pulse1 = ok(as(U.SR, () => app.apiPulse()), 'ตรวจความเปลี่ยนแปลง');
+app.Repo.update(app.SHEETS.DEALS, 'deal_no', D3, {status: 'CANCELLED'});
+const pulse2 = ok(as(U.SR, () => app.apiPulse()), 'ตรวจความเปลี่ยนแปลงรอบสอง');
+ck(pulse1 && pulse2 && pulse1.sig !== pulse2.sig,
+   'ข้อมูลเปลี่ยนแล้วแต่ลายเซ็นสถานะไม่เปลี่ยน — หน้าจอจะไม่รู้ว่าต้องโหลดใหม่');
+step.push('ลายเซ็นสถานะเปลี่ยนเมื่อข้อมูลเปลี่ยน — หน้าจอรู้ได้ว่าต้องรีเฟรช');
 
 /* ---------- สรุป ---------- */
 console.log('เดินเส้นทางจริงตั้งแต่ติดตั้งจนใช้งาน');

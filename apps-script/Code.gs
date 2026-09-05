@@ -51,6 +51,32 @@ function apiBoot() {
   });
 }
 
+/**
+ * ลายเซ็นสถานะปัจจุบันของทั้งระบบ — ไว้ให้หน้าจอถามว่า "มีอะไรเปลี่ยนไหม"
+ * ส่งกลับแค่ค่าสั้น ๆ จึงถามบ่อยได้โดยไม่กินโควตา ต่างจากการดึงรายการทั้งหมด
+ */
+function apiPulse() {
+  return safely_('ตรวจความเปลี่ยนแปลง', function () {
+    Auth.me();
+    var sig = [];
+    Repo.readAll(SHEETS.DEALS).forEach(function (d) {
+      sig.push(d.deal_no + ':' + d.stage + ':' + d.status);
+    });
+    Repo.readAll(SHEETS.PAYMENTS).forEach(function (p) {
+      sig.push(p.deal_no + '/' + p.seq + ':' + p.status);
+    });
+    return {sig: String(sig.join('|')).length + '-' + sig.length + '-' +
+                 hash32_(sig.join('|')), at: Fmt.stamp(new Date())};
+  });
+}
+
+/** แฮชสั้น ๆ พอให้รู้ว่า "เปลี่ยนแล้ว" ไม่ได้ใช้เรื่องความปลอดภัย */
+function hash32_(s) {
+  var h = 0;
+  for (var i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+  return String(h);
+}
+
 function apiListDeals() {
   return safely_('ดึงรายการ', function () {
     var me = Auth.me();
@@ -167,6 +193,12 @@ function folder_(parent, name) {
 }
 
 /* ---------- ความเห็นจากผู้ใช้ ---------- */
+
+function apiConfirmShortClose(dealNo, reason) {
+  return safely_('ยืนยันจบ PO ทั้งที่รับไม่ครบ', function () {
+    return Domain.confirmShortClose(Auth.me(), String(dealNo), String(reason || ''));
+  });
+}
 
 function apiSendFeedback(data) {
   return safely_('ส่งความเห็น', function () {

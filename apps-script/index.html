@@ -436,6 +436,14 @@
     padding:14px 18px;color:var(--stop);margin-bottom:16px}
   .fail b{display:block;margin-bottom:4px}
   .busy{opacity:.55;pointer-events:none}
+  .stalebar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:58;
+    background:var(--gold-100);color:var(--gold-800);padding:10px 14px;border-radius:999px;
+    box-shadow:var(--sh-3);display:flex;align-items:center;gap:12px;font-size:13.5px;
+    max-width:92vw}
+  .var{display:inline-block;font-size:11px;padding:2px 9px;border-radius:999px;
+    font-family:var(--mono);margin-left:6px}
+  .var.short{background:var(--stop-bg);color:var(--stop)}
+  .var.over{background:var(--warn-bg);color:var(--warn)}
   .ro{background:var(--surface-2);color:var(--ink-2);border-radius:999px;padding:3px 10px;font-size:11px}
   .fldrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
   .modal{position:fixed;inset:0;background:rgba(30,27,22,.44);z-index:55;display:grid;
@@ -674,7 +682,38 @@ window.addEventListener('error', function (e) {
   }
 
   function loadDeals() {
-    call('apiListDeals', [], function (list) { DEALS = list; chrome(); render(); });
+    call('apiListDeals', [], function (list) { DEALS = list; chrome(); render(); startPulse(); });
+  }
+
+  /* สถานะเรียลไทม์ — ถามเซิร์ฟเวอร์เบา ๆ ว่ามีอะไรเปลี่ยนไหม
+     ไม่ดึงรายการทั้งหมดทุกรอบ เพราะจะกินโควตาและช้า
+     apiPulse คืนแค่ลายเซ็นสั้น ๆ เปลี่ยนเมื่อไหร่ค่อยบอกให้กดโหลดใหม่
+
+     จงใจไม่โหลดทับให้เอง — ผู้ใช้อาจกำลังกรอกฟอร์มค้างอยู่
+     โหลดทับแล้วสิ่งที่พิมพ์ไว้หายคือสิ่งที่ทำให้คนเลิกใช้ระบบ */
+  var lastSig = null, pulseTimer = null;
+  function startPulse() {
+    if (pulseTimer) return;
+    pulseTimer = setInterval(function () {
+      if (busy || document.hidden) return;
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (!res || !res.ok) return;
+          if (lastSig === null) { lastSig = res.data.sig; return; }
+          if (res.data.sig !== lastSig) { lastSig = res.data.sig; showStale(); }
+        })
+        .withFailureHandler(function () { /* เน็ตสะดุดชั่วคราว ไม่ต้องรบกวนผู้ใช้ */ })
+        .apiPulse();
+    }, 45000);
+  }
+  function showStale() {
+    if (document.getElementById('stalebar')) return;
+    var b = document.createElement('div');
+    b.id = 'stalebar';
+    b.className = 'stalebar';
+    b.innerHTML = 'มีคนอัปเดตข้อมูลระหว่างที่คุณเปิดหน้านี้อยู่ ' +
+      '<button class="btn pri" data-reload="1">โหลดใหม่</button>';
+    document.body.appendChild(b);
   }
 
   /* ---------- แถบบน ---------- */
@@ -837,6 +876,22 @@ window.addEventListener('error', function (e) {
         h += '<dt>' + esc(labelOf(k)) + '</dt><dd>' + esc(d.handoff[k]) + '</dd>';
       });
       h += '</dl></div>';
+    }
+
+    if (d.qtyVar && d.qtyVar.ok && !d.qtyVar.same) {
+      var vv = d.qtyVar;
+      h += '<div class="note ' + (vv.short ? 'bad' : 'warn') + '"><span>' +
+        '<b>จำนวนที่รับเข้าคลังไม่ตรงกับใบแจ้งหนี้</b> — รับจริง ' + esc(vv.actual) +
+        ' จาก ' + esc(vv.expected) + ' ' + esc(vv.unit) + ' (' +
+        (vv.short ? 'ขาด ' : 'เกิน ') + Math.abs(vv.diff) + ' ' + esc(vv.unit) +
+        ' / ' + Math.abs(vv.pct) + '%)' +
+        (d.short_note
+          ? '<br>ยืนยันจบ PO แล้วโดย ' + esc(d.short_closed_by) + ' — ' + esc(d.short_note)
+          : (vv.short && can('deal.closeshort')
+              ? '<br><button class="btn bad" data-short="1" style="margin-top:8px">' +
+                'ยืนยันจบ PO ทั้งที่รับไม่ครบ</button>'
+              : '')) +
+        '</span></div>';
     }
 
     if (mine && d.inPilot) h += stageCard(d, st);
@@ -1082,6 +1137,13 @@ window.addEventListener('error', function (e) {
       return;
     }
 
+    if (t.closest('[data-reload]')) {
+      var sb = document.getElementById('stalebar');
+      if (sb) sb.remove();
+      if (page === 'detail' && openNo) openDeal(openNo); else loadDeals();
+      return;
+    }
+
     if (t.closest('[data-fb]')) { openFeedback(); return; }
 
     var act = t.closest('[data-act]');
@@ -1089,6 +1151,25 @@ window.addEventListener('error', function (e) {
 
     var pay = t.closest('[data-pay]');
     if (pay && DETAIL) { doPay(pay.dataset.pay, Number(pay.dataset.seq)); return; }
+
+    if (t.closest('[data-short]') && DETAIL) {
+      modal('ยืนยันจบ PO ทั้งที่รับของไม่ครบ',
+        row('รับจริง', DETAIL.qtyVar.actual + ' ' + DETAIL.qtyVar.unit) +
+        row('ตามใบแจ้งหนี้', DETAIL.qtyVar.expected + ' ' + DETAIL.qtyVar.unit) +
+        row('ขาดไป', Math.abs(DETAIL.qtyVar.diff) + ' ' + DETAIL.qtyVar.unit) +
+        '<div class="fld"><label class="lbl">เหตุผล <span class="req">*</span></label>' +
+        '<textarea id="sc_why" rows="3" style="border:1px solid var(--line-2);' +
+        'border-radius:var(--r-sm);padding:9px 12px;font:inherit;width:100%" ' +
+        'placeholder="เช่น ผู้ขายส่งได้เท่านี้ ตกลงกันแล้วว่าไม่ส่งเพิ่ม"></textarea></div>' +
+        '<div class="note warn"><span>นี่คือการยอมรับของที่ขาด ' +
+        'ชื่อคุณและเหตุผลจะถูกบันทึกถาวร และแจ้งเข้ากลุ่ม Lark</span></div>',
+        function () {
+          call('apiConfirmShortClose', [openNo, val('sc_why')], function () {
+            closeModal(); toast('ยืนยันแล้ว ปิดใบต่อได้'); openDeal(openNo);
+          });
+        }, 'ยืนยันจบ PO');
+      return;
+    }
 
     var up = t.closest('[data-up]');
     if (up && DETAIL) { doUpload(up.dataset.up); return; }

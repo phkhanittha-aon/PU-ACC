@@ -83,6 +83,8 @@ var Domain = {
     out.stageLog = stages;
     out.history = hist;
     out.inPilot = this.pilotSet_()[String(dealNo)] === true;
+    // ส่วนต่างจำนวนของ — ให้หน้าจอแสดงได้โดยไม่ต้องคำนวณเอง (กติกาอยู่ที่เซิร์ฟเวอร์ที่เดียว)
+    out.qtyVar = this.qtyVarianceOf_(dealNo);
     return out;
   },
 
@@ -188,6 +190,18 @@ var Domain = {
             lack.map(function (x) { return x.n; }).join(' · '));
       }
 
+      /* รับของไม่ครบแล้วจะปิดใบ ต้องมีคนกดยืนยันพร้อมเหตุผลก่อน
+         ปิดเงียบ ๆ ทั้งที่ของขาด แปลว่าจ่ายเต็มให้ของที่ไม่ได้รับเต็ม
+         และไม่มีร่องรอยว่าใครเป็นคนตัดสินใจ */
+      if (st.c === 'AC_CLOSE') {
+        var vr = self.qtyVarianceOf_(dealNo);
+        if (vr.ok && vr.short && !String(d.short_closed_by || '').trim())
+          throw AppError('QTY_SHORT',
+            'รับของไม่ครบ — ได้ ' + vr.actual + ' จาก ' + vr.expected + ' ' + vr.unit +
+            ' (ขาด ' + Math.abs(vr.diff) + ' ' + vr.unit + ' / ' + Math.abs(vr.pct) + '%)\n' +
+            'ต้องกดยืนยันจบ PO พร้อมระบุเหตุผลก่อน จึงจะปิดใบได้');
+      }
+
       var nxt = nextStage(d);
       var now = new Date();
 
@@ -256,7 +270,9 @@ var Domain = {
       if (!String(data.billNo || '').trim())
         throw AppError('NEED_BILL', 'ต้องระบุเลขเอกสารเรียกเก็บของงวดนี้');
 
-      // จ่ายซ้ำด้วยใบเรียกเก็บใบเดิม — ตรวจที่เซิร์ฟเวอร์เพราะเป็นเรื่องเงิน
+      /* จ่ายซ้ำด้วยใบเรียกเก็บใบเดิม — ตรวจที่เซิร์ฟเวอร์เพราะเป็นเรื่องเงิน
+         ตรวจก่อนเพดานยอด เพราะใบซ้ำมักทำให้ยอดคงเหลือหมดไปแล้วด้วย
+         ถ้าตอบว่า "เกินยอดคงเหลือ" คนกรอกจะไปแก้ยอดให้น้อยลง แทนที่จะรู้ว่าหยิบใบผิด */
       var dupe = Repo.where(SHEETS.PAYMENTS, function (x) {
         return String(x.deal_no).trim() === String(dealNo).trim() &&
                Number(x.seq) !== Number(seq) &&
@@ -267,6 +283,20 @@ var Domain = {
       if (dupe.length)
         throw AppError('DUP_BILL',
           'เอกสาร ' + data.billNo + ' ถูกใช้ตั้งเบิกในงวดที่ ' + dupe[0].seq + ' แล้ว');
+
+      /* เพดานที่ 1 — ยอดคงเหลือของใบนี้
+         พิมพ์เลขศูนย์เกินมาตัวเดียวแล้วไม่มีอะไรทัก คือวิธีที่เงินออกเกิน
+         ตัวอย่างที่ใช้นำเสนอมีการตรวจข้อนี้ (S2) แต่ตอนย้ายมาระบบจริงตกหล่นไป */
+      var remain = self.remainOf_(dealNo, seq);
+      if (amt > remain + 1)
+        throw AppError('OVER_PO',
+          'ยอดที่ขอ ' + Num.money(amt) + ' เกินยอดคงเหลือของใบนี้ (' + Num.money(remain) + ')');
+
+      /* เพดานที่ 2 — ยอดในเอกสารเรียกเก็บของงวดนั้น (S11) */
+      var bamt = Num.parse(data.billAmt);
+      if (bamt !== null && bamt > 0 && amt > bamt + 1)
+        throw AppError('OVER_BILL',
+          'ยอดที่ขอ ' + Num.money(amt) + ' เกินยอดในเอกสารเรียกเก็บ (' + Num.money(bamt) + ')');
 
       // ส่งใหม่ให้ใช้เลขคำขอเดิม จะได้ตามเรื่องเดียวกันต่อได้ ไม่ใช่เรื่องใหม่
       var reqNo = isResubmit && p.req_no ? String(p.req_no)
@@ -422,6 +452,43 @@ var Domain = {
     });
   },
 
+  /** ยอดคงเหลือของใบ = มูลค่าใบ − งวดอื่นที่กันไว้แล้ว (ขอ/ตรวจ/อนุมัติ/จ่าย/LC) */
+  remainOf_: function (dealNo, exceptSeq) {
+    var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo) || {};
+    var total = Num.parse(d.amount) || 0;
+    var used = 0;
+    Repo.where(SHEETS.PAYMENTS, function (x) {
+      return String(x.deal_no).trim() === String(dealNo).trim();
+    }).forEach(function (x) {
+      if (Number(x.seq) === Number(exceptSeq)) return;
+      if (['VOID', 'CANCELLED', 'REJECTED', 'PENDING'].indexOf(String(x.status)) >= 0) return;
+      used += Num.parse(x.status === 'PAID' ? (x.paid_amt || x.amount) : x.amount) || 0;
+    });
+    return Math.round((total - used) * 100) / 100;
+  },
+
+  /** ค่าที่ทุกขั้นส่งต่อกันมา รวมเป็นก้อนเดียว (ไม่ตัดอะไรออก — ใช้ภายในเท่านั้น) */
+  handoffAll_: function (dealNo) {
+    var flat = {};
+    Repo.where(SHEETS.HANDOFF, function (h) {
+      return String(h.deal_no).trim() === String(dealNo).trim();
+    }).forEach(function (h) {
+      var o = Json.parse(h.payload_json, {});
+      Object.keys(o).forEach(function (k) { flat[k] = o[k]; });
+    });
+    return flat;
+  },
+
+  /**
+   * ส่วนต่างจำนวนของใบนี้ — เทียบจำนวนที่รับเข้าคลังจริงกับจำนวนตามใบแจ้งหนี้
+   * ฝั่งอาหารรับเกินรับขาดได้เป็นปกติ ระบบไม่ตัดสินว่าผิด แต่ต้องทำให้เห็น
+   */
+  qtyVarianceOf_: function (dealNo) {
+    var h = this.handoffAll_(dealNo);
+    if (!h.qtyIn || !h.invQty) return {ok: false, why: 'ยังไม่มีจำนวนให้เทียบ'};
+    return qtyDiff(h.qtyIn, h.invQty);
+  },
+
   payment_: function (dealNo, seq) {
     var hit = Repo.where(SHEETS.PAYMENTS, function (x) {
       return String(x.deal_no).trim() === String(dealNo).trim() &&
@@ -429,6 +496,39 @@ var Domain = {
     });
     if (!hit.length) throw AppError('NOT_FOUND', 'ไม่พบงวดที่ ' + seq + ' ของ ' + dealNo);
     return hit[0];
+  },
+
+  /**
+   * ยืนยันจบ PO ทั้งที่รับของไม่ครบ
+   * ใช้เมื่อผู้ขายส่งไม่ครบแล้วตกลงกันว่าไม่ส่งเพิ่ม — ปิดใบไปเลย
+   * บังคับเขียนเหตุผลและจดชื่อคนตัดสินใจ เพราะนี่คือการยอมรับของที่ขาด
+   */
+  confirmShortClose: function (me, dealNo, reason) {
+    Auth.require(me, 'deal.closeshort');
+    var self = this;
+    var why = String(reason || '').trim();
+    if (why.length < 5)
+      throw AppError('NEED_REASON',
+        'ต้องเขียนเหตุผลที่จบ PO ทั้งที่รับไม่ครบ อย่างน้อย 5 ตัวอักษร');
+    return withLock_(function () {
+      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
+      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      self.assertEditable_(d);
+      var vr = self.qtyVarianceOf_(dealNo);
+      if (!vr.ok)
+        throw AppError('NO_VARIANCE', 'เทียบจำนวนไม่ได้: ' + vr.why);
+      if (!vr.short)
+        throw AppError('NOT_SHORT', 'ใบนี้ไม่ได้รับของขาด ไม่ต้องยืนยัน');
+
+      var r = Repo.update(SHEETS.DEALS, 'deal_no', dealNo, {
+        short_closed_by: me.email, short_closed_at: new Date(),
+        short_note: why, short_qty: vr.diff + ' ' + vr.unit
+      });
+      History.log(me.email, 'ยืนยันจบ PO ทั้งที่รับของขาด ' +
+        Math.abs(vr.diff) + ' ' + vr.unit + ' — ' + why, 'Deals', dealNo, r.before, r.after);
+      Notify.shortClose(dealNo, vr, why, me);
+      return {ok: true, diff: vr.diff, unit: vr.unit};
+    });
   },
 
   /* ---------- ความเห็นจากผู้ใช้ — หัวใจของช่วงทดลอง ---------- */

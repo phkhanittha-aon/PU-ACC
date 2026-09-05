@@ -284,6 +284,44 @@ var WHT = {
   ADS:    {t:'ค่าโฆษณา', r:2}
 };
 
+/* ---------- จำนวนของ: รับเกิน รับขาด ----------
+   ฝั่งอาหารรับของเกินหรือขาดจากที่สั่งได้เป็นเรื่องปกติ (ชั่งจริงไม่เท่าที่สั่ง)
+   ระบบจึงต้อง "เห็นส่วนต่าง" ไม่ใช่รับค่าอะไรก็ได้แล้วเงียบ
+
+   จำนวนที่คนกรอกมาเป็นข้อความปนหน่วย เช่น "500 KG" · "1,200.5 kg" · "6 SET"
+   จึงต้องแยกตัวเลขกับหน่วยออกจากกัน แล้วเทียบเฉพาะเมื่อหน่วยตรงกัน
+   หน่วยไม่ตรงกันแปลว่าเทียบไม่ได้ ต้องบอกว่าเทียบไม่ได้ ไม่ใช่เดาแล้วคำนวณผิด */
+function parseQty(v) {
+  var s = String(v == null ? '' : v).replace(/\u00A0/g, ' ').trim();
+  if (!s) return null;
+  var m = s.match(/^([0-9,]+(?:\.[0-9]+)?)\s*(.*)$/);
+  if (!m) return null;
+  var n = Number(m[1].replace(/,/g, ''));
+  if (!isFinite(n)) return null;
+  return {n: n, unit: String(m[2] || '').trim().toUpperCase()};
+}
+
+/**
+ * เทียบจำนวนสองค่า — คืนส่วนต่างพร้อมบอกว่าเทียบได้หรือไม่
+ *   {ok:false, why:...}                      เทียบไม่ได้ (อ่านไม่ออก/หน่วยต่างกัน)
+ *   {ok:true, diff, pct, short, over, same}  เทียบได้
+ */
+function qtyDiff(actual, expected) {
+  var a = parseQty(actual), e = parseQty(expected);
+  if (!a || !e) return {ok: false, why: 'อ่านจำนวนไม่ออก'};
+  if (a.unit && e.unit && a.unit !== e.unit)
+    return {ok: false, why: 'หน่วยไม่ตรงกัน (' + a.unit + ' กับ ' + e.unit + ')'};
+  var diff = Math.round((a.n - e.n) * 1e6) / 1e6;
+  return {
+    ok: true, actual: a.n, expected: e.n, unit: a.unit || e.unit, diff: diff,
+    pct: e.n ? Math.round(diff / e.n * 1000) / 10 : 0,
+    short: diff < 0, over: diff > 0, same: diff === 0
+  };
+}
+
+/* ยอมรับส่วนต่างได้กี่ % ก่อนถือว่าต้องมีคนตัดสินใจ — ปรับได้ในแท็บ Config */
+var QTY_TOLERANCE_PCT = 0;
+
 /* รายการเงินสดไม่มีขั้นตอนจัดซื้อ (0–9) และข้าม QC ได้เมื่อระบุเหตุผล + ผู้อนุมัติ */
 function cashSkip(bypassQC) {
   return bypassQC ? [0,1,2,3,4,5,6,7,8,9,10] : [0,1,2,3,4,5,6,7,8,9];
@@ -312,6 +350,7 @@ if (typeof module !== 'undefined' && module.exports) {
     DONE_PAY:DONE_PAY, BILLDOC:BILLDOC, WHT:WHT, UNKNOWN_TERM:UNKNOWN_TERM,
     modOf:modOf, handOf:handOf, needsOf:needsOf, moneyFieldKeys:moneyFieldKeys,
     isForeign:isForeign, ownerDeptOf:ownerDeptOf, deptCovers:deptCovers, LOCAL_CCY:LOCAL_CCY,
+    parseQty:parseQty, qtyDiff:qtyDiff,
     termPlan:termPlan, buildPayments:buildPayments, isLC:isLC, isDeposit:isDeposit,
     billKind:billKind, cashSkip:cashSkip, skipOf:skipOf, nextStage:nextStage
   };

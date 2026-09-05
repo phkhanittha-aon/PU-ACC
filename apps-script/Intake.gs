@@ -33,6 +33,15 @@ function importFromCosting() {
     (src.problems.length ? '\n\nหมายเหตุจากไฟล์:\n' + src.problems.join('\n') : '') +
     '\n\nรายการใหม่เริ่มที่ขั้น "' + STAGES[d.startStage].n + '" — เจ้าของขั้นคือ' +
     ROLES[STAGES[d.startStage].o].name + '\n' +
+    (d.changed.length
+      ? '\n⚠ PO ที่มีอยู่แล้วแต่ยอดในไฟล์ไม่ตรงกับในระบบ ' + d.changed.length + ' ใบ:\n' +
+        d.changed.slice(0, 10).map(function (x) { return '   · ' + x; }).join('\n') +
+        '\n   ระบบไม่แก้ยอดให้เอง — ตรวจกับ SAP แล้วแก้ในแท็บ Deals เองถ้าจำเป็น\n'
+      : '') +
+    (d.inProgress.length
+      ? '\n· PO ที่ข้ามเพราะดำเนินเอกสารไปแล้ว ' + d.inProgress.length + ' ใบ:\n' +
+        d.inProgress.slice(0, 10).map(function (x) { return '   · ' + x; }).join('\n') + '\n'
+      : '') +
     (Object.keys(d.noOwner).length
       ? '\n⚠ กลุ่มที่ยังไม่ได้ระบุเจ้าของงานในแท็บ Assignments:\n' +
         Object.keys(d.noOwner).map(function (g) {
@@ -84,8 +93,9 @@ var Intake = {
       var have = {}, haveNo = {};
       Repo.readAll(SHEETS.DEALS).forEach(function (d) {
         if (d.fingerprint) have[String(d.fingerprint)] = true;
-        haveNo[String(d.deal_no).trim()] = true;
+        haveNo[String(d.deal_no).trim()] = d;      // เก็บใบเดิมไว้เทียบ ไม่ใช่แค่ true
       });
+      var changed = [], inProgress = [];
 
       var created = 0, skipped = 0, problems = [];
       var newDeals = [], newPays = [], newStages = [];
@@ -95,7 +105,6 @@ var Intake = {
         var fp = fingerprint_(r);
         var no = String(r['PO Number'] || '').trim();
         if (!no) { problems.push('(ไม่มีเลข PO) ' + (r.Supplier || '')); return; }
-        if (have[fp] || haveNo[no]) { skipped++; return; }
 
         var amt = Num.parse(r.Price);
         if (amt === null) {
@@ -103,6 +112,24 @@ var Intake = {
           problems.push(no + ': อ่านยอดเงินไม่ได้ ("' + r.Price + '")');
           return;
         }
+
+        /* PO ที่อยู่ในระบบแล้วต้องไม่ขึ้นซ้ำ — แต่ต้องบอกว่าทำไมถึงข้าม
+           กรณีอันตรายคือ SAP ส่งไฟล์ใหม่ที่ยอดของ PO เดิม *เปลี่ยนไป*
+           ลายนิ้วมือจะไม่ตรงแต่เลข PO ตรง ถ้าข้ามเงียบ ๆ ระบบจะยังถือยอดเก่า
+           แล้วตั้งเบิกตามยอดที่ไม่ตรงกับ SAP โดยไม่มีใครรู้
+           (ต้องอยู่หลังอ่านยอด ไม่งั้นเทียบกับค่าที่ยังไม่มี) */
+        var prev = haveNo[no];
+        if (prev) {
+          var prevAmt = Num.parse(prev.amount);
+          if (prevAmt !== null && Math.abs(prevAmt - amt) > 0.5)
+            changed.push(no + ': ในระบบ ' + Num.money(prevAmt) + ' · ในไฟล์ ' + Num.money(amt));
+          if (String(prev.status) === 'ACTIVE')
+            inProgress.push(no + ' — ค้างที่ขั้น ' +
+              ((STAGES[Number(prev.stage)] || {}).n || prev.stage));
+          skipped++;
+          return;
+        }
+        if (have[fp]) { skipped++; return; }
 
         var mod = r._module || 'FOOD';
         var term = r['PO Payment Term'] || 'UNKNOWN';
@@ -143,7 +170,8 @@ var Intake = {
           {supplier: d.supplier, term: d.term_name});
       });
       return {created: created, skipped: skipped, problems: problems,
-              startStage: startStage, skippedDocs: skippedDocs, noOwner: noOwner};
+              startStage: startStage, skippedDocs: skippedDocs, noOwner: noOwner,
+              changed: changed, inProgress: inProgress};
     });
   }
 };
