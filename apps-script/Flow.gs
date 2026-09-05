@@ -16,10 +16,11 @@
 /* ---------- แผนกและบทบาท ---------- */
 var ROLES = {
   /* จัดซื้อแยกตามสายสินค้าเหมือนที่ทีมทำงานจริง — อาหารกับเครื่องจักรคนละคน
-     SR (ไม่มีคำต่อท้าย) หมายถึงหัวหน้าจัดซื้อที่ดูแทนได้ทั้งสองสาย */
-  SR:    {name:'จัดซื้อ',            en:'Sourcing',      money:true, lvl:'staff', mgr:'GM'},
-  SR_FD: {name:'จัดซื้ออาหาร',       en:'Sourcing Food', money:true, lvl:'staff', mgr:'GM'},
-  SR_MC: {name:'จัดซื้อเครื่องจักร', en:'Sourcing Mech', money:true, lvl:'staff', mgr:'GM'},
+     SR (ไม่มีคำต่อท้าย) = จัดซื้อทั่วไป ดูแทนได้ทั้งสองสาย
+     และเป็นเจ้าของรายการค่าใช้จ่าย (PO-O…) ซึ่งไม่ใช่สายสินค้าของใคร */
+  SR:    {name:'จัดซื้อทั่วไป',  en:'Sourcing',      money:true, lvl:'staff', mgr:'GM'},
+  SR_FD: {name:'Sourcing Food',  en:'Sourcing Food', money:true, lvl:'staff', mgr:'GM'},
+  SR_MC: {name:'Sourcing Mech',  en:'Sourcing Mech', money:true, lvl:'staff', mgr:'GM'},
   QC:  {name:'QC',            en:'Quality',    money:false, lvl:'staff', mgr:'GM'},
   LS:  {name:'โลจิสติกส์',    en:'Logistics',  money:false, lvl:'staff', mgr:'GM'},
   WH:  {name:'คลังสินค้า',    en:'Warehouse',  money:false, lvl:'staff', mgr:'GM'},

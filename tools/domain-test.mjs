@@ -246,21 +246,21 @@ api.Repo.insert(api.SHEETS.DEALS, {
 });
 api.Repo.insert(api.SHEETS.PILOT, { deal_no: MECH, added_by: U.gm, added_at: new Date() });
 ck(api.ownerDeptOf(8, {deal_no: MECH, module: 'MECH'}) === 'SR_MC',
-   'ใบสายเครื่องจักรไม่ได้ตกเป็นของจัดซื้อเครื่องจักร');
+   'ใบสายเครื่องจักรไม่ได้ตกเป็นของSourcing Mech');
 ck(api.ownerDeptOf(8, {deal_no: DEAL, module: 'FOOD'}) === 'SR_FD',
-   'ใบสายอาหารไม่ได้ตกเป็นของจัดซื้ออาหาร');
+   'ใบสายอาหารไม่ได้ตกเป็นของSourcing Food');
 const wrongTeam = as(U.srFd, () => api.apiAdvanceStage(MECH, ''));
 ck(!wrongTeam.ok && wrongTeam.code === 'NOT_YOUR_STAGE',
-   'จัดซื้ออาหารปิดขั้นของใบสายเครื่องจักรได้');
+   'Sourcing Foodปิดขั้นของใบสายเครื่องจักรได้');
 /* ต้องตรวจ "ทีมที่ถูกต้องทำได้" คู่กันเสมอ
    ถ้าตรวจแต่ด้านที่ต้องถูกปฏิเสธ ระบบที่ปฏิเสธทุกคนก็สอบผ่าน — และการแยกทีมจะกลายเป็นการล็อกงานทิ้ง */
 const rightTeam = as(U.srMc, () => api.apiAdvanceStage(MECH, ''));
 ck(rightTeam.ok || rightTeam.code !== 'NOT_YOUR_STAGE',
-   'จัดซื้อเครื่องจักรปิดขั้นของใบสายเครื่องจักรตัวเองไม่ได้ — ' + (rightTeam.error || ''));
+   'Sourcing Mechปิดขั้นของใบสายเครื่องจักรตัวเองไม่ได้ — ' + (rightTeam.error || ''));
 // หัวหน้าจัดซื้อยังต้องทำแทนได้ ไม่งั้นวันที่ลูกทีมลาก็ไม่มีใครเดินงาน
 ck(api.deptCovers('SR', 'SR_MC') && api.deptCovers('SR', 'SR_FD'),
    'หัวหน้าจัดซื้อทำแทนทีมย่อยไม่ได้');
-ck(!api.deptCovers('SR_FD', 'SR_MC'), 'จัดซื้ออาหารทำงานของสายเครื่องจักรได้');
+ck(!api.deptCovers('SR_FD', 'SR_MC'), 'Sourcing Foodทำงานของสายเครื่องจักรได้');
 
 /* ================= 4. แยกหน้าที่เรื่องเงิน ================= */
 const req = as(U.sr, () => api.apiRequestPayment(DEAL, 1, {
@@ -509,16 +509,16 @@ const allowed = (dept, cmd) => {
   ck(allowed(d, 'get'),        n + ' เปิดดูใบไม่ได้');
   ck(F.ROLES[d] && F.ROLES[d].money === true, n + ' ต้องเห็นยอดเงิน');
 });
-[['SR_FD', 'จัดซื้ออาหาร'], ['SR_MC', 'จัดซื้อเครื่องจักร']].forEach(([d, n]) => {
+[['SR_FD', 'Sourcing Food'], ['SR_MC', 'Sourcing Mech']].forEach(([d, n]) => {
   ck(allowed(d, 'pay.request'), n + ' ตั้งเรื่องขอจ่ายไม่ได้');
   ck(allowed(d, 'doc.upload'),  n + ' แนบเอกสารไม่ได้');
   ck(allowed(d, 'get'),         n + ' เปิดดูใบไม่ได้');
   ck(F.ROLES[d] && F.ROLES[d].money === true, n + ' ต้องเห็นยอดเงิน');
 });
 // สิทธิ์ตามวงศ์ต้องไม่กลายเป็นประตูเปิดกว้าง — ทีมย่อยห้ามได้สิทธิ์ที่แผนกแม่ก็ไม่มี
-ck(!allowed('SR_FD', 'pay.approve'), 'จัดซื้ออาหารอนุมัติจ่ายได้ ทั้งที่จัดซื้อไม่มีสิทธิ์นั้น');
+ck(!allowed('SR_FD', 'pay.approve'), 'Sourcing Foodอนุมัติจ่ายได้ ทั้งที่จัดซื้อไม่มีสิทธิ์นั้น');
 ck(!allowed('AC_FN', 'pay.approve'), 'บัญชีต่างประเทศอนุมัติจ่ายเองได้');
-ck(!allowed('SR_MC', 'admin.users'), 'จัดซื้อเครื่องจักรแก้ตารางผู้ใช้ได้');
+ck(!allowed('SR_MC', 'admin.users'), 'Sourcing Mechแก้ตารางผู้ใช้ได้');
 ck(!allowed('QC', 'pay.request'),    'QC ตั้งเรื่องขอจ่ายได้');
 
 /* ================= 16. ค่าที่ส่งข้ามไปหน้าจอต้องแปลงได้จริง =================
