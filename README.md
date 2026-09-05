@@ -1,125 +1,120 @@
-# PU-ACC — Procure-to-Pay ERP on Google Workspace
+# MGS Document Center — ระบบรวมเอกสารและติดตามสถานะ จัดซื้อ → บัญชี
 
-Lightweight internal ERP connecting **Purchasing → Warehouse (GR) → Quality Control → Accounting**,
-with Google Sheets as the database and Google Drive as the document repository.
+ระบบเว็บภายในสำหรับ **รวมเอกสาร ติดตามสถานะ และแจ้งเตือนข้ามแผนก** ในกระบวนการจัดซื้อจนถึงบันทึกบัญชี
+เชื่อม 5 แผนก: **Sourcing (SR) · QC · Logistics (LS) · Warehouse (WH) · Accounting (AC)**
+สายอนุมัติแยกคน: **ผู้ขอ → ผู้จัดการ (ทุกยอด) → ผู้บันทึกจ่าย**
+
+> **ระบบนี้ไม่แทน SAP Business One** — B1 ยังเป็น system of record (เปิด PO, เปิด code สินค้า, รับของ, บันทึกบัญชี)
+> ระบบนี้**อ่านจาก B1 อย่างเดียว ไม่เขียนกลับ** ([วิธีเชื่อม](docs/09-usability-and-sap.md#33-อุปสรรคที่แท้จริง-คลาวด์เรียกเข้าเครื่องในออฟฟิศไม่ได้))
+> ระบบนี้ทำหน้าที่เดียวคือ **ทำให้เอกสารและสถานะไม่หาย ไม่ต้องตามกันในไลน์**
 
 ---
 
-## 1. Executive summary
+## ปัญหาที่แก้
 
-| Item | Decision |
+จาก flow ปัจจุบัน (`Flowchart for Domestic Purchasing to Accounting Process`, effective 30/07/2026):
+
+| ปัญหา | อาการที่เจอทุกวัน |
 |---|---|
-| Scope | Procure-to-Pay: PR → PO → Goods Receipt → QC → 3-way match → AP invoice → Payment |
-| Database | One Google Spreadsheet per fiscal year (`PU-ACC-DB-2026`), ~40 tabs, script-mediated writes only |
-| Backend | Google Apps Script (V8) deployed as a Web App API + time-driven jobs |
-| Front-end (office) | Apps Script HTML Service SPA (Purchasing, Accounting, Management dashboards) |
-| Front-end (floor) | AppSheet mobile app over the same Sheets (Warehouse receiving, QC inspection, photo capture) |
-| Files | Google Drive, folder-per-PO, every file registered in a `Documents` table |
-| Identity | Google Workspace SSO (`Session.getActiveUser()`), roles in a `Users` table, enforced server-side |
-| Control | Append-only `Status_History` audit, `LockService` on all writes, no direct Sheet access for end users |
+| เครื่องมือกระจาย 5 ที่ | Dochub + Lark 3 กลุ่ม + LINE + Email + ไดรฟ์ `M:` |
+| **SR เป็นคอขวดทุกขั้น** | SR ตามใบแจ้งหนี้, SR ส่งสลิปให้ซัพ, SR รับใบเสร็จตัวจริงแล้วเดินไปให้ AC |
+| เอกสารตัวจริงหายในไปรษณีย์ | ไม่รู้ว่าส่งถึงไหน ใครรับ |
+| AC ต้องตามเอกสารเองก่อนปิดงาน | ไม่รู้ว่าขาดใบไหนของ PO ไหน |
+| ไม่มีสถานะกลาง | ต้องถามกันในกลุ่มแชท |
 
-### Why a hybrid front-end
-
-Do **not** pick one tool for everything:
-
-- **Warehouse and QC work on their feet**, in a cold room or on a loading bay, with gloves and a phone. They
-  need offline capture, barcode scan, and camera-to-Drive in one tap. That is AppSheet's strong suit and would
-  cost weeks to rebuild in HTML Service.
-- **Purchasing and Accounting work at a desk**, need multi-line grids, keyboard entry, and 3-way-match
-  exception screens. AppSheet is poor at dense multi-line editing; an HTML SPA is better and free.
-- Both talk to the **same Apps Script API layer**, so business rules exist in exactly one place.
-
-Retool is a fine substitute for the desk-side SPA if you already pay for it, but it adds a per-user licence
-and cannot enforce rules the mobile app must also obey — keep the rules in Apps Script either way.
+เป้าหมายนี้คือการทำบล็อก **"การจัดการเอกสารรวม (Shared Document Flow)"** ที่ทีมร่างไว้ในหน้าเดียวกันของ
+flowchart ให้เป็นระบบจริง — แต่ละแผนกเป็นเจ้าของเอกสารของตัวเอง มีศูนย์กลางคอยประสานและติดตามสิ่งที่ยังไม่ครบ
 
 ---
 
-## 2. Architecture
+## เอกสารในชุดนี้
 
-```mermaid
-flowchart TB
-    subgraph Clients
-        A["HTML Service SPA<br/>Purchasing · Accounting · Mgmt"]
-        B["AppSheet mobile<br/>Warehouse · QC"]
-        C["Gmail<br/>approval / alert emails"]
-    end
-    subgraph Backend["Apps Script — single source of business logic"]
-        D["Api.gs<br/>doGet / doPost router + authz"]
-        E["StateMachine.gs<br/>transition guards"]
-        F["Workflow.gs<br/>hand-offs, QC, NCR"]
-        G["Match.gs<br/>3-way matching engine"]
-        H["Triggers.gs<br/>time-driven jobs"]
-    end
-    subgraph Data
-        I[("Google Sheets<br/>PU-ACC-DB-YYYY")]
-        J[("Google Drive<br/>/PU-ACC/…")]
-        K["Script Properties<br/>config + secrets"]
-    end
-    A --> D
-    B -.->|direct read/write, rules re-checked by trigger| I
-    D --> E --> I
-    D --> F --> I
-    H --> G --> I
-    F --> J
-    F --> C
-    D --> K
+| # | ไฟล์ | ใช้เมื่อ |
+|---|---|---|
+| 00 | [สรุปสำหรับผู้บริหารและหัวหน้าแผนก](docs/00-executive-summary.md) | **เริ่มอ่านที่นี่** — ปัญหา ขอบเขต ประโยชน์แยกตามแผนก สิ่งที่แต่ละแผนกต้องเปลี่ยน |
+| 01 | [Flow ปัจจุบัน vs. Flow ใหม่](docs/01-flow-as-is-to-be.md) | ใช้คุยในที่ประชุม — swimlane AS-IS/TO-BE + ตาราง 17 stage + กรณีพิเศษ |
+| 02 | [โครงสร้างข้อมูล](docs/02-data-model.md) | คนทำระบบ — คอลัมน์และโครงโฟลเดอร์ Drive (⚠️ ฉบับแรก · รายการตารางล่าสุด 15 ตาราง อยู่ใน [06 §8](docs/06-scope-review.md) และ [07 §3.4](docs/07-system-blueprint.md)) |
+| 03 | [หน้าจอและสิทธิ์แต่ละแผนก](docs/03-roles-screens.md) | หัวหน้าแผนกตรวจว่าทีมตัวเองเห็นอะไร แก้อะไรได้ |
+| 04 | [ระบบอัตโนมัติ แจ้งเตือน และการอนุมัติ](docs/04-automation-approval.md) | Lark/Email, SLA, การเซ็นอนุมัติในแอปและหลักฐานทางกฎหมาย |
+| 05 | [การต่อยอด Module อื่น](docs/05-module-extensibility.md) | เพิ่มงานนำเข้า / Solar / Mechanical ในอนาคต |
+| 06 | [ทบทวน Scope](docs/06-scope-review.md) | **อะไรตัดได้ อะไรต้องเข้าระบบ** · ใบเคลม QC-F006 · ใบขอรหัสสินค้า · เอกสารเก็บที่ไหน |
+| 07 | [โครงสร้างระบบรอบใหม่](docs/07-system-blueprint.md) | **เมนูและการวางหน้าจอ · โฟลว์เอกสารล้อ PO + 15 กฎตรวจสอบ · Tech stack และการลดพื้นที่ 95% · แจ้งเตือนและแจ้งบั๊ก** |
+| 08 | [โมดูลการชำระเงิน](docs/08-payment-module.md) | **ฟอร์มบันทึกจ่าย · วันที่จ่าย/วันที่ธนาคารตัดเงิน · สายอนุมัติและวงเงิน · ภาษีหัก ณ ที่จ่าย · 12 กฎตรวจสอบ · การกระทบยอด** |
+| 09 | [ผลทดลองใช้ · กันพลาด · เชื่อม SAP B1](docs/09-usability-and-sap.md) | **15 จุดที่ผู้ใช้สับสนและแก้ไปแล้ว · มาตรการกันพลาด · วิธีดึงข้อมูลจาก Business One (ตาราง `OPOR`/`OCRD`/`OCTG` · แบบ push จากในออฟฟิศ) · โครงสร้างระบบ** |
+| 10 | [ใบขอข้อมูล B1 · แบบทดลองใช้](docs/10-uat-script.md) | **ส่งต่อได้เลย** — คำถาม + SQL สำหรับผู้ดูแล B1 · แบบทดสอบ 15 นาทีแยกตามแผนก + เกณฑ์ผ่าน |
+| 11 | [ขอราคา → เสนอราคา → PO · ปรับหน้าตาระบบ](docs/11-quotation-module.md) | **แก้จุดที่ใบขอราคาดึงไปทำใบเสนอราคาไม่ได้** (2 ตารางใหม่ ดึงข้อมูลต่อกันอัตโนมัติ) · การปรับภาพรวมหน้าตาระบบทั้งชุด |
+| 12 | [ไฟล์ Excel โครงสร้างหลังบ้าน](docs/12-schema-workbook.md) | คู่มือใช้ไฟล์ Excel ที่รวมโครงสร้างหลังบ้านทั้งหมดมาให้**แก้ได้** |
+| 13 | [ซื้อเงินสด · ไดรฟ์กลาง · รวมไฟล์ · ป๊อปอัปแนบเอกสาร](docs/13-cash-files-and-upload-prd.md) | **PRD + User Stories + โฟลว์ + โครงสร้างฐานข้อมูล** ของ 4 เรื่องใหม่ — รายการซื้อเงินสดที่ไม่มี PO และการข้าม QC · ไฟล์อยู่ไดรฟ์กลางที่เดียว · รวมเอกสารเป็นไฟล์เดียวเมื่อปิดงาน · ป๊อปอัปแนบไฟล์ทุกขั้น + ฟอร์มขอทำจ่าย (ยอดเงิน · Effective date · ประทับข้อความลงเอกสาร · Preview) |
+| 14 | [ผลทดสอบทั้งกระบวนการ · สัญญาระหว่างขั้น](docs/14-process-test-and-handoff.md) | **รันจริงทั้งเส้นแล้วเจอ 8 จุดที่แผนกถัดไปไม่เข้าใจงานของแผนกก่อนหน้า** พร้อมคอนเซ็ปต์ *Stage Contract* ที่ใช้แก้ทั้งชุด — แต่ละขั้นประกาศว่าต้องส่งมอบข้อมูลอะไรให้ใคร · ใบส่งงานขึ้นเหนือปุ่ม · บล็อกเมื่อไม่กรอกสิ่งที่ปลายทางต้องใช้ |
+| 15 | [พนักงาน–ผู้จัดการ · ทุกยอดผ่านผู้จัดการ · แอปตรวจรับของ QC](docs/15-roles-and-qc-app.md) | **7 บทบาท แยกพนักงานกับผู้จัดการ · คำขอจ่ายทุกใบต้องผ่านผู้จัดการ ไม่มีเกณฑ์วงเงินให้ข้าม** · ผู้ขอ ผู้อนุมัติ ผู้บันทึกจ่าย เป็นคนละคน ระบบบล็อกให้ · และหลักที่ว่า **ที่ไหนมีระบบอยู่แล้วให้ผูกไป ไม่ใช่ทำใหม่** — QC ตรวจในแอป Incoming Inspection เดิม |
+| 16 | [ใบตรวจรับจริงของ QC · เอกสารเรียกเก็บรายงวด](docs/16-qc-report-mapping.md) | อ่านใบตรวจจริง 2 ใบ (**F-2026049** อาหาร · **M-2026097** เครื่องจักร) แล้วแก้โครงตาม — **ใบตรวจสองสายใช้ช่องคนละชุด** · **ข้อค้างท้ายใบตรวจที่เขียนว่า “รอสรุป” ล็อกการจ่ายไว้จนกว่าจะสรุป** · **ทุกงวดต้องแนบเอกสารเรียกเก็บของงวดนั้น** (มัดจำใช้ PI · งวดที่เหลือใช้ใบแจ้งหนี้) พร้อมกฎกันจ่ายซ้ำด้วยใบเดิม |
+| 17 | [เชื่อมกับแอปตรวจรับของ QC (เว็บแอปคนละตัว)](docs/17-qc-app-integration.md) | **วิธีต่อสองระบบเข้าด้วยกัน** — แผนภูมิเลือกทางจากสิ่งที่แอป QC ทำได้ (อ่านชีตร่วมกัน / push+pull / ส่งออกไฟล์ / พิมพ์เอง) · หน้าตาข้อมูลที่ส่งกัน · โค้ดสองฝั่ง · **วิธีจับคู่ใบตรวจกับรายการเมื่อเลขบนใบไม่ตรงกับเลข PO** · กรณีล่ม/ส่งซ้ำ/ออกใบแก้หลังจ่ายเงิน |
+| 18 | [ข้อมูล Costing จาก SAP ในระบบเดียว](docs/18-sap-costing-in-dochub.md) | **ระบบมีอันเดียวคือ Document Hub** — ข้อมูล Costing จาก SAP เป็นแหล่งข้อมูลที่ป้อนเข้าระบบนั้น · **เงื่อนไขจ่ายจาก SAP กางเป็นงวดจริง 13 แบบ** รวมเงื่อนไขผสมที่บางงวดจ่ายผ่าน LC · เลข PO แยกสายเอง (Mech/Food/ค่าใช้จ่ายอื่น) · **ปุ่มไปสร้างใบตรวจในแอปของ QC คนละแอปตามสาย** · คิวตั้งเบิกทำจ่ายอยู่ในหน้ารายงาน |
+
+**สำหรับนำเสนอ:**
+
+| ไฟล์ | ใช้ทำอะไร |
+|---|---|
+| [`presentation/flow-summary.html`](presentation/flow-summary.html) | สรุป flow หน้าเดียว เปิดบนมือถือได้ |
+| [`presentation/prototype.html`](presentation/prototype.html) | **ตัวอย่างระบบกดเล่นได้** — 5 เมนู · PO แยกกำลังดำเนินการ/เสร็จสิ้น · **สายอาหารกับสายเครื่องจักรใช้ช่องใบตรวจคนละชุด** · **ข้อค้างท้ายใบตรวจล็อกการจ่าย** · **เอกสารเรียกเก็บรายงวด** · **เงื่อนไขจ่ายจาก SAP กางเป็นงวดจริง (มีงวดที่จ่ายผ่าน LC)** · **ปุ่มไปสร้างใบตรวจในแอปของ QC** · **คิวตั้งเบิกทำจ่ายในหน้ารายงาน** · **รายการซื้อเงินสด (ไม่มี PO) + ข้าม QC** · ค้นหา · **ฟอร์มบันทึกการจ่ายพร้อมสายอนุมัติ** · **ป๊อปอัปแนบไฟล์ + หมายเหตุ ทุกขั้นตอน** · **ฟอร์มขอทำจ่ายพร้อม Preview ข้อความที่จะประทับลงเอกสาร** · **ชุดเอกสารรวมเล่มอัตโนมัติ** · ใบคำร้อง (ขอราคา + เคลม + รหัสสินค้า) · ตรวจสอบก่อนบันทึก · กล่องแจ้งเตือน · ปุ่มแจ้งปัญหา · หน้าตั้งค่าระบบ |
+| [`presentation/MGS-DocHub-Schema.xlsx`](presentation/MGS-DocHub-Schema.xlsx) | **โครงสร้างหลังบ้านทั้งหมดในไฟล์เดียว แก้ไขได้** — 12 แท็บ · 20 ตาราง · 390 คอลัมน์ · 44 กฎตรวจสอบ · 42 ค่าตั้งต้น · **41 ประเด็นที่ต้องตัดสินใจก่อนขึ้นระบบ** ([คู่มือ](docs/12-schema-workbook.md)) |
+
+> เปิด `prototype.html` ในที่ประชุมแล้วให้หัวหน้าแต่ละแผนกกดบทบาทของตัวเอง จะเห็นทันทีว่า
+> หน้าจอตัวเองมีอะไร ต้องกรอกอะไร และทำไม QC/LS/WH ถึงไม่เห็นช่องราคา
+
+**ของเดิม:** [`docs/reference/erp-full-p2p/`](docs/reference/erp-full-p2p/) — blueprint ERP P2P เต็มรูปแบบที่ทำไว้ก่อนทราบว่ามี SAP อยู่แล้ว
+เก็บไว้เพราะบางส่วนใช้ต่อได้ (สเปก QC, ตรรกะ 3-way matching, โครง Apps Script) แต่**ไม่ใช่แนวทางที่จะสร้าง**
+
+---
+
+## หลักการออกแบบสำคัญ
+
+**Flow เป็น "ข้อมูล" ไม่ใช่ "โค้ด"** — ขั้นตอนงานทั้งหมดเก็บใน 2 ตาราง:
+
+- `Stage_Templates` — module ไหน มี stage อะไร ใครเป็นเจ้าของ SLA กี่ชั่วโมง
+- `Doc_Templates` — module ไหน ต้องมีเอกสารอะไร แผนกไหนเป็นเจ้าของ บังคับหรือไม่
+
+ผลคือ **เพิ่มงานนำเข้าหรือ Solar = เพิ่มแถวในตาราง ไม่ต้องแก้โปรแกรม** และแต่ละแผนกแก้ SLA
+ของตัวเองได้เองโดยไม่ต้องรอ IT
+
+---
+
+## สถานะโครงการ
+
+| Phase | งาน | สถานะ |
+|---|---|---|
+| **0** | เอกสารออกแบบ + ตัวอย่างระบบให้ทุกแผนกเห็นชอบ flow | ✅ เสร็จ |
+| **1** | **ทดลองใช้จริงบน Google Sheet + Lark bot** — เก็บ feedback | 🔨 **โค้ดพร้อมแล้ว รอ IT ติดตั้ง** |
+| 2 | เชื่อม API กับ SAP B1 + ยกระดับให้ IT ดูแลระบบ | รอผลจาก Phase 1 |
+| 3 | ขยายทุก PO + เลิกกระบวนการเดิม | |
+
+### Phase 1 มีอะไรบ้าง
+
+ฐานข้อมูลเป็น Google Sheet · หน้าจอเป็น Apps Script Web App · แจ้งเตือนผ่าน Lark Bot API
+ครบทั้ง 17 ขั้นและทุกแผนก · เข้าระบบด้วยบัญชี Google ของบริษัท
+ใช้จริงเฉพาะ PO ที่เลือกไว้ในแท็บ `Pilot_Scope` — ที่เหลือเปิดดูอย่างเดียว
+
+**กติกาที่บังคับที่เซิร์ฟเวอร์ ไม่ใช่แค่ซ่อนที่หน้าจอ**
+- QC · โลจิสติกส์ · คลัง ไม่ได้รับข้อมูลยอดเงินตั้งแต่ต้นทาง (เปิด DevTools ก็ไม่เจอ)
+- บทบาทมาจากตาราง `Users` ตามอีเมล — หน้าจอส่งบทบาทมาบอกไม่ได้
+- ผู้ขอ ≠ ผู้อนุมัติ ≠ ผู้บันทึกจ่าย เทียบด้วยอีเมลจริง
+
+ติดตั้ง: [docs/19-phase1-pilot-runbook.md](docs/19-phase1-pilot-runbook.md) ·
+ทดสอบกับพนักงาน: [docs/20-uat-phase1.md](docs/20-uat-phase1.md)
+
+## ทดสอบระบบตัวอย่าง
+
+```bash
+node tools/e2e-test.mjs     # เดินทั้งกระบวนการจริง ตั้งแต่ชีตว่างจนปิดบัญชี (17 ขั้น + จ่ายเงิน)
+node tools/domain-test.mjs  # กติกาฝั่งเซิร์ฟเวอร์ของระบบจริง — รันได้โดยไม่ต้องมีบัญชี Google
+node tools/walkthrough.js   # เดินทั้งกระบวนการตั้งแต่ใบขอราคาจนปิดบัญชี พิมพ์ใบส่งงานทุกทอด
+node tools/smoke.js         # ชุดทดสอบ 294 การเรนเดอร์ (7 บทบาท) + เคสของทุกฟีเจอร์
+python3 tools/build-schema-xlsx.py   # สร้างไฟล์ Excel โครงสร้างหลังบ้านใหม่ (ต้องมี openpyxl)
+python3 tools/costing-extract.py "Costing Mech.xlsx" "Costing Food.xlsx"   # ตรวจข้อมูล Costing จาก SAP (หลายสายได้)
+python3 tools/costing-extract-test.py                  # กฎการสกัดข้อมูล + เทียบ Python กับ Apps Script
 ```
 
-> **AppSheet caveat:** AppSheet writes to Sheets directly, bypassing `Api.gs`. Treat every AppSheet write as
-> *untrusted input*: an installable `onChange` trigger re-validates it against the state machine and reverts
-> or flags illegal transitions. Never let AppSheet be the only thing standing between a user and a posted
-> accounting record.
+## Stack
 
----
-
-## 3. Documents in this blueprint
-
-| # | Document | Covers |
-|---|---|---|
-| 01 | [Process Flow & State Machine](docs/01-process-flow-and-state-machine.md) | End-to-end flow, all document states, transition table with triggers and guards, 18 edge cases including QC rejection, SLA / bottleneck definition |
-| 02 | [Data Model — Google Sheets & Drive](docs/02-data-model-google-sheets.md) | Every tab, exact columns, primary/foreign keys, ERD, Drive folder tree, file naming, document control |
-| 03 | [Role-Based UI](docs/03-role-based-ui.md) | Per-department dashboards, work queues, inputs vs read-only, field-level edit matrix, permission matrix |
-| 04 | [Automation & Apps Script Strategy](docs/04-automation-and-apps-script.md) | 24 named automations, trigger plan, PDF generation, notification engine, quotas, performance patterns, security, deployment |
-| A | [Appendix A — Lookups, Numbering, Tolerances](docs/appendix-a-reference-data.md) | Enumerations, document numbering, tolerance and SLA defaults, KPI formulas |
-| B | [Appendix B — Limits, Scaling, Migration](docs/appendix-b-limits-and-scaling.md) | Sheets/Drive/Apps Script quotas, sizing model, archiving, exit path to a real DB |
-
-Implementation scaffold: [`apps-script/`](apps-script/) — schema definition, repository layer, state machine,
-matching engine, Drive/PDF service, notification queue, API router, and a one-click `setupWorkspace()`
-bootstrap that creates every tab, header, validation rule, and Drive folder described in doc 02.
-
----
-
-## 4. Delivery roadmap
-
-| Phase | Weeks | Scope | Exit criteria |
-|---|---|---|---|
-| 0 — Foundation | 1–2 | Spreadsheet + Drive tree via `setupWorkspace()`, master data load (Vendors, Items, Users, Approval Matrix), numbering, audit log | Master data signed off by each dept head |
-| 1 — Purchasing | 3–5 | PR → PO, revisions, approval matrix, PO PDF, email to vendor | A real PO issued end-to-end without a spreadsheet edit |
-| 2 — Warehouse | 6–7 | GRN against PO lines, tolerance checks, delivery-note + photo capture (AppSheet), auto hand-off to QC | 20 receipts booked by warehouse staff unaided |
-| 3 — QC | 8–9 | QC record auto-creation, spec-driven parameter results, pass/fail/conditional, NCR, RTV | A rejected batch flows to NCR + Purchasing + AP hold correctly |
-| 4 — Accounting | 10–12 | Invoice register, 3-way match engine, exception queue, payment run, WHT | Month-end closed with match report; no manual PO/GRN lookups |
-| 5 — Insight | 13–14 | Bottleneck dashboard, cycle-time KPIs, vendor scorecard, nightly backup + integrity checks | Management reviews bottlenecks from the app, not from email |
-
-**Do not build Phase 4 before Phase 3 is trusted.** Three-way matching is only as good as the accepted-quantity
-figure QC produces; a rushed QC module turns AP into a manual reconciliation desk.
-
----
-
-## 5. Known constraints (read before committing budget)
-
-1. **Sheets is not transactional.** A crash mid-write can leave a GRN posted with PO lines un-updated. Mitigated
-   by `LockService`, idempotency keys, and a nightly integrity job — not eliminated.
-2. **Cell ceiling: 10,000,000 per spreadsheet.** At ~120 columns per transaction row this is roughly
-   80k transaction rows per file. One spreadsheet per fiscal year plus archiving keeps you well clear
-   (sizing model in Appendix B).
-3. **Concurrency.** Comfortable to ~25–30 active users. Beyond that, write contention on `LockService`
-   becomes visible as multi-second saves.
-4. **No field-level security in Sheets.** Security comes from users *never* having the Sheet URL. If someone
-   needs raw Sheet access, they can edit posted accounting records and only the audit tab will know.
-5. **Segregation of duties is policy, not platform.** The approval matrix must prevent the same person
-   raising a PO, receiving it, and approving its invoice. Configure it deliberately — see doc 03 §7.
-6. **Apps Script quotas** (90 min/day runtime, 1,500 emails/day on Workspace) are ample at the modelled volume
-   but will bite if you loop row-by-row. Follow the batching patterns in doc 04 §6.
-
-Migration path when you outgrow it: the Apps Script API layer is the seam. Swap the repository layer
-(`01_Repo.gs`) for BigQuery or Cloud SQL and both front-ends keep working — see Appendix B §5.
+Google Sheets (ฐานข้อมูล) + Google Apps Script (backend + เว็บ) + Google Drive (ไฟล์เอกสาร)
+แจ้งเตือนผ่าน Lark bot และ Email · ไม่มีค่า license เพิ่ม

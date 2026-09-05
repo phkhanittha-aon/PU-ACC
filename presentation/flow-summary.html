@@ -1,0 +1,586 @@
+<title>MGS Document Center — สรุป Flow สำหรับหารือระหว่างแผนก</title>
+
+<style>
+  :root {
+    --paper: #ffffff;
+    --surface: #FAF8F3;
+    --surface-2: #F2EEE4;
+    --ink: #1E1B16;
+    --ink-2: #5A5348;
+    --ink-3: #767065;
+    --line: #EAE4D8;
+    --line-2: #D9D1C0;
+    --gold: #8A6819;
+    --gold-bg: #FBF7EC;
+    --cold: #38598F;
+    --cold-bg: #E9EEF7;
+    --go: #2F6B45;
+    --warn: #9A5A1B;
+    --stop: #A33025;
+    --sr: #8A6819;
+    --qc: #146B5C;
+    --ls: #38598F;
+    --wh: #5E6B3E;
+    --ac: #A0522D;
+    --shadow: 0 1px 2px rgba(22,32,43,.06), 0 8px 24px -16px rgba(22,32,43,.28);
+    --sans: "Leelawadee UI", "Noto Sans Thai", "Sarabun", "IBM Plex Sans Thai",
+            "Thonburi", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0e151c;
+      --surface: #17212b;
+      --surface-2: #1f2b37;
+      --ink: #e8eef3;
+      --ink-2: #a9bac7;
+      --ink-3: #7d8f9d;
+      --line: #2a3844;
+      --line-2: #3a4b59;
+      --gold: #d7ae53;
+      --gold-bg: #2a2213;
+      --cold: #6cb3d4;
+      --cold-bg: #122a36;
+      --go: #62b98a;
+      --warn: #e0925c;
+      --stop: #e8827d;
+      --sr: #d7ae53;
+      --qc: #46b39f;
+      --ls: #909cdc;
+      --wh: #93a6b4;
+      --ac: #cd82ad;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0e151c; --surface: #17212b; --surface-2: #1f2b37;
+    --ink: #e8eef3; --ink-2: #a9bac7; --ink-3: #7d8f9d;
+    --line: #2a3844; --line-2: #3a4b59;
+    --gold: #d7ae53; --gold-bg: #2a2213; --cold: #6cb3d4; --cold-bg: #122a36;
+    --go: #62b98a; --warn: #e0925c; --stop: #e8827d;
+    --sr: #d7ae53; --qc: #46b39f; --ls: #909cdc; --wh: #93a6b4; --ac: #cd82ad;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+  :root[data-theme="light"] {
+    --paper: #ffffff; --surface: #FAF8F3; --surface-2: #F2EEE4;
+    --ink: #1E1B16; --ink-2: #5A5348; --ink-3: #767065;
+    --line: #EAE4D8; --line-2: #D9D1C0;
+    --gold: #8A6819; --gold-bg: #FBF7EC; --cold: #38598F; --cold-bg: #E9EEF7;
+    --go: #2F6B45; --warn: #9A5A1B; --stop: #A33025;
+    --sr: #8A6819; --qc: #146B5C; --ls: #38598F; --wh: #5E6B3E; --ac: #A0522D;
+    --shadow: 0 1px 2px rgba(22,32,43,.06), 0 8px 24px -16px rgba(22,32,43,.28);
+  }
+
+  body {
+    margin: 0;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .sheet {
+    max-width: 1080px;
+    margin: 0 auto;
+    background: var(--paper);
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+  .pad { padding: 0 clamp(20px, 5vw, 64px); }
+  .prose { max-width: 68ch; }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    padding: clamp(32px, 6vw, 60px) clamp(20px, 5vw, 64px) clamp(24px, 4vw, 36px);
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 5.2vw, 44px);
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+  }
+  h1 .thin { font-weight: 400; color: var(--ink-2); }
+  .standfirst { margin: 0; max-width: 60ch; color: var(--ink-2); font-size: clamp(15px, 2vw, 18px); }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px 28px;
+    font-family: var(--mono); font-size: 12px; color: var(--ink-3);
+    border-top: 1px solid var(--line); padding-top: 14px;
+  }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+
+  .scope {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: var(--cold-bg);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--cold);
+    padding: 14px 18px;
+  }
+  .scope .tag {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--cold); white-space: nowrap; padding-top: 2px;
+  }
+  .scope p { margin: 0; font-size: 15px; }
+
+  /* ---------- sections ---------- */
+  section { padding: clamp(34px, 5vw, 56px) 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+  h2 {
+    margin: 0 0 6px;
+    font-size: clamp(20px, 3vw, 26px);
+    font-weight: 750;
+    letter-spacing: -.005em;
+    text-wrap: balance;
+  }
+  .sec-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 26px; }
+  .sec-head .eyebrow { color: var(--gold); }
+  .sec-head p { margin: 0; color: var(--ink-2); max-width: 62ch; }
+  h3 { margin: 0 0 10px; font-size: 16px; font-weight: 700; }
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ---------- stat strip ---------- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .stat { background: var(--paper); padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; }
+  .stat .n {
+    font-family: var(--mono); font-size: clamp(24px, 4vw, 32px); font-weight: 700;
+    font-variant-numeric: tabular-nums; line-height: 1; color: var(--ink);
+  }
+  .stat .n em { font-style: normal; font-size: .55em; color: var(--ink-3); font-weight: 500; }
+  .stat .k { font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+  .stat.hot .n { color: var(--stop); }
+
+  /* ---------- as-is / to-be ---------- */
+  .compare { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  @media (min-width: 800px) { .compare { grid-template-columns: 1fr 1fr; gap: 24px; } }
+  .panel { border: 1px solid var(--line); background: var(--surface); padding: 20px; }
+  .panel.now { border-top: 3px solid var(--stop); }
+  .panel.next { border-top: 3px solid var(--cold); background: var(--cold-bg); }
+  .panel h3 { display: flex; align-items: baseline; gap: 10px; }
+  .panel h3 span.lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--ink-3); text-transform: uppercase; }
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; padding: 0; list-style: none; }
+  .tools li {
+    font-family: var(--mono); font-size: 12px; padding: 3px 9px;
+    border: 1px dashed var(--line-2); color: var(--ink-2); background: var(--paper);
+  }
+  .tools.single li { border-style: solid; border-color: var(--cold); color: var(--cold); font-weight: 600; }
+  .flowlist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0; }
+  .flowlist li { font-size: 14px; padding: 7px 0 7px 22px; border-bottom: 1px dotted var(--line); position: relative; }
+  .flowlist li:last-child { border-bottom: 0; }
+  .flowlist li::before {
+    content: "→"; position: absolute; left: 0; top: 7px;
+    font-family: var(--mono); color: var(--ink-3);
+  }
+  .panel.now .flowlist li.pain::before { content: "!"; color: var(--stop); font-weight: 700; }
+  .panel.now .flowlist li.pain { color: var(--stop); }
+  .panel.next .flowlist li::before { content: "✓"; color: var(--go); }
+
+  /* ---------- stage rail ---------- */
+  .railwrap { overflow-x: auto; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .rail { display: flex; gap: 0; min-width: 900px; }
+  .step {
+    flex: 1 1 0; min-width: 96px; padding: 0 10px 4px 0; position: relative;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .step .bar { height: 5px; background: var(--dept, var(--ink-3)); }
+  .step .num {
+    font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+  }
+  .step .nm { font-size: 12.5px; line-height: 1.35; font-weight: 600; }
+  .step .own {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+    color: var(--dept, var(--ink-2)); text-transform: uppercase;
+  }
+  .step .doc { font-family: var(--mono); font-size: 10px; color: var(--ink-3); line-height: 1.3; }
+  .step.skip .bar { background: repeating-linear-gradient(90deg, var(--line-2) 0 4px, transparent 4px 8px); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 16px; font-size: 13px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .legend i { width: 11px; height: 11px; background: var(--dept); display: inline-block; }
+
+  /* ---------- tables ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-3); background: var(--surface); font-weight: 600; white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.mono, th.mono { font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .req { color: var(--go); font-weight: 700; }
+  .opt { color: var(--ink-3); }
+  .dept-chip {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    padding: 2px 7px; border: 1px solid currentColor; white-space: nowrap;
+  }
+
+  /* ---------- benefit cards ---------- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .card { border: 1px solid var(--line); padding: 18px; background: var(--paper); box-shadow: var(--shadow); }
+  .card .who { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+  .card .who i { width: 10px; height: 10px; background: var(--dept); }
+  .card .who b { font-size: 15px; }
+  .card .who small { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .card ul { margin: 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 6px; }
+  .card ul li::marker { color: var(--dept); }
+
+  /* ---------- change table ---------- */
+  .swap { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .swap .row { display: grid; grid-template-columns: 1fr; background: var(--paper); }
+  @media (min-width: 720px) { .swap .row { grid-template-columns: 150px 1fr 1fr; } }
+  .swap .row > * { padding: 12px 16px; }
+  .swap .row.hd > * { font-family: var(--mono); font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); background: var(--surface); }
+  .swap .lbl { font-weight: 700; font-size: 14px; }
+  .swap .from { color: var(--ink-2); font-size: 14px; }
+  .swap .to { font-size: 14px; border-left: 3px solid var(--go); }
+  @media (max-width: 719px) { .swap .to { border-left: 0; border-top: 3px solid var(--go); } }
+
+  /* ---------- questions ---------- */
+  .qs { counter-reset: q; display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); }
+  .qs li {
+    counter-increment: q; list-style: none; display: flex; gap: 14px;
+    padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--paper);
+  }
+  .qs li:last-child { border-bottom: 0; }
+  .qs li::before {
+    content: counter(q, decimal-leading-zero);
+    font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--gold);
+    padding-top: 3px;
+  }
+  .qs li span { font-size: 15px; }
+
+  /* ---------- phases ---------- */
+  .phases { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); }
+  .ph { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 13px 18px; border-bottom: 1px solid var(--line); }
+  .ph:last-child { border-bottom: 0; }
+  .ph .p { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-3); }
+  .ph .t { font-size: 14.5px; }
+  .ph .s { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border: 1px solid var(--line-2); color: var(--ink-3); white-space: nowrap; }
+  .ph.on { background: var(--gold-bg); }
+  .ph.on .p, .ph.on .s { color: var(--gold); border-color: var(--gold); }
+  .ph.on .t { font-weight: 700; }
+
+  footer.foot { padding: 26px clamp(20px, 5vw, 64px) 40px; color: var(--ink-3); font-size: 13px; border-top: 2px solid var(--ink); }
+  footer.foot p { margin: 0 0 6px; }
+  a { color: var(--cold); }
+  a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="eyebrow">M Global Sourcing · เอกสารประกอบการหารือระหว่างแผนก</div>
+    <h1>MGS Document Center<br><span class="thin">ระบบรวมเอกสารและติดตามสถานะ จัดซื้อ → บัญชี</span></h1>
+    <p class="standfirst">
+      เว็บภายในที่ทุกแผนกเข้ามาเห็นได้ว่าดีลแต่ละดีลไปถึงขั้นไหน ขาดเอกสารอะไร และตอนนี้ค้างอยู่ที่ใคร
+      แต่ละแผนกอัพโหลดเอกสารของตัวเองที่เดียว ระบบแจ้งเตือนคนถัดไปให้เอง
+    </p>
+    <div class="scope">
+      <span class="tag">ขอบเขต</span>
+      <p><b>ระบบนี้ไม่แทน SAP</b> — การเปิด PO เปิดรหัสสินค้า ทำ GR และบันทึกบัญชี ยังทำใน SAP เหมือนเดิมทุกอย่าง
+      ระบบนี้แก้เฉพาะช่องว่างระหว่างแผนก คือการส่งต่อเอกสารและการรู้สถานะ</p>
+    </div>
+    <div class="meta">
+      <span><b>อ้างอิง</b> Flowchart for Domestic Purchasing to Accounting Process</span>
+      <span><b>Effective</b> 30/07/2026</span>
+      <span><b>Module แรก</b> DOMESTIC_FOOD</span>
+      <span><b>สถานะ</b> รอความเห็นชอบจากทุกแผนก</span>
+    </div>
+  </header>
+
+  <div class="pad">
+
+    <section>
+      <div class="sec-head">
+        <div class="eyebrow">ปัญหา</div>
+        <h2>เอกสารหนึ่งชุดเดินทางผ่าน 5 เครื่องมือ และ SR แบกครึ่งกระบวนการ</h2>
+        <p>ตัวเลขข้างล่างนับจาก flow ปัจจุบันโดยตรง ไม่ใช่การประมาณ</p>
+      </div>
+      <div class="stats">
+        <div class="stat hot">
+          <div class="n">13<em>/27</em></div>
+          <div class="k">ขั้นตอนที่ SR เป็นผู้ลงมือ</div>
+        </div>
+        <div class="stat hot">
+          <div class="n">5</div>
+          <div class="k">ขั้นที่ SR แค่ส่งต่อเอกสาร ไม่ได้เพิ่มมูลค่า</div>
+        </div>
+        <div class="stat">
+          <div class="n">5</div>
+          <div class="k">เครื่องมือที่ต้องสลับใช้ต่อหนึ่งดีล</div>
+        </div>
+        <div class="stat">
+          <div class="n">4</div>
+          <div class="k">จุดที่ต้องรอเอกสารจากคนภายนอก</div>
+        </div>
+        <div class="stat hot">
+          <div class="n">0</div>
+          <div class="k">จุดที่มีสถานะให้ทุกแผนกเห็นร่วมกัน</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <div class="eyebrow">เปรียบเทียบ</div>
+        <h2>วันนี้ เทียบกับ หลังมีระบบ</h2>
+      </div>
+      <div class="compare">
+        <div class="panel now">
+          <h3>วันนี้ <span class="lbl">as-is</span></h3>
+          <ul class="tools">
+            <li>Dochub</li><li>Lark × 3 กลุ่ม</li><li>LINE</li><li>Email</li><li>ไดรฟ์ M:</li><li>ไปรษณีย์</li>
+          </ul>
+          <ul class="flowlist">
+            <li>SR เปิด PO ใน SAP แล้วส่งลิงก์ Dochub ให้ทีมเซ็น</li>
+            <li class="pain">ไล่เตือนในกลุ่ม Lark เอง ไม่มีใครรู้ว่าค้างที่ใคร</li>
+            <li>QC ตรวจแล้วโพสต์ผลในกลุ่ม Lark-QC FOOD</li>
+            <li class="pain">SR แจ้ง WH ให้รับของ · SR แจ้ง LS ให้จองรถ</li>
+            <li class="pain">SR จำ payment condition เอง เพื่อตามใบแจ้งหนี้</li>
+            <li class="pain">SR ส่งเอกสารตัวจริงเดินไปให้บัญชี</li>
+            <li class="pain">สลิปวน AC → SR → ซัพ · ใบเสร็จวน ซัพ → SR → AC</li>
+            <li class="pain">AC ไล่ขอเอกสารเองก่อนทำ 3-way matching</li>
+          </ul>
+        </div>
+        <div class="panel next">
+          <h3>หลังมีระบบ <span class="lbl">to-be</span></h3>
+          <ul class="tools single">
+            <li>Document Hub ที่เดียว</li><li>Lark + Email เฉพาะการแจ้งเตือน</li>
+          </ul>
+          <ul class="flowlist">
+            <li>SR กรอกเลข PO จาก SAP แล้วอัพโหลด PO + PI</li>
+            <li>ขออนุมัติในแอป ระบบเตือนผู้อนุมัติเอง เห็นว่าค้างที่ใคร</li>
+            <li>QC บันทึกผลตรวจ + รูป ในดีล ระบบแจ้งทุกฝ่ายที่เกี่ยวข้อง</li>
+            <li>LS และ WH เห็นคิวงานตัวเองล่วงหน้า ไม่ต้องรอ SR แจ้ง</li>
+            <li>ระบบคำนวณวันครบกำหนดจาก payment condition แล้วเตือนให้</li>
+            <li>ไม่ต้องส่งเอกสาร — AC เปิดดูในดีลได้ทันที</li>
+            <li>AC อัพโหลดสลิป ระบบส่งอีเมลถึงซัพโดยตรง (ตัด SR ออก)</li>
+            <li>Checklist บอกว่าขาดใบไหน และเตือนเจ้าของเอกสารเอง</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <div class="eyebrow">ขั้นตอน · module domestic_food</div>
+        <h2>17 ขั้นตอน จากเช็คราคาถึงปิดบัญชี</h2>
+        <p>สีคือแผนกที่เป็นเจ้าของขั้นตอนนั้น · เส้นประคือขั้นที่ระบบข้ามให้อัตโนมัติเมื่อไม่เกี่ยว ·
+        <b>ขอให้แต่ละแผนกตรวจว่าลำดับและ SLA ตรงกับงานจริง</b></p>
+      </div>
+      <div class="railwrap" tabindex="0" role="group" aria-label="ลำดับ 17 ขั้นตอน เลื่อนแนวนอนได้">
+        <div class="rail">
+          <div class="step" style="--dept:var(--sr)"><div class="bar"></div><div class="num">01 · 1ว</div><div class="nm">เช็คราคา</div><div class="own">SR</div><div class="doc">—</div></div>
+          <div class="step skip" style="--dept:var(--qc)"><div class="bar"></div><div class="num">02 · 2ว</div><div class="nm">ตรวจตัวอย่าง</div><div class="own">QC</div><div class="doc">ผลตรวจ</div></div>
+          <div class="step skip" style="--dept:var(--ink-2)"><div class="bar"></div><div class="num">03 · 1ว</div><div class="nm">GM ตัดสินใจ</div><div class="own">GM</div><div class="doc">—</div></div>
+          <div class="step" style="--dept:var(--sr)"><div class="bar"></div><div class="num">04 · 1ว</div><div class="nm">คอนเฟิร์มออเดอร์</div><div class="own">SR</div><div class="doc">—</div></div>
+          <div class="step" style="--dept:var(--sr)"><div class="bar"></div><div class="num">05 · 2ว</div><div class="nm">รับ PI จากซัพ</div><div class="own">SR</div><div class="doc">PI</div></div>
+          <div class="step skip" style="--dept:var(--ls)"><div class="bar"></div><div class="num">06 · 1ว</div><div class="nm">เปิดรหัสสินค้า</div><div class="own">LS</div><div class="doc">ใบขออนุมัติ</div></div>
+          <div class="step" style="--dept:var(--sr)"><div class="bar"></div><div class="num">07 · 1ว</div><div class="nm">เปิด PO ใน SAP</div><div class="own">SR</div><div class="doc">PO</div></div>
+          <div class="step" style="--dept:var(--ink-2)"><div class="bar"></div><div class="num">08 · 1ว</div><div class="nm">อนุมัติภายใน</div><div class="own">SR·GM</div><div class="doc">PO+PI</div></div>
+          <div class="step" style="--dept:var(--sr)"><div class="bar"></div><div class="num">09 · 3ว</div><div class="nm">ซัพเซ็น PO กลับ</div><div class="own">SR</div><div class="doc">PO เซ็น</div></div>
+          <div class="step" style="--dept:var(--ls)"><div class="bar"></div><div class="num">10 · 1ว</div><div class="nm">จองรถรับของ</div><div class="own">LS</div><div class="doc">—</div></div>
+          <div class="step" style="--dept:var(--qc)"><div class="bar"></div><div class="num">11 · 1ว</div><div class="nm">ตรวจรับห้องเย็น</div><div class="own">QC</div><div class="doc">RC</div></div>
+          <div class="step" style="--dept:var(--wh)"><div class="bar"></div><div class="num">12 · 1ว</div><div class="nm">รับเข้าคลัง + GR</div><div class="own">WH</div><div class="doc">GR</div></div>
+          <div class="step" style="--dept:var(--ac)"><div class="bar"></div><div class="num">13 · cond</div><div class="nm">รับใบแจ้งหนี้</div><div class="own">SR·AC</div><div class="doc">Invoice</div></div>
+          <div class="step" style="--dept:var(--sr)"><div class="bar"></div><div class="num">14 · 1ว</div><div class="nm">ส่งมอบเอกสาร</div><div class="own">SR</div><div class="doc">ครบชุด</div></div>
+          <div class="step" style="--dept:var(--ac)"><div class="bar"></div><div class="num">15 · cond</div><div class="nm">ทำจ่าย</div><div class="own">AC</div><div class="doc">สลิป</div></div>
+          <div class="step" style="--dept:var(--ac)"><div class="bar"></div><div class="num">16 · 14ว</div><div class="nm">ใบเสร็จตัวจริง</div><div class="own">AC</div><div class="doc">ใบเสร็จ</div></div>
+          <div class="step" style="--dept:var(--ac)"><div class="bar"></div><div class="num">17 · 2ว</div><div class="nm">3-way + ปิดรายการ</div><div class="own">AC</div><div class="doc">—</div></div>
+        </div>
+      </div>
+      <div class="legend">
+        <span style="--dept:var(--sr)"><i></i> SR — Sourcing</span>
+        <span style="--dept:var(--qc)"><i></i> QC — Quality Control</span>
+        <span style="--dept:var(--ls)"><i></i> LS — Logistics</span>
+        <span style="--dept:var(--wh)"><i></i> WH — Warehouse</span>
+        <span style="--dept:var(--ac)"><i></i> AC — Accounting</span>
+        <span style="--dept:var(--ink-2)"><i></i> GM / หัวหน้าแผนก</span>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <div class="eyebrow">เส้นทางแยก</div>
+        <h2>กรณีที่ไม่เดินตรงตามเส้นหลัก</h2>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>กรณี</th><th>ระบบทำอะไร</th></tr></thead>
+          <tbody>
+            <tr><td>QC ตรวจตัวอย่างไม่ผ่าน</td><td>ปิดดีลเป็น <span class="mono">REJECTED</span> แจ้ง SR ให้แจ้งซัพ เก็บประวัติไว้ประเมินซัพ</td></tr>
+            <tr><td>GM สั่งไม่ซื้อ</td><td>ปิดดีลเป็น <span class="mono">CANCELLED</span> พร้อมเหตุผล</td></tr>
+            <tr><td>ไม่มีรหัสสินค้าใน SAP</td><td>แทรกขั้น <span class="mono">ITEM_CODE</span> เข้าคิว LS อัตโนมัติ ไม่ต้องเดินเอกสาร</td></tr>
+            <tr><td><b>QC ตรวจรับไม่ผ่าน</b></td><td>เปิดเรื่องเคลม แจ้ง SR + AC พร้อมกัน และ<b>ล็อกการจ่ายเงินของยอดที่เคลม</b>จนได้ใบลดหนี้</td></tr>
+            <tr><td>ของมาบางส่วน</td><td>ค้างที่ขั้น GR โดยบันทึกจำนวนที่รับแล้ว รอส่วนที่เหลือ</td></tr>
+            <tr><td>ใบแจ้งหนี้มาก่อนของ</td><td>รับเอกสารได้ แต่จะยังไม่ขึ้น “พร้อมบันทึก” จนกว่าจะมี GR</td></tr>
+            <tr><td>ซัพส่งเอกสารช้า</td><td>เตือนซ้ำตาม SLA แล้วแจ้งหัวหน้า SR</td></tr>
+            <tr><td>ใบเสร็จตัวจริงหาย</td><td>มีเลข tracking และผู้รับบันทึกไว้ ใช้ตามเรื่องกับไปรษณีย์ได้</td></tr>
+            <tr><td>ยอด Invoice ไม่ตรง PO</td><td>3-way ไม่ผ่าน ระบบบอกส่วนต่าง แจ้ง SR ให้เคลียร์กับซัพ</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <div class="eyebrow">เอกสาร</div>
+        <h2>ใครเป็นเจ้าของเอกสารใบไหน</h2>
+        <p>“เจ้าของ” คือคนที่อัพโหลดเข้าระบบ — ตามหลักที่ทีมร่างไว้ในบล็อกการจัดการเอกสารรวมของ flowchart เดิม</p>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>เอกสาร</th><th class="mono">เจ้าของ</th><th class="mono">บังคับ</th><th class="mono">ขั้น</th><th>หมายเหตุ</th></tr></thead>
+          <tbody>
+            <tr><td>ผลตรวจตัวอย่าง</td><td><span class="dept-chip" style="color:var(--qc)">QC</span></td><td class="mono opt">ถ้ามี</td><td class="mono">02</td><td>แนบรูปได้</td></tr>
+            <tr><td>PI — Proforma Invoice</td><td><span class="dept-chip" style="color:var(--sr)">SR</span></td><td class="mono req">✓</td><td class="mono">05</td><td>จากซัพผ่าน LINE/Email</td></tr>
+            <tr><td>ใบขออนุมัติเพิ่มรหัสสินค้า</td><td><span class="dept-chip" style="color:var(--sr)">SR</span></td><td class="mono opt">ถ้าไม่มี code</td><td class="mono">06</td><td>SR Head เซ็น</td></tr>
+            <tr><td><b>PO</b></td><td><span class="dept-chip" style="color:var(--sr)">SR</span></td><td class="mono req">✓</td><td class="mono">07</td><td>พิมพ์จาก SAP</td></tr>
+            <tr><td><b>PO ที่ซัพเซ็นกลับ</b></td><td><span class="dept-chip" style="color:var(--sr)">SR</span></td><td class="mono req">✓</td><td class="mono">09</td><td>เอกสารผูกพันกับคู่ค้า</td></tr>
+            <tr><td>Pattern label</td><td><span class="dept-chip" style="color:var(--sr)">SR</span></td><td class="mono opt">ถ้ามี</td><td class="mono">09</td><td>—</td></tr>
+            <tr><td><b>ผลตรวจรับ / RC</b></td><td><span class="dept-chip" style="color:var(--qc)">QC</span></td><td class="mono req">✓</td><td class="mono">11</td><td>ตรวจที่ห้องเย็นต้นทาง</td></tr>
+            <tr><td><b>GR</b></td><td><span class="dept-chip" style="color:var(--wh)">WH</span></td><td class="mono req">✓</td><td class="mono">12</td><td>พิมพ์จาก SAP</td></tr>
+            <tr><td><b>Invoice / ใบแจ้งหนี้</b></td><td><span class="dept-chip" style="color:var(--ac)">AC</span></td><td class="mono req">✓</td><td class="mono">13</td><td>ต้องตกลงว่า SR หรือ AC อัพโหลด</td></tr>
+            <tr><td>ใบลดหนี้ — Credit Note</td><td><span class="dept-chip" style="color:var(--ac)">AC</span></td><td class="mono opt">ถ้ามีเคลม</td><td class="mono">เคลม</td><td>ปลดล็อกการจ่าย</td></tr>
+            <tr><td><b>สลิป / Swift</b></td><td><span class="dept-chip" style="color:var(--ac)">AC</span></td><td class="mono req">✓</td><td class="mono">15</td><td>ระบบส่งให้ซัพเอง</td></tr>
+            <tr><td><b>ใบเสร็จรับเงินตัวจริง</b></td><td><span class="dept-chip" style="color:var(--ac)">AC</span></td><td class="mono req">✓</td><td class="mono">16</td><td>ติดตามด้วยเลข tracking</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <div class="eyebrow">ประโยชน์</div>
+        <h2>แต่ละแผนกได้อะไร</h2>
+      </div>
+      <div class="cards">
+        <div class="card" style="--dept:var(--sr)">
+          <div class="who"><i></i><b>Sourcing</b><small>ได้มากที่สุด</small></div>
+          <ul>
+            <li>หลุดจากบทบาทเดินเอกสาร — AC และ WH อัพโหลดของตัวเอง</li>
+            <li>ไม่ต้องจำ payment condition เพื่อตามใบแจ้งหนี้</li>
+            <li>เซ็นอนุมัติที่เดียว ไม่ต้องสลับ Dochub + Lark</li>
+            <li>ไม่ต้องตอบคำถาม “PO ตัวนี้ถึงไหน” อีก</li>
+          </ul>
+        </div>
+        <div class="card" style="--dept:var(--qc)">
+          <div class="who"><i></i><b>Quality Control</b><small>QC</small></div>
+          <ul>
+            <li>เห็นคิวตรวจล่วงหน้าพร้อมวันนัดรับของ</li>
+            <li>บันทึกผลตรวจ + รูป ที่เดียว แทนโพสต์ในกลุ่มแล้วหาย</li>
+            <li>ไม่ผ่าน = ระบบเปิดเรื่องเคลมและล็อกการจ่ายให้เอง</li>
+          </ul>
+        </div>
+        <div class="card" style="--dept:var(--ls)">
+          <div class="who"><i></i><b>Logistics</b><small>LS</small></div>
+          <ul>
+            <li>เห็นรายการที่ต้องจองรถล่วงหน้าในหน้าเดียว</li>
+            <li>งานเปิดรหัสสินค้าเข้าคิวให้ ไม่ต้องรอเอกสารเดินมาถึงโต๊ะ</li>
+          </ul>
+        </div>
+        <div class="card" style="--dept:var(--wh)">
+          <div class="who"><i></i><b>Warehouse</b><small>WH</small></div>
+          <ul>
+            <li>รู้ล่วงหน้าว่าของเข้าวันไหน PO ไหน ไม่ต้องรอ SR แจ้ง</li>
+            <li>อัพโหลด GR เอง จบหน้าที่ตัวเอง ไม่ต้องส่งต่อใคร</li>
+          </ul>
+        </div>
+        <div class="card" style="--dept:var(--ac)">
+          <div class="who"><i></i><b>Accounting</b><small>AC</small></div>
+          <ul>
+            <li>เลิกไล่ขอเอกสาร — checklist บอกว่าขาดใบไหนของดีลไหน</li>
+            <li>ระบบขึ้นสถานะ “พร้อมบันทึก” เมื่อ PO + Invoice + GR ครบและยอดตรง</li>
+            <li>ติดตามเอกสารตัวจริงได้ว่าอยู่ที่ใคร</li>
+            <li>ปิดงานสิ้นเดือนเร็วขึ้น ไม่ต้องรวมเอกสารเองตอนท้าย</li>
+          </ul>
+        </div>
+        <div class="card" style="--dept:var(--ink-2)">
+          <div class="who"><i></i><b>GM / หัวหน้าแผนก</b><small>ผู้อนุมัติ</small></div>
+          <ul>
+            <li>อนุมัติจากมือถือได้ ไม่ต้องเปิดหลายแอป</li>
+            <li>เห็นว่างานค้างที่ขั้นตอนไหนมากสุด นานสุด ใครถือ</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <div class="eyebrow">เงื่อนไขความสำเร็จ</div>
+        <h2>สิ่งที่ต้องเปลี่ยนพฤติกรรม ไม่ใช่แค่เพิ่มเว็บอีกตัว</h2>
+        <p>ระบบจะได้ผลก็ต่อเมื่อเลิกทำแบบเดิมควบคู่ไปด้วย ถ้าใช้ทั้งสองทางจะกลับไปกระจายเหมือนเดิม</p>
+      </div>
+      <div class="swap">
+        <div class="row hd"><div>แผนก</div><div>เลิกทำ</div><div>เริ่มทำ</div></div>
+        <div class="row"><div class="lbl">SR</div><div class="from">เป็นคนกลางส่งต่อเอกสารทุกใบ</div><div class="to">สร้างดีลตอนเริ่มเช็คราคา + กรอกเลข PO จาก SAP</div></div>
+        <div class="row"><div class="lbl">QC</div><div class="from">แจ้งผลตรวจเฉพาะในกลุ่มแชท</div><div class="to">บันทึกผลตรวจ + รูป ในดีล</div></div>
+        <div class="row"><div class="lbl">LS</div><div class="from">รอ SR แจ้งวันรับของ</div><div class="to">อัพเดตวันจองรถในระบบ</div></div>
+        <div class="row"><div class="lbl">WH</div><div class="from">รอ SR มาขอเอกสาร GR</div><div class="to">อัพโหลด GR ทันทีหลังรับของ</div></div>
+        <div class="row"><div class="lbl">AC</div><div class="from">ส่งสลิปกลับให้ SR เพื่อให้ SR ส่งต่อซัพ</div><div class="to">อัพโหลดสลิปเอง ระบบแจ้งซัพให้</div></div>
+        <div class="row"><div class="lbl">ทุกแผนก</div><div class="from">ใช้ไฟล์ในแชทหรือไดรฟ์ส่วนตัวเป็นแหล่งอ้างอิง</div><div class="to">ถือว่าเอกสารในระบบคือฉบับจริง</div></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <div class="eyebrow">วาระการประชุม</div>
+        <h2>คำถามที่ต้องการคำตอบจากที่ประชุมนี้</h2>
+        <p>ยังไม่เริ่มเขียนโปรแกรมจนกว่าจะได้คำตอบ 7 ข้อนี้</p>
+      </div>
+      <ol class="qs">
+        <li><span>ลำดับ 17 ขั้นตอนตรงกับงานจริงหรือไม่ — <b>มีขั้นไหนหายไปหรือเกินมา</b></span></li>
+        <li><span>รายการเอกสารบังคับครบหรือไม่ และใครควรเป็นเจ้าของแต่ละใบ</span></li>
+        <li><span>SLA แต่ละขั้นควรเป็นเท่าไหร่จริง (ตัวเลขในเอกสารนี้เป็นเพียงตั้งต้น)</span></li>
+        <li><span>ใครควรอัพโหลด Invoice — SR ผู้รับจากซัพ หรือ AC ผู้ใช้เอกสาร</span></li>
+        <li><span>ให้ซัพส่งใบเสร็จตัวจริงถึง AC โดยตรงได้หรือไม่ (ตัด SR ออกจากวงจรจริง)</span></li>
+        <li><span>จะย้ายการเซ็นออกจาก Dochub ทั้งหมด หรือคงไว้เฉพาะเอกสารที่ใช้กับคู่ค้าภายนอก</span></li>
+        <li><span>กลุ่ม Lark เดิม 3 กลุ่ม จะเหลือกลุ่มไหนไว้รับการแจ้งเตือนจากระบบ</span></li>
+      </ol>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <div class="eyebrow">แผนงาน</div>
+        <h2>ทำเป็นระยะ เริ่มจากงานซื้อในประเทศ</h2>
+        <p>โครงสร้างออกแบบให้เพิ่มงานนำเข้า หรือ Solar/Mechanical ได้ภายหลังโดย
+        <b>เพิ่มข้อมูลในตาราง ไม่ต้องแก้โปรแกรม</b></p>
+      </div>
+      <div class="phases">
+        <div class="ph on"><div class="p">01</div><div class="t">เอกสารออกแบบ + flow ให้ทุกแผนกเห็นชอบ</div><div class="s">ตอนนี้</div></div>
+        <div class="ph"><div class="p">02</div><div class="t">สร้างฐานข้อมูลและขั้นตอนงานซื้อในประเทศ</div><div class="s">IT + SR</div></div>
+        <div class="ph"><div class="p">03</div><div class="t">ใช้งานจริง — หน้าสถานะ checklist และอัพโหลดเอกสาร</div><div class="s">ทดลอง 20 ดีล</div></div>
+        <div class="ph"><div class="p">04</div><div class="t">ย้ายการอนุมัติเข้าแอป + แจ้งเตือน Lark + เตือน SLA</div><div class="s">SR + GM</div></div>
+        <div class="ph"><div class="p">05</div><div class="t">3-way readiness + รายงานคอขวด + งานนำเข้า</div><div class="s">AC + ผู้บริหาร</div></div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="foot">
+    <p>จัดทำเพื่อใช้หารือระหว่างแผนก — ตัวเลข SLA และรายการเอกสารในเอกสารนี้เป็นข้อเสนอตั้งต้น
+    ขอให้แต่ละแผนกแก้ให้ตรงกับงานจริง</p>
+    <p>อ้างอิง Flowchart for Domestic Purchasing to Accounting Process (MGS) · effective 30/07/2026 ·
+    ผู้จัดทำ Purchase department</p>
+  </footer>
+
+</div>
