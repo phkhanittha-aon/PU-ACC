@@ -26,8 +26,13 @@ function importFromCosting() {
   var d = res.data;
   ui.alert('นำเข้าเรียบร้อย\n\n' +
     'อ่านจากไฟล์: ' + src.rows.length + ' แถว\n' +
-    'สร้างรายการใหม่: ' + d.created + '\n' +
+    'สร้างรายการใหม่: ' + d.created + ' ใบ (รวม ' + d.lines + ' รายการสินค้า)\n' +
     'มีอยู่แล้ว ข้ามไป: ' + d.skipped + '\n' +
+    (d.multiLine.length
+      ? '\n· ใบที่มีหลายรายการ ' + d.multiLine.length + ' ใบ — ยอดของใบคือผลรวมทุกรายการ:\n' +
+        d.multiLine.slice(0, 10).map(function (x) { return '   · ' + x; }).join('\n') +
+        '\n   คลังกรอกจำนวนที่รับจริง<แยกทีละรายการ>ในหน้ารายการนั้น\n'
+      : '') +
     (d.problems.length ? '\nข้อมูลไม่ครบ ' + d.problems.length + ' แถว:\n' +
        d.problems.slice(0, 10).join('\n') : '') +
     (src.problems.length ? '\n\nหมายเหตุจากไฟล์:\n' + src.problems.join('\n') : '') +
@@ -98,20 +103,37 @@ var Intake = {
       var changed = [], inProgress = [];
 
       var created = 0, skipped = 0, problems = [];
-      var newDeals = [], newPays = [], newStages = [];
+      var newDeals = [], newPays = [], newStages = [], newItems = [];
       var now = new Date();
+      var multiLine = [];      // ใบที่มีหลายรายการ — ต้องรายงานให้เห็น ไม่ใช่รวมเงียบ ๆ
 
+      /* ---------- รวมบรรทัดของ PO เดียวกันก่อน ----------
+         ไฟล์ Costing ส่งมา "บรรทัดละรายการสินค้า" PO ใบเดียวจึงมีได้หลายบรรทัด
+         ของเดิมไล่ทีละบรรทัดแล้วกันซ้ำด้วยเลข PO — บรรทัดที่ 2 ขึ้นไปถูกทิ้งเงียบ ๆ
+         ผลคือ PO 3 รายการ 100,000 เข้าระบบเป็นรายการเดียว 50,000 โดยไม่มีรายงานอะไรเลย
+         ยอดที่ต่ำกว่าจริงไปโผล่ที่เพดานจ่าย (remainOf_) ทำให้ตั้งเบิกยอดที่ถูกต้องไม่ได้ */
+      var groups = [], byNo = {};
       rows.forEach(function (r) {
-        var fp = fingerprint_(r);
         var no = String(r['PO Number'] || '').trim();
         if (!no) { problems.push('(ไม่มีเลข PO) ' + (r.Supplier || '')); return; }
-
         var amt = Num.parse(r.Price);
         if (amt === null) {
           // ยอดอ่านไม่ออกต้องบอก ไม่ใช่ตั้งเป็น 0 เงียบ ๆ แล้วให้คนไปเจอทีหลังตอนตั้งเบิก
           problems.push(no + ': อ่านยอดเงินไม่ได้ ("' + r.Price + '")');
           return;
         }
+        var g = byNo[no];
+        if (!g) { g = byNo[no] = {no: no, first: r, lines: [], amount: 0}; groups.push(g); }
+        g.lines.push({row: r, amount: amt});
+        g.amount += amt;
+      });
+
+      groups.forEach(function (g) {
+        var r = g.first;                     // หัวใบใช้บรรทัดแรก (ผู้ขาย/เงื่อนไข/วันครบกำหนดของ PO)
+        var no = g.no, amt = g.amount;       // ยอด = ผลรวมทุกบรรทัดของใบนี้
+        var fp = fingerprint_(r);
+        if (g.lines.length > 1)
+          multiLine.push(no + ' — ' + g.lines.length + ' รายการ รวม ' + Num.money(amt));
 
         /* PO ที่อยู่ในระบบแล้วต้องไม่ขึ้นซ้ำ — แต่ต้องบอกว่าทำไมถึงข้าม
            กรณีอันตรายคือ SAP ส่งไฟล์ใหม่ที่ยอดของ PO เดิม *เปลี่ยนไป*
@@ -134,9 +156,15 @@ var Intake = {
         var mod = r._module || 'FOOD';
         var term = r['PO Payment Term'] || 'UNKNOWN';
         var tp = termPlan(term);
+        /* ชื่อสินค้าบนหัวใบ — ใบหลายรายการบอกให้รู้ตรง ๆ ว่ามีกี่รายการ
+           เขียนแค่ชื่อรายการแรกจะทำให้คนเปิดดูแล้วเข้าใจว่าใบนี้มีของอย่างเดียว */
+        var itemName = String(r._item || '').trim();
+        if (g.lines.length > 1)
+          itemName = (itemName || 'ไม่ระบุ') + ' และอีก ' + (g.lines.length - 1) + ' รายการ';
         var deal = {
           deal_no: no, entry: 'PO', module: mod, supplier: r.Supplier || '',
-          item: r._item || '', amount: amt, currency: r.Currency || 'THB',
+          item: itemName, line_count: g.lines.length,
+          amount: amt, currency: r.Currency || 'THB',
           payment_term: term, term_name: tp.n, due_date: r['Due Date'] || '',
           stage: startStage, status: 'ACTIVE', owner_email: ownerOfGroup[mod] || '',
           created_at: now, created_by: me.email, updated_at: now, fingerprint: fp
@@ -144,8 +172,19 @@ var Intake = {
 
         if (!ownerOfGroup[mod]) noOwner[mod] = (noOwner[mod] || 0) + 1;
         newDeals.push(deal);
-        haveNo[no] = true;
+        // เก็บตัวรายการไว้ ไม่ใช่ true — ไม่งั้นการเทียบยอดด้านบนอ่าน prev.amount ไม่ได้
+        haveNo[no] = deal;
         have[fp] = true;
+
+        // รายการย่อยทีละบรรทัด — คลังกรอกจำนวนที่รับจริงรายรายการจากตารางนี้
+        g.lines.forEach(function (ln, i) {
+          newItems.push({
+            deal_no: no, line_no: i + 1,
+            item: String(ln.row._item || '').trim() || ('รายการที่ ' + (i + 1)),
+            qty: ln.row._qty || '', uom: ln.row._uom || '',
+            price: ln.amount, qty_in: '', recv_by: '', recv_at: '', note: ''
+          });
+        });
 
         buildPayments(amt, term, r['Due Date']).forEach(function (p) {
           newPays.push({
@@ -163,6 +202,7 @@ var Intake = {
 
       // เขียนทีเดียวเป็นก้อน — เขียนทีละแถวช้าและมีโอกาสค้างกลางทางจนได้ข้อมูลครึ่ง ๆ
       Repo.insertMany(SHEETS.DEALS, newDeals);
+      Repo.insertMany(SHEETS.ITEMS, newItems);
       Repo.insertMany(SHEETS.PAYMENTS, newPays);
       Repo.insertMany(SHEETS.STAGES, newStages);
       newDeals.forEach(function (d) {
@@ -171,7 +211,8 @@ var Intake = {
       });
       return {created: created, skipped: skipped, problems: problems,
               startStage: startStage, skippedDocs: skippedDocs, noOwner: noOwner,
-              changed: changed, inProgress: inProgress};
+              changed: changed, inProgress: inProgress,
+              lines: newItems.length, multiLine: multiLine};
     });
   }
 };

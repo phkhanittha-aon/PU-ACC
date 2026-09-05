@@ -236,9 +236,17 @@ var Notify = {
   /** ยอมรับของขาดแล้วปิดใบ — ต้องให้ทุกฝ่ายรู้ เพราะกระทบยอดที่จะจ่าย */
   shortClose: function (dealNo, vr, why, me) {
     try {
-      Lark.queue('', '[จบ PO ทั้งที่รับไม่ครบ] ' + dealNo,
-        'ขาด ' + Math.abs(vr.diff) + ' ' + vr.unit +
-        ' (' + Math.abs(vr.pct) + '%)\nผู้ยืนยัน: ' + me.name + ' (' + me.roleName + ')' +
+      /* สองกรณีคนละข้อความ — ใบรายการเดียวบอกจำนวนที่ขาดได้ ใบหลายรายการบอกไม่ได้
+         ถ้าใช้ข้อความเดียวกัน ใบหลายรายการจะขึ้นว่า "ขาด NaN undefined" ในกลุ่ม Lark */
+      var head = vr && vr.ok
+        ? '[จบ PO ทั้งที่รับไม่ครบ] '
+        : '[ยืนยันผลตรวจรับจากเอกสาร] ';
+      var body = vr && vr.ok
+        ? 'ขาด ' + Math.abs(vr.diff) + ' ' + vr.unit + ' (' + Math.abs(vr.pct) + '%)'
+        : 'ใบนี้มี ' + (vr && vr.lines ? vr.lines : 'หลาย') + ' รายการ คนละหน่วยกัน ' +
+          'ระบบเทียบให้ไม่ได้ — ผู้ยืนยันตรวจจากใบรับสินค้าเอง';
+      Lark.queue('', head + dealNo,
+        body + '\nผู้ยืนยัน: ' + me.name + ' (' + me.roleName + ')' +
         '\nเหตุผล: ' + why + this.link_(dealNo), dealNo, 'warn');
     } catch (e) { ErrorLog.write('Notify.shortClose', e); }
   },

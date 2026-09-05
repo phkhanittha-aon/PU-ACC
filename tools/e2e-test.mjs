@@ -211,11 +211,22 @@ store['Assignments'].slice(1).forEach(r => {
 });
 
 /* ===== 5. นำเข้าจาก Costing (เลียนแบบแถวที่อ่านได้จากไฟล์จริง) ===== */
+/* ใบที่สองมี 3 บรรทัดโดยตั้งใจ — ไฟล์ Costing ส่งมาบรรทัดละรายการสินค้า
+   เคยพลาดมาแล้ว: ของเดิมกันซ้ำด้วยเลข PO บรรทัดที่ 2-3 จึงถูกทิ้งเงียบ ๆ
+   PO 420,000 (3 รายการ) เข้าระบบเป็น 200,000 รายการเดียว โดยไม่มีรายงานอะไรเลย
+   แล้วยอดที่ต่ำกว่าจริงไปทำให้ตั้งเบิกยอดที่ถูกต้องไม่ได้เพราะติดเพดาน */
 const rows = [
   {'PO Number':'PO-F126050001', 'Supplier':'ABC Foods', 'PO Payment Term':'100% after received goods within 7 days',
    'Price':130000, 'Currency':'THB', 'Due Date':'2026-09-30', 'Payment_Status':'🟢', '_item':'กุ้งแช่แข็ง 16/20', '_module':'FOOD'},
   {'PO Number':'PO-M226050002', 'Supplier':'Sungrow', 'PO Payment Term':'30% advance and 70% L/C',
-   'Price':420000, 'Currency':'USD', 'Due Date':'2026-10-15', 'Payment_Status':'🟢', '_item':'อินเวอร์เตอร์', '_module':'MECH'}
+   'Price':200000, 'Currency':'USD', 'Due Date':'2026-10-15', 'Payment_Status':'🟢',
+   '_item':'อินเวอร์เตอร์ SG125CX', '_qty':'4 SET', '_module':'MECH'},
+  {'PO Number':'PO-M226050002', 'Supplier':'Sungrow', 'PO Payment Term':'30% advance and 70% L/C',
+   'Price':150000, 'Currency':'USD', 'Due Date':'2026-10-15', 'Payment_Status':'🟢',
+   '_item':'ชุดยึดแผง', '_qty':'20 SET', '_module':'MECH'},
+  {'PO Number':'PO-M226050002', 'Supplier':'Sungrow', 'PO Payment Term':'30% advance and 70% L/C',
+   'Price':70000, 'Currency':'USD', 'Due Date':'2026-10-15', 'Payment_Status':'🟢',
+   '_item':'สายไฟ DC', '_qty':'500 M', '_module':'MECH'}
 ];
 const imp = as(U.SR, () => {
   const me = app.Auth.me();
@@ -226,6 +237,18 @@ step.push('นำเข้า ' + (imp && imp.created) + ' รายการ ·
           app.STAGES[imp.startStage].n + ' (' + app.STAGES[imp.startStage].o + ')');
 const dealsNow = app.Repo.readAll(app.SHEETS.DEALS);
 ck(dealsNow.length === 2, 'ตาราง Deals ไม่มี 2 แถว');
+/* PO หลายรายการ: 1 ใบ · ยอดต้องเป็นผลรวมทุกบรรทัด · รายการย่อยต้องถูกเก็บครบ
+   ตรวจยอดด้วย ไม่ใช่ตรวจแค่จำนวนใบ — ระบบที่ทิ้งบรรทัดจะได้ "1 ใบ" เหมือนกันแต่ยอดผิด */
+const mech = dealsNow.filter(d => String(d.deal_no) === 'PO-M226050002')[0];
+ck(mech && Number(mech.amount) === 420000,
+   'PO หลายรายการ: ยอดต้องเป็นผลรวมทุกบรรทัด 420,000 (ได้ ' + (mech && mech.amount) + ')');
+const itemsNow = app.Repo.readAll(app.SHEETS.ITEMS);
+ck(itemsNow.filter(x => String(x.deal_no) === 'PO-M226050002').length === 3,
+   'รายการย่อยของ PO หลายรายการไม่ครบ 3 บรรทัด (ได้ ' +
+   itemsNow.filter(x => String(x.deal_no) === 'PO-M226050002').length + ')');
+ck(imp.lines === 4, 'จำนวนรายการสินค้าที่นำเข้าไม่ครบ (ได้ ' + imp.lines + ' ควรได้ 4)');
+ck(imp.multiLine.length === 1, 'ไม่ได้รายงานว่ามีใบที่มีหลายรายการ');
+step.push('PO หลายรายการ: 1 ใบ · ยอดรวมทุกบรรทัด · เก็บรายการย่อยครบทุกบรรทัด');
 ck(String(dealsNow[0].owner_email) === U.SR, 'ใบสายอาหารไม่ได้เจ้าของงานตามกลุ่ม');
 ck(String(dealsNow[1].owner_email) === '', 'ใบสายเครื่องจักรไม่ควรมีเจ้าของ (ยังไม่ได้ระบุในตาราง)');
 
@@ -447,6 +470,34 @@ ck(conf.ok && Math.abs(conf.data.diff) === 30, 'คำนวณส่วนต�
 const closeNow = as(U.AC_TH, () => app.apiAdvanceStage(D3, ''));
 ck(closeNow.ok, 'ยืนยันแล้วยังปิดใบไม่ได้: ' + (closeNow.error || ''));
 step.push('รับของขาด 30 KG → ปิดไม่ได้จนกว่าจะยืนยันพร้อมเหตุผล → ปิดได้');
+
+/* ===== 13.1 ใบหลายรายการ: เทียบจำนวนไม่ได้ ต้องให้คนตรวจจากเอกสารแล้วเซ็นรับ =====
+   ทีมเลือกให้คลังแนบใบรับสินค้าอย่างเดียว ไม่กรอกจำนวนทีละรายการ
+   แปลว่าระบบเทียบขาด/เกินให้ไม่ได้ — แต่ต้องไม่กลายเป็น "ปิดได้เลยโดยไม่มีใครดู"
+   จึงเปลี่ยนจากระบบตรวจ เป็นคนตรวจแล้วเซ็นรับ ชื่อผู้รับผิดชอบยังติดอยู่กับใบเหมือนเดิม */
+const D4 = 'PO-M226050009';
+app.Repo.insert(app.SHEETS.DEALS, {
+  deal_no: D4, entry: 'PO', module: 'MECH', supplier: 'Sungrow',
+  item: 'อินเวอร์เตอร์ และอีก 2 รายการ', line_count: 3,
+  amount: 300000, currency: 'THB', payment_term: 'UNKNOWN', due_date: '2026-11-01',
+  stage: 16, status: 'ACTIVE', created_at: new Date()});
+app.Repo.insert(app.SHEETS.STAGES, {deal_no: D4, seq: 16, stage_code: 'AC_CLOSE',
+  owner_dept: 'AC', entered_at: new Date(), sla_hours: 48});
+app.Repo.insert(app.SHEETS.PILOT, {deal_no: D4, added_at: new Date(), added_by: U.SR});
+
+const mlClose = as(U.AC_TH, () => app.apiAdvanceStage(D4, ''));
+ck(!mlClose.ok && mlClose.code === 'NEED_CHECK_DOC',
+   'ใบหลายรายการปิดได้เลยโดยไม่มีใครตรวจ (ได้ ' + (mlClose.code || 'ผ่าน') + ')');
+// ต้องไม่ติดตาย — ยืนยันแล้วต้องปิดได้จริง
+const mlNo = as(U.AC_TH, () => app.apiConfirmShortClose(D4, 'สั้น'));
+ck(!mlNo.ok && mlNo.code === 'NEED_REASON', 'ยืนยันโดยไม่เขียนเหตุผลได้');
+const mlYes = as(U.AC_TH, () => app.apiConfirmShortClose(D4,
+  'ตรวจกับใบรับสินค้าครบ 3 รายการแล้ว จำนวนตรงกับใบแจ้งหนี้'));
+ck(mlYes.ok && mlYes.data && mlYes.data.byDoc,
+   'ยืนยันผลตรวจจากเอกสารไม่ได้: ' + (mlYes.error || JSON.stringify(mlYes)));
+const mlDone = as(U.AC_TH, () => app.apiAdvanceStage(D4, ''));
+ck(mlDone.ok, 'ยืนยันแล้วยังปิดใบหลายรายการไม่ได้: ' + (mlDone.error || ''));
+step.push('ใบหลายรายการ: ระบบเทียบให้ไม่ได้ → บังคับให้คนตรวจจากใบรับสินค้าแล้วเซ็นรับ จึงปิดได้');
 
 /* ===== 14. นำเข้าซ้ำ — PO เดิมต้องไม่ขึ้นใหม่ และต้องบอกถ้ายอดเปลี่ยน ===== */
 const again2 = as(U.SR, () => { const me = app.Auth.me(); return app.Intake.run(me, rows); });

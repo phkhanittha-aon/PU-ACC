@@ -24,6 +24,7 @@ var SHEETS = {
   CONFIG:   'Config',
   PILOT:    'Pilot_Scope',
   ASSIGN:   'Assignments',
+  ITEMS:    'Deal_Items',
   ERRORS:   'Errors'
 };
 
@@ -32,10 +33,15 @@ var COLS = {
   Users: ['email', 'full_name', 'dept', 'title', 'lark_user_id', 'manager_email',
           'delegate_email', 'delegate_until', 'is_active', 'note'],
   Deals: ['deal_no', 'entry', 'module', 'b1_po_no', 'supplier', 'item', 'qty', 'uom',
+         'line_count',
           'amount', 'currency', 'payment_term', 'term_name', 'due_date', 'stage',
           'status', 'owner_email', 'qc_bypass', 'qc_bypass_why', 'qc_bypass_by',
           'cash_why', 'short_closed_by', 'short_closed_at', 'short_note', 'short_qty',
           'created_at', 'created_by', 'updated_at', 'fingerprint'],
+  /* รายการย่อยของ PO — PO ใบเดียวมีได้หลายสินค้า (ไฟล์ Costing ส่งมาบรรทัดละรายการ)
+     qty_in = จำนวนที่คลังรับเข้าจริงของรายการนั้น กรอกทีละรายการ ไม่ใช่ช่องเดียวทั้งใบ */
+  Deal_Items: ['deal_no', 'line_no', 'item', 'qty', 'uom', 'price',
+               'qty_in', 'recv_by', 'recv_at', 'note'],
   Deal_Stages: ['deal_no', 'seq', 'stage_code', 'owner_dept', 'entered_at', 'done_at',
                 'done_by', 'hours_used', 'sla_hours', 'sla_breached', 'note'],
   Handoffs: ['deal_no', 'stage_code', 'payload_json', 'saved_at', 'saved_by'],

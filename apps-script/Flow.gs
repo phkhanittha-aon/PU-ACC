@@ -157,8 +157,12 @@ var HAND = {
       MECH:[{k:'conCond', lb:'สภาพตู้/หีบห่อ (Con. Condition)', t:'sel', req:true,
              o:['ผ่าน (Pass)', 'ไม่ผ่าน (Fail)']}]
     }},
+  /* ใบที่มีสินค้ารายการเดียว กรอกจำนวนได้ตรง ๆ และระบบเทียบขาด/เกินให้
+     ใบที่มีหลายรายการ จำนวนอยู่คนละหน่วย (4 SET + 20 SET + 500 M) บวกเป็นเลขเดียวไม่ได้
+     จึงไม่บังคับช่องนี้ แต่ไปบังคับ "แนบใบรับสินค้า (GRPO)" แทน ซึ่งเป็นเอกสารบังคับของขั้นนี้อยู่แล้ว
+     ดู multiLine_() — ช่องนี้จะกลายเป็นไม่บังคับเองเมื่อใบมีหลายรายการ */
   GR: {to:'บัญชี', f:[
-    {k:'qtyIn', lb:'จำนวนที่รับเข้าคลังจริง', t:'text', req:true},
+    {k:'qtyIn', lb:'จำนวนที่รับเข้าคลังจริง', t:'text', req:true, oneLineOnly:true},
     {k:'grNo',  lb:'เลข GRPO ใน B1',          t:'text', req:true}]},
   INVOICE_RECEIVED: {to:'จัดซื้อ และบัญชี', f:[
     {k:'invNo',  lb:'เลขใบแจ้งหนี้ของผู้ขาย', t:'text', req:true},
@@ -168,11 +172,32 @@ var HAND = {
 };
 
 /** สัญญาของขั้นนี้สำหรับรายการนี้ — รวมช่องกลางกับช่องเฉพาะสายสินค้า */
+/** ใบนี้มีสินค้าหลายรายการไหม — อ่านจาก line_count ที่ตัวนำเข้าเขียนไว้บนหัวใบ
+    เก็บไว้บนใบเพื่อให้ไฟล์นี้ไม่ต้องรู้จักชีต (ยังทดสอบบน Node ได้เหมือนเดิม)
+    ใบเก่าที่ยังไม่มีค่านี้ถือว่ารายการเดียว — พฤติกรรมเท่าเดิม ไม่พังของที่ใช้อยู่ */
+function lineCountOf(p) {
+  var n = Number((p && p.line_count) || 1);
+  return isFinite(n) && n > 0 ? n : 1;
+}
+function multiLine_(p) { return lineCountOf(p) > 1; }
+
 function handOf(code, p) {
   var h = HAND[code];
   if (!h) return null;
   var ex = h.byMod ? (h.byMod[modOf(p)] || []) : [];
-  return ex.length ? {to:h.to, app:h.app, f:h.f.concat(ex)} : h;
+  var f = ex.length ? h.f.concat(ex) : h.f;
+  /* ช่องที่ใช้ได้เฉพาะใบรายการเดียว — ใบหลายรายการยังกรอกได้ถ้าอยาก แต่ไม่บังคับ
+     และเปลี่ยนป้ายให้บอกตรง ๆ ว่าให้ดูจากเอกสารแทน จะได้ไม่มีใครกรอกมั่วเพื่อให้ผ่าน */
+  if (multiLine_(p) && f.some(function (x) { return x.oneLineOnly; })) {
+    f = f.map(function (x) {
+      if (!x.oneLineOnly) return x;
+      var o = {}; Object.keys(x).forEach(function (k) { o[k] = x[k]; });
+      o.req = false;
+      o.lb = x.lb + ' (ใบนี้มี ' + lineCountOf(p) + ' รายการ — ดูตามใบรับสินค้าที่แนบ)';
+      return o;
+    });
+  }
+  return {to:h.to, app:h.app, f:f};
 }
 
 /* ขั้นไหนต้องใช้ข้อมูลที่ขั้นก่อนหน้าส่งมา */
@@ -187,7 +212,13 @@ var NEEDS = {
 };
 var NEEDS_MOD = {FOOD:{GR:['temp'], AC_CLOSE:['lot']}, MECH:{}};
 function needsOf(code, p) {
-  return (NEEDS[code] || []).concat(((NEEDS_MOD[modOf(p)] || {})[code]) || []);
+  var list = (NEEDS[code] || []).concat(((NEEDS_MOD[modOf(p)] || {})[code]) || []);
+  /* ใบหลายรายการไม่มีช่อง "จำนวนที่รับเข้าคลัง" ให้กรอก (คนละหน่วย บวกไม่ได้)
+     ถ้ายังเรียกหาอยู่ ปลายทางจะขึ้นเตือน "ข้อมูลยังไม่มา" ค้างตลอดไปโดยไม่มีทางแก้
+     สิ่งที่ใช้แทนคือใบรับสินค้า (GRPO) ซึ่งเป็นเอกสารบังคับของขั้นคลังอยู่แล้ว */
+  if (multiLine_(p))
+    list = list.filter(function (k) { return k !== 'qtyIn'; });
+  return list;
 }
 
 /* ช่องไหนมาจากขั้นไหน — สร้างจาก HAND ไม่เขียนซ้ำ */
@@ -366,7 +397,7 @@ if (typeof module !== 'undefined' && module.exports) {
     DONE_PAY:DONE_PAY, BILLDOC:BILLDOC, WHT:WHT, UNKNOWN_TERM:UNKNOWN_TERM,
     modOf:modOf, handOf:handOf, needsOf:needsOf, moneyFieldKeys:moneyFieldKeys,
     isForeign:isForeign, ownerDeptOf:ownerDeptOf, deptCovers:deptCovers, LOCAL_CCY:LOCAL_CCY,
-    DEPT_FAMILY:DEPT_FAMILY, MOD_SR:MOD_SR,
+    DEPT_FAMILY:DEPT_FAMILY, MOD_SR:MOD_SR, lineCountOf:lineCountOf,
     parseQty:parseQty, qtyDiff:qtyDiff,
     termPlan:termPlan, buildPayments:buildPayments, isLC:isLC, isDeposit:isDeposit,
     billKind:billKind, cashSkip:cashSkip, skipOf:skipOf, nextStage:nextStage

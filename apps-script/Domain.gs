@@ -200,6 +200,17 @@ var Domain = {
             'รับของไม่ครบ — ได้ ' + vr.actual + ' จาก ' + vr.expected + ' ' + vr.unit +
             ' (ขาด ' + Math.abs(vr.diff) + ' ' + vr.unit + ' / ' + Math.abs(vr.pct) + '%)\n' +
             'ต้องกดยืนยันจบ PO พร้อมระบุเหตุผลก่อน จึงจะปิดใบได้');
+
+        /* ใบหลายรายการ: จำนวนอยู่คนละหน่วย ระบบเทียบขาด/เกินให้ไม่ได้
+           ถ้าปล่อยผ่านเพราะ "เทียบไม่ได้" ใบพวกนี้จะปิดโดยไม่มีใครตรวจอะไรเลย
+           ซึ่งแย่กว่าใบรายการเดียวที่อย่างน้อยระบบยังทัก
+           จึงเปลี่ยนจาก "ระบบตรวจให้" เป็น "คนตรวจแล้วเซ็นรับ" — ใช้ปุ่มยืนยันตัวเดียวกัน
+           ผลลัพธ์คือมีชื่อผู้รับผิดชอบติดอยู่กับใบเสมอ ไม่ว่าจะนับได้หรือนับไม่ได้ */
+        if (multiLine_(d) && !String(d.short_closed_by || '').trim())
+          throw AppError('NEED_CHECK_DOC',
+            'ใบนี้มี ' + lineCountOf(d) + ' รายการ คนละหน่วยกัน ระบบเทียบจำนวนให้ไม่ได้\n' +
+            'ให้เปิดใบรับสินค้า (GRPO) ที่คลังแนบไว้ เทียบกับใบแจ้งหนี้ทีละรายการ ' +
+            'แล้วกดยืนยันพร้อมระบุว่าตรวจแล้วผลเป็นอย่างไร จึงจะปิดใบได้');
       }
 
       var nxt = nextStage(d);
@@ -515,6 +526,22 @@ var Domain = {
       if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
       self.assertEditable_(d);
       var vr = self.qtyVarianceOf_(dealNo);
+
+      /* ใบหลายรายการ: ระบบเทียบจำนวนให้ไม่ได้ (คนละหน่วย) จึงรับ "คำยืนยันของคน" แทน
+         ถ้าไม่มีทางนี้ ใบพวกนี้จะติดตาย — ปิดก็ไม่ได้เพราะด่านตรวจ
+         ยืนยันก็ไม่ได้เพราะไม่มีตัวเลขให้คำนวณ แล้วงานจะค้างโดยไม่มีทางออก */
+      if (multiLine_(d)) {
+        var r2 = Repo.update(SHEETS.DEALS, 'deal_no', dealNo, {
+          short_closed_by: me.email, short_closed_at: new Date(),
+          short_note: why, short_qty: 'ตรวจจากใบรับสินค้า (' + lineCountOf(d) + ' รายการ)'
+        });
+        History.log(me.email,
+          'ยืนยันผลตรวจรับจากใบรับสินค้า ' + lineCountOf(d) + ' รายการ — ' + why,
+          'Deals', dealNo, r2.before, r2.after);
+        Notify.shortClose(dealNo, {ok: false, lines: lineCountOf(d)}, why, me);
+        return {ok: true, byDoc: true, lines: lineCountOf(d)};
+      }
+
       if (!vr.ok)
         throw AppError('NO_VARIANCE', 'เทียบจำนวนไม่ได้: ' + vr.why);
       if (!vr.short)
