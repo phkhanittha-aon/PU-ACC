@@ -56,35 +56,41 @@ var Auth = {
 
   /* ---------- สิทธิ์ระดับคำสั่ง ----------
      deny by default: คำสั่งที่ไม่ได้เขียนไว้ในตารางนี้ ไม่มีใครเรียกได้ */
+  /* เขียนด้วยชื่อแผนกแม่ (SR · AC) ทีมย่อยได้สิทธิ์ตามแผนกแม่โดยอัตโนมัติ
+     ดูที่ require() ด้านล่าง — ไม่ต้องไล่เติมชื่อทีมย่อยทุกบรรทัด
+
+     เคยพลาดมาแล้วตอนเขียนรายชื่อเต็มทุกบรรทัด: 'get' กับ 'feedback.send' ลืมใส่
+     AC_FN/AC_TH บัญชีต่างประเทศจึงเปิดดูใบไม่ได้เลย ทั้งที่เป็นคนถือคิวนั้นเอง
+     ขอบเขตว่าใครทำใบไหนได้ ยังคุมด้วย assertStageOwner ต่างหากอยู่แล้ว */
   CAN: {
     // ดูข้อมูล — ทุกแผนกดูรายการได้ (ยอดเงินถูกตัดตามบทบาทอยู่แล้ว)
-    'list':          ['SR','QC','LS','WH','AC','AC_FN','AC_TH','ACH','GM','IT'],
+    'list':          ['SR','QC','LS','WH','AC','ACH','GM','IT'],
     'get':           ['SR','QC','LS','WH','AC','ACH','GM','IT'],
     'feedback.send': ['SR','QC','LS','WH','AC','ACH','GM','IT'],
-    'feedback.list': ['SR','AC','AC_FN','AC_TH','ACH','GM','IT'],
+    'feedback.list': ['SR','AC','ACH','GM','IT'],
 
     // เดินงาน — เช็คเพิ่มอีกชั้นว่าเป็นเจ้าของขั้นนั้นจริงไหม (ดู assertStageOwner)
-    'stage.advance': ['SR','QC','LS','WH','AC','AC_FN','AC_TH','ACH','GM'],
-    'handoff.save':  ['SR','QC','LS','WH','AC','AC_FN','AC_TH','ACH','GM'],
-    'doc.upload':    ['SR','QC','LS','WH','AC','AC_FN','AC_TH','ACH','GM'],
+    'stage.advance': ['SR','QC','LS','WH','AC','ACH','GM'],
+    'handoff.save':  ['SR','QC','LS','WH','AC','ACH','GM'],
+    'doc.upload':    ['SR','QC','LS','WH','AC','ACH','GM'],
 
     // เรื่องเงิน — เฉพาะแผนกที่มีสิทธิ์เห็นเงิน
     // จัดซื้อเป็นคนตั้งเรื่อง เพราะเป็นคนถือเอกสารจากผู้ขาย
     'pay.request':   ['SR'],
     // บัญชีตรวจเอกสารก่อนส่งขึ้นหัวหน้า
-    'pay.check':     ['AC','AC_FN','AC_TH'],
+    'pay.check':     ['AC'],
     // ตีกลับได้ทั้งด่านตรวจและด่านอนุมัติ — ด่านที่ปฏิเสธไม่ได้ ไม่ใช่ด่านตรวจ
-    'pay.reject':    ['AC','AC_FN','AC_TH','ACH','GM'],
+    'pay.reject':    ['AC','ACH','GM'],
     'pay.approve':   ['ACH','GM'],
     // ยอมรับของที่ขาดแล้วปิดใบ เป็นการตัดสินใจเรื่องเงิน จึงจำกัดที่ฝั่งที่รับผิดชอบ
-    'deal.closeshort': ['SR','AC','AC_FN','AC_TH','ACH','GM'],
-    'pay.record':    ['AC','AC_FN','AC_TH'],
+    'deal.closeshort': ['SR','AC','ACH','GM'],
+    'pay.record':    ['AC'],
 
     // ตั้งค่าระบบ — ทะเบียนซื้อเงินสดมียอดเงินอยู่ข้างใน
-    'admin.read':    ['SR','AC','AC_FN','AC_TH','ACH','GM','IT'],
+    'admin.read':    ['SR','AC','ACH','GM','IT'],
     'admin.users':   ['IT','GM'],
-    'admin.pilot':   ['SR','AC','AC_FN','AC_TH','IT','GM'],
-    'sap.import':    ['SR','AC','AC_FN','AC_TH','IT']
+    'admin.pilot':   ['SR','AC','IT','GM'],
+    'sap.import':    ['SR','AC','IT']
   },
 
   /** ปฏิเสธคำสั่งที่บทบาทนี้ไม่มีสิทธิ์ — เรียกก่อนทำงานทุกครั้ง */
@@ -92,7 +98,9 @@ var Auth = {
     var allow = this.CAN[cmd];
     if (!allow)
       throw AppError('UNKNOWN_CMD', 'ไม่รู้จักคำสั่ง "' + cmd + '"');
-    if (allow.indexOf(me.dept) < 0)
+    // ทีมย่อยได้สิทธิ์เท่าแผนกแม่ — จัดซื้ออาหารทำได้ทุกอย่างที่จัดซื้อทำได้
+    // ส่วนขอบเขตว่า "ใบไหนเป็นของใคร" คุมด้วย assertStageOwner ไม่ใช่ตารางนี้
+    if (allow.indexOf(me.dept) < 0 && allow.indexOf(DEPT_FAMILY[me.dept]) < 0)
       throw AppError('FORBIDDEN',
         'แผนก' + me.roleName + 'ไม่มีสิทธิ์ทำรายการนี้ (' + cmd + ')');
     return true;

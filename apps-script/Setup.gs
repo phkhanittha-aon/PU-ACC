@@ -85,10 +85,19 @@ function seedUserTemplate_() {
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.USERS);
   if (sh.getLastRow() > 1) return;                        // มีคนกรอกแล้วไม่ทับ
 
+  /* ตั้งแถวเปล่าไว้ให้ครบทุกแผนกที่ระบบรู้จัก รวมทีมย่อยด้วย
+     ไล่จาก ROLES โดยตรง เพิ่มทีมใหม่ใน Flow.gs แล้วแถวตั้งต้นตามมาเอง
+     ทีมย่อย (จัดซื้ออาหาร/เครื่องจักร · บัญชีต่างประเทศ/ในประเทศ) คือแถวที่ต้องกรอกจริง
+     ส่วนแถวแผนกแม่ปล่อยว่างไว้ได้ ใช้เฉพาะคนที่ต้องดูแทนทั้งสองทีม */
   var rows = [];
-  ['SR', 'QC', 'LS', 'WH', 'AC', 'ACH', 'GM', 'IT'].forEach(function (d) {
+  var hasTeams = {};        // แผนกที่มีทีมย่อยอยู่ข้างใต้ — แถวของตัวมันเองไม่จำเป็นต้องมีคน
+  Object.keys(DEPT_FAMILY).forEach(function (k) { hasTeams[DEPT_FAMILY[k]] = true; });
+  Object.keys(ROLES).forEach(function (d) {
+    var hint = hasTeams[d]
+      ? 'กรอกเฉพาะคนที่ต้องดูแทนได้ทุกทีมใน' + ROLES[d].name + ' — ปกติเว้นว่างไว้ได้'
+      : 'กรอกอีเมลบริษัทและชื่อ-นามสกุลของ' + ROLES[d].name;
     rows.push(['', '', d, ROLES[d].name, '', '', '', '', 'TRUE',
-      'กรอกอีเมลบริษัทและชื่อ-นามสกุลของ' + ROLES[d].name + ' — ลบแถวนี้ได้ถ้าไม่ใช้']);
+      hint + ' — ลบแถวนี้ได้ถ้าไม่ใช้']);
   });
   sh.getRange(2, 1, rows.length, COLS.Users.length).setValues(rows);
 
@@ -162,14 +171,34 @@ function usersReport_() {
     var d = String(u.dept).trim().toUpperCase();
     (byDept[d] = byDept[d] || []).push(u);
   });
-  Object.keys(ROLES).forEach(function (d) {
-    var list = byDept[d] || [];
-    var active = list.filter(function (u) {
+  /* แผนกที่มีทีมย่อยไม่จำเป็นต้องมีคนในแถวของตัวเอง ถ้าทีมย่อยมีคนครบแล้ว
+     ถ้าไม่แยกกรณีนี้ รายงานจะขึ้นกากบาทที่ "จัดซื้อ" กับ "บัญชี" ตลอดเวลา
+     แล้วคนอ่านจะไล่แก้ปัญหาที่ไม่มีอยู่จริง จนเลิกเชื่อรายงานนี้ไปเลย */
+  var teamsOf = {};
+  Object.keys(DEPT_FAMILY).forEach(function (k) {
+    (teamsOf[DEPT_FAMILY[k]] = teamsOf[DEPT_FAMILY[k]] || []).push(k);
+  });
+  var activeIn = function (d) {
+    return (byDept[d] || []).filter(function (u) {
       return String(u.is_active).toUpperCase() !== 'FALSE';
     });
-    out.push((active.length ? '✓ ' : '✗ ') + ROLES[d].name + ' (' + d + '): ' +
-      (active.length ? active.map(function (u) { return u.full_name || u.email; }).join(', ')
-                     : 'ยังไม่มีใคร — แผนกนี้จะเข้าระบบไม่ได้'));
+  };
+  Object.keys(ROLES).forEach(function (d) {
+    var active = activeIn(d);
+    var teams = teamsOf[d] || [];
+    var names = active.map(function (u) { return u.full_name || u.email; }).join(', ');
+    if (active.length) { out.push('✓ ' + ROLES[d].name + ' (' + d + '): ' + names); return; }
+
+    if (teams.length) {
+      // ไม่มีคนในแถวแม่ — ดูว่าทีมย่อยครบไหม ถ้าครบก็ไม่ใช่ปัญหา
+      var empty = teams.filter(function (t) { return !activeIn(t).length; });
+      out.push((empty.length ? '✗ ' : '✓ ') + ROLES[d].name + ' (' + d + '): ' +
+        (empty.length
+          ? 'ทีมย่อยยังไม่มีคน: ' + empty.map(function (t) { return ROLES[t].name; }).join(', ')
+          : 'ไม่มีคนดูแทนส่วนกลาง แต่ทีมย่อยมีคนครบแล้ว — ใช้งานได้'));
+      return;
+    }
+    out.push('✗ ' + ROLES[d].name + ' (' + d + '): ยังไม่มีใคร — แผนกนี้จะเข้าระบบไม่ได้');
   });
 
   var bad = users.filter(function (u) {

@@ -31,13 +31,17 @@
     --cold:#38598F; --cold-bg:#E9EEF7;   /* ข้อมูล อ้างอิง */
 
     /* สีประจำแผนก — ทองเป็นแกน สีเสริมตัดกันให้แยกออกจากกันได้ในพริบตา */
+    /* ทีมย่อยใช้เฉดเดียวกับแผนกแม่ ต่างที่ความสว่าง — มองปราดเดียวรู้ว่าเป็นพวกเดียวกัน
+       แล้วค่อยอ่านป้ายว่าทีมไหน · ทุกคู่ผ่าน 4.5:1 ทั้งบนพื้นและบนการ์ด (tools/smoke.js ตรวจให้) */
     --sr:#8A6819;  --sr-soft:#F7F0DC;
+  --sr_fd:#8F5A12; --sr_fd-soft:#F8EEDB;
+  --sr_mc:#6B5A24; --sr_mc-soft:#F0EEE0;
     --qc:#146B5C;  --qc-soft:#E4F1EE;
     --ls:#38598F;  --ls-soft:#E9EEF7;
     --wh:#5E6B3E;  --wh-soft:#EDF0E4;
     --ac:#A0522D;  --ac-soft:#F8EBE3;
-  --ac_fn:#8C4526; --ac_fn-soft:#F7E9E1;
-  --ac_th:#8A5E28; --ac_th-soft:#F8F0DF;
+  --ac_fn:#7E3B22; --ac_fn-soft:#F6E7E0;
+  --ac_th:#8F5636; --ac_th-soft:#F8ECE5;
     --ach:#6B3F6E; --ach-soft:#F2E9F3;
     --gm:#414A45;  --gm-soft:#EBEDEB;
   --it:#55606B;  --it-soft:#EAEDF0;
@@ -69,12 +73,14 @@
     --cold:#7793C4; --cold-bg:#161E2C;
 
     --sr:#C69A38;  --sr-soft:#2A2113;
+  --sr_fd:#D4923F; --sr_fd-soft:#2A2013;
+  --sr_mc:#AF9C5E; --sr_mc-soft:#232113;
     --qc:#3FBFA8;  --qc-soft:#0F2621;
     --ls:#7793C4;  --ls-soft:#161E2C;
     --wh:#8B9A66;  --wh-soft:#1C2115;
     --ac:#C97E58;  --ac-soft:#2A1A12;
-  --ac_fn:#D08C63; --ac_fn-soft:#2A1811;
-  --ac_th:#D3A566; --ac_th-soft:#2A2113;
+  --ac_fn:#DD7055; --ac_fn-soft:#2C1811;
+  --ac_th:#C4917B; --ac_th-soft:#2A1D16;
     --ach:#B183B4; --ach-soft:#251A26;
     --gm:#8B978F;  --gm-soft:#1D211E;
   --it:#9AA7B4;  --it-soft:#191D21;
@@ -99,12 +105,14 @@
     --cold:#7793C4; --cold-bg:#161E2C;
 
     --sr:#C69A38;  --sr-soft:#2A2113;
+  --sr_fd:#D4923F; --sr_fd-soft:#2A2013;
+  --sr_mc:#AF9C5E; --sr_mc-soft:#232113;
     --qc:#3FBFA8;  --qc-soft:#0F2621;
     --ls:#7793C4;  --ls-soft:#161E2C;
     --wh:#8B9A66;  --wh-soft:#1C2115;
     --ac:#C97E58;  --ac-soft:#2A1A12;
-  --ac_fn:#D08C63; --ac_fn-soft:#2A1811;
-  --ac_th:#D3A566; --ac_th-soft:#2A2113;
+  --ac_fn:#DD7055; --ac_fn-soft:#2C1811;
+  --ac_th:#C4917B; --ac_th-soft:#2A1D16;
     --ach:#B183B4; --ach-soft:#251A26;
     --gm:#8B978F;  --gm-soft:#1D211E;
   --it:#9AA7B4;  --it-soft:#191D21;
@@ -611,24 +619,62 @@
      lvl = staff | mgr   ·   mgr = ผู้จัดการของบทบาทนี้ (ใช้เป็นสายอนุมัติ)
      กติกาที่ทีมยืนยัน: งานที่ต้องอนุมัติ ต้องผ่านผู้จัดการ "ทุกยอด" ไม่มีเกณฑ์วงเงินยกเว้น */
   const ROLES = {
-    SR:{name:"จัดซื้อ", en:"Sourcing",   person:"คุณสมชาย",   init:"สช", money:true,  v:"--sr",
-        lvl:"staff", mgr:"GM"},
+    /* จัดซื้อแยกตามสายสินค้า — คนซื้ออาหารกับคนซื้อเครื่องจักรคนละคน คนละผู้ขาย คนละเอกสาร
+       SR เฉย ๆ คือหัวหน้าจัดซื้อที่ดูแทนได้ทั้งสองสาย และถือรายการค่าใช้จ่ายที่ไม่ใช่สายสินค้า */
+    SR:{name:"จัดซื้อ (ดูแทนได้ทั้งสองสาย)", en:"Sourcing", person:"คุณสมชาย", init:"สช",
+        money:true,  v:"--sr", lvl:"staff", mgr:"GM"},
+    SR_FD:{name:"จัดซื้ออาหาร", en:"Sourcing Food", person:"คุณมาลี", init:"มล",
+        money:true,  v:"--sr_fd", lvl:"staff", mgr:"GM"},
+    SR_MC:{name:"จัดซื้อเครื่องจักร", en:"Sourcing Mech", person:"คุณเอกชัย", init:"อก",
+        money:true,  v:"--sr_mc", lvl:"staff", mgr:"GM"},
     QC:{name:"QC",      en:"Quality",    person:"คุณสมหญิง",  init:"สญ", money:false, v:"--qc",
         lvl:"staff", mgr:"GM"},
     LS:{name:"โลจิสติกส์",en:"Logistics", person:"คุณอนุชา",   init:"อช", money:false, v:"--ls",
         lvl:"staff", mgr:"GM"},
     WH:{name:"คลังสินค้า",en:"Warehouse", person:"คุณประเสริฐ",init:"ปส", money:false, v:"--wh",
         lvl:"staff", mgr:"GM"},
-    AC:{name:"บัญชี",   en:"Accounting", person:"คุณวิภา",    init:"วภ", money:true,  v:"--ac",
-        lvl:"staff", mgr:"ACH"},
+    /* บัญชีแยกสองฝั่งตามสกุลเงิน — คนละคน คนละคิว คนละชุดเอกสาร
+       ฝั่งต่างประเทศทำ LC / T-T และเอกสารนำเข้า · ฝั่งในประเทศทำภาษีหัก ณ ที่จ่ายกับใบกำกับ
+       AC เฉย ๆ คือหัวหน้างานที่ดูแทนได้ทั้งสองฝั่ง (เช่นวันที่อีกฝั่งลา) */
+    AC:{name:"บัญชี (ดูแทนได้ทั้งสองฝั่ง)", en:"Accounting", person:"คุณวิภา", init:"วภ",
+        money:true,  v:"--ac", lvl:"staff", mgr:"ACH"},
+    AC_FN:{name:"บัญชีต่างประเทศ", en:"AP Foreign", person:"คุณนภา", init:"นภ",
+        money:true,  v:"--ac_fn", lvl:"staff", mgr:"ACH"},
+    AC_TH:{name:"บัญชีในประเทศ",  en:"AP Domestic", person:"คุณกมล", init:"กม",
+        money:true,  v:"--ac_th", lvl:"staff", mgr:"ACH"},
     // หัวหน้าบัญชี = ผู้จัดการฝ่ายบัญชี · คนละคนกับผู้บันทึกจ่าย · อนุมัติอย่างเดียว ไม่ถือขั้นตอนไหน
     ACH:{name:"หัวหน้าบัญชี", en:"AC Head", person:"คุณอารีย์", init:"อร", money:true, v:"--ach",
         lvl:"mgr"},
     GM:{name:"ผู้บริหาร",en:"GM",        person:"คุณผู้จัดการ",init:"GM", money:true,  v:"--gm",
-        lvl:"mgr"}
+        lvl:"mgr"},
+    /* ผู้ดูแลระบบ — ดูแลผู้ใช้ ทะเบียนเอกสาร และการเชื่อมต่อ แต่ไม่ใช่คนของสายจัดซื้อ
+       money:false โดยตั้งใจ: คนดูแลระบบไม่จำเป็นต้องเห็นราคาซื้อของบริษัท
+       สิทธิ์แก้ระบบกับสิทธิ์เห็นตัวเลขเป็นคนละเรื่องกัน */
+    IT:{name:"ผู้ดูแลระบบ", en:"IT Admin", person:"คุณธนา", init:"ธน", money:false, v:"--it",
+        lvl:"admin"}
   };
   // ผู้จัดการที่อนุมัติเรื่องเงินทั้งหมด — ทุกยอดผ่านคนนี้ ไม่มีเกณฑ์วงเงิน
   const PAY_APPROVER = "ACH";
+
+  /* ================= แผนกที่แตกเป็นทีมย่อย =================
+     ตาราง STAGES เขียนเจ้าของขั้นเป็น "SR" กับ "AC" ตัวเดียว เพราะขั้นตอนของทีมย่อยเหมือนกันทุกอย่าง
+     ต่างกันแค่ว่าใครทำ — จึงตัดสินตอนใช้งาน ไม่ใช่เขียนขั้นซ้ำสองชุดให้ต้องแก้สองที่ตลอดไป
+       จัดซื้อ  แตกตาม "สายสินค้า"  — คนซื้ออาหารกับคนซื้อเครื่องจักรคนละคน คนละผู้ขาย
+       บัญชี    แตกตาม "สกุลเงิน"   — ต่างประเทศทำ LC/T-T · ในประเทศทำภาษีหัก ณ ที่จ่าย
+     (ตรงกับ ownerDeptOf / deptCovers ใน Flow.gs ของระบบจริง) */
+  const LOCAL_CCY = ["THB"];
+  const isForeign = p => {
+    const c = String((p && p.cur) || "").trim().toUpperCase();
+    return c ? LOCAL_CCY.indexOf(c) < 0 : false;    // ไม่รู้สกุลเงิน ถือเป็นในประเทศ
+  };
+  const MOD_SR = {FOOD:"SR_FD", MECH:"SR_MC"};   // OTHER = ค่าใช้จ่าย ไม่ใช่สายสินค้า → จัดซื้อกลาง
+  const DEPT_FAMILY = {AC_FN:"AC", AC_TH:"AC", SR_FD:"SR", SR_MC:"SR"};
+  // "ฉันครอบคลุมงานของแผนกนี้ไหม" — หัวหน้างานครอบทีมย่อยได้ แต่ทีมย่อยครอบข้ามกันไม่ได้
+  const covers = (me, want) => me === want || DEPT_FAMILY[want] === me;
+  const famOf = r => DEPT_FAMILY[r] || r;
+  /* "ฉันอยู่ในวงศ์นี้ไหม" — ใช้กับสิทธิ์ที่เป็นของทั้งแผนก ไม่ได้ผูกกับใบใดใบหนึ่ง
+     เช่น ปุ่มออกใบเคลมเป็นงานของจัดซื้อทั้งแผนก ไม่ว่าจะสายอาหารหรือเครื่องจักร */
+  const inFam = f => famOf(role) === f;
 
   // 4 เฟส ครอบ 17 ขั้น — ผู้ใช้เห็นเฟสก่อน ค่อยเจาะดูขั้นย่อย
   const PHASES = [
@@ -983,8 +1029,8 @@
      tl:[["25 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["29 ก.ค. 07:10","คุณสมหญิง","ตรวจรับไม่ผ่าน"],
          ["29 ก.ค. 07:11","ระบบ","เปิดใบเคลม CL-26-0004 + ล็อกการจ่าย 40 KG"]]},
 
-    {no:"PO-26-0033", sap:"10233", sup:"Ocean Best", item:"ปลาแซลมอนแล่", qty:"200 KG",
-     amt:310000, inv:310000, cur:"THB", term:"มัดจำ 50% / ที่เหลือ 50%", stage:14, age:20, owner:"คุณสมชาย",
+    {no:"PO-26-0033", sap:"10233", sup:"Ocean Best (นอร์เวย์)", item:"ปลาแซลมอนแล่", qty:"200 KG",
+     amt:310000, inv:310000, cur:"USD", term:"มัดจำ 50% / ที่เหลือ 50%", stage:14, age:20, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"22/07/2026",
      payments:[pay(1,"มัดจำ",50,155000,"25/07/2026","PAID","25/07/2026",
                  {method:"TRANSFER", bank:BANKS[0], ref:"KB26072500088", fee:35, paidAmt:155035,
@@ -1010,8 +1056,8 @@
      tl:[["20 ก.ค. 09:00","คุณสมชาย","สร้าง PO"],["18 ส.ค.","คุณวิภา","จ่ายเงินครบ"],
          ["20 ส.ค.","คุณวิภา","ตรวจ 3 ทางผ่าน — ปิดรายการ"]]},
 
-    {no:"PO-26-0025", sap:"10225", sup:"Ocean Best", item:"ปลาทูน่าท่อน", qty:"400 KG",
-     amt:268000, inv:268000, cur:"THB", term:"มัดจำ 30% / ที่เหลือ 70%", stage:17, age:0, owner:"คุณสมชาย",
+    {no:"PO-26-0025", sap:"10225", sup:"Ocean Best (นอร์เวย์)", item:"ปลาทูน่าท่อน", qty:"400 KG",
+     amt:268000, inv:268000, cur:"USD", term:"มัดจำ 30% / ที่เหลือ 70%", stage:17, age:0, owner:"คุณสมชาย",
      status:"COMPLETED", claim:false, skip:[1,2,5], date:"18/07/2026",
      payments:[pay(1,"มัดจำ",30,80400,"20/07/2026","PAID","20/07/2026",
                  {method:"SWIFT", bank:BANKS[1], ref:"SW26072000091", fee:850, feeBy:"SUPPLIER",
@@ -1362,7 +1408,16 @@
       : q.filter((x, i) => i % 2 === 0).join("").replace(/\s{2,}/g, " ").replace(/\s+·/g, " ·").trim();
   };
   const st = p => STAGES[p.stage] || null;
-  const ownerOf = p => st(p) ? st(p).o : "—";
+  // เจ้าของขั้นจริงของใบนี้ — จัดซื้อแตกตามสายสินค้า บัญชีแตกตามสกุลเงิน
+  const ownerDeptOf = (s, p) => {
+    if (!s) return "—";
+    if (s.o === "AC") return isForeign(p) ? "AC_FN" : "AC_TH";
+    if (s.o === "SR") return MOD_SR[modOf(p)] || "SR";
+    return s.o;
+  };
+  const ownerOf = p => ownerDeptOf(st(p), p);
+  // งานใบนี้เป็นของฉันไหม (ครอบคลุมกรณี AC ดูแทนทั้งสองฝั่ง)
+  const ownedByMe = p => covers(role, ownerOf(p));
   const isActive = p => p.status === "ACTIVE";
   const ageTxt = h => h < 24 ? h + " ชม." : Math.floor(h/24) + " วัน";
   const dept = k => '<span class="dept" style="color:var(' + (ROLES[k]?ROLES[k].v:"--ink-3") + ')">' + esc(k) + "</span>";
@@ -1424,11 +1479,12 @@
     {k:"po",     t:"ใบสั่งซื้อ (PO)"},
     {k:"req",    t:"ใบคำร้อง"},
     {k:"report", t:"รายงาน"},
-    {k:"admin",  t:"ตั้งค่าระบบ", roles:["SR", "AC", "ACH", "GM"]}
+    {k:"admin",  t:"ตั้งค่าระบบ", roles:["SR", "AC", "ACH", "GM", "IT"]}
   ];
   const canSee = k => {
     const n = NAV.filter(x => x.k === k)[0];
-    return !n || !n.roles || n.roles.indexOf(role) >= 0;
+    // เทียบเป็นวงศ์ ไม่ใช่ชื่อบทบาทตรง ๆ — เพิ่มทีมย่อยใหม่แล้วไม่ต้องไล่แก้รายการสิทธิ์ทุกเมนู
+    return !n || !n.roles || n.roles.indexOf(famOf(role)) >= 0;
   };
   const myNav = () => NAV.filter(n => canSee(n.k));
   const SUB0 = {po:"ACTIVE", req:"PRICE", admin:"ISSUES"};
@@ -1441,7 +1497,7 @@
     const r = ROLES[role];
     document.documentElement.style.setProperty("--rc", "var(" + r.v + ")");
     document.documentElement.style.setProperty("--rc-soft", "var(" + r.v + "-soft)");
-    const myQueue = POS.filter(p => isActive(p) && ownerOf(p) === role).length;
+    const myQueue = POS.filter(p => isActive(p) && ownedByMe(p)).length;
     const reqOpen = CLAIMS.filter(c=>!c.cn).length + ITEMREQS.filter(x=>x.status!=="DONE").length +
       PRICEREQS.filter(x=>x.status==="NEW").length;
 
@@ -1470,10 +1526,10 @@
   /* ================= หน้าหลัก ================= */
   // PO ที่กำลังจะถึงคิวของฉันใน 2 ขั้นถัดไป — ให้เตรียมตัวได้ ไม่ใช่รอให้เด้งมาแล้วค่อยรู้
   function comingToMe(p) {
-    if (ownerOf(p) === role) return false;
+    if (ownedByMe(p)) return false;
     let n = p.stage + 1, hop = 0;
     while (n < STAGES.length && hop < 3) {
-      if (p.skip.indexOf(n) < 0) { hop++; if (STAGES[n].o === role) return true; }
+      if (p.skip.indexOf(n) < 0) { hop++; if (covers(role, ownerDeptOf(STAGES[n], p))) return true; }
       n++;
     }
     return false;
@@ -1481,14 +1537,14 @@
 
   function pageHome() {
     const act = POS.filter(isActive);
-    const mine = act.filter(p => ownerOf(p) === role);
+    const mine = act.filter(p => ownedByMe(p));
     const mineLate = mine.filter(p => st(p) && p.age > st(p).sla);
     const soon = act.filter(comingToMe);
     // คำขออนุมัติจ่ายไม่ได้ผูกกับ "เจ้าของขั้น" — ผู้อนุมัติจึงไม่เคยเห็นบนหน้าหลักมาก่อน
     const toApprove = act.filter(p => p.payments.some(x =>
       x.status === "REQUESTED" && x.reqBy !== ROLES[role].person &&
       role === (x.reqTo || PAY_APPROVER)));
-    const others = act.filter(p => ownerOf(p) !== role && !comingToMe(p) && toApprove.indexOf(p) < 0);
+    const others = act.filter(p => !ownedByMe(p) && !comingToMe(p) && toApprove.indexOf(p) < 0);
     const duePay = act.reduce((n, p) => n + unpaid(p).length, 0);
 
     let h = '<div class="ph"><h1>สวัสดี ' + esc(ROLES[role].person) + '</h1><span class="d">' +
@@ -1570,7 +1626,7 @@
 
     let h = '<div class="ph"><h1>ใบสั่งซื้อ (PO)</h1><span class="d">1 PO = 1 รายการงาน ตั้งแต่เช็คราคาจนปิดบัญชี · ' +
       "รายการซื้อเงินสดที่ไม่ได้เปิด PO อยู่ในรายการเดียวกันนี้ ติดป้าย <b>CASH</b></span></div>";
-    if (role === "SR" || role === "AC")
+    if (inFam("SR") || inFam("AC"))
       h += '<div class="note info" style="border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:14px">' +
         '<span><b>ซื้อของเงินสดโดยไม่ได้เปิด PO?</b> ' +
         "บันทึกเข้าระบบได้ ไม่ต้องเก็บบิลไว้ในลิ้นชัก — ระบบออกเลข CS-26-xxxx และเก็บไฟล์ในไดรฟ์กลางที่เดียวกัน " +
@@ -1608,7 +1664,7 @@
     const claimPo = {};
     CLAIMS.forEach(c => { if (c.po) claimPo[c.po] = c.id; });
     const res = POS.filter(p => {
-      if (fDept && (!isActive(p) || ownerOf(p) !== fDept)) return false;
+      if (fDept && (!isActive(p) || !covers(fDept, ownerOf(p)))) return false;
       if (!needle) return true;
       return [p.no, p.sap, p.sup, p.item, claimPo[p.no] || ""].join(" ").toLowerCase().indexOf(needle) >= 0;
     });
@@ -1678,8 +1734,9 @@
     let h = '<div class="hoff"><div class="ht">แผนกก่อนหน้าส่งอะไรมาให้คุณ' +
       '<span class="droot">ไม่ต้องถามในไลน์</span></div>';
     done.forEach(d => {
-      h += '<div class="grp"><div class="gh">' + dept(d.sg.o) + " " +
-        esc(ROLES[d.sg.o] ? ROLES[d.sg.o].name : d.sg.o) + " · " + esc(d.sg.n) + "</div>";
+      const sgo = ownerDeptOf(d.sg, p);
+      h += '<div class="grp"><div class="gh">' + dept(sgo) + " " +
+        esc(ROLES[sgo] ? ROLES[sgo].name : sgo) + " · " + esc(d.sg.n) + "</div>";
       if (d.kv.length || d.file) {
         h += '<dl class="kv">';
         d.kv.forEach(x => { h += "<dt>" + esc(x.lb) + "</dt><dd>" + esc(handFmt(x, p.hand[x.k])) + "</dd>"; });
@@ -1737,23 +1794,26 @@
       (byStage[at.stage] = byStage[at.stage] || []).push(at.lb); });
     return Object.keys(byStage).map(sc => {
       const sg = STAGES.filter(x => x.c === sc)[0] || {n:sc, o:"SR"};
+      const sgo = ownerDeptOf(sg, p), sgn = ROLES[sgo] ? ROLES[sgo].name : sgo;
       return '<div class="miss1"><span>!</span><span class="sp2"><b>ข้อมูลที่ควรได้จาก' +
-        esc(ROLES[sg.o] ? ROLES[sg.o].name : sg.o) + "ยังไม่มี:</b> " + esc(byStage[sc].join(" · ")) +
+        esc(sgn) + "ยังไม่มี:</b> " + esc(byStage[sc].join(" · ")) +
         " — ทำต่อได้ แต่ปลายทางจะติด</span>" +
         '<button class="btn bad" data-ask="' + esc(sc) + '">ถามกลับไปที่ ' +
-        esc(ROLES[sg.o] ? ROLES[sg.o].name : sg.o) + "</button></div>";
+        esc(sgn) + "</button></div>";
     }).join("");
   }
 
   // กล่องบนสุด: ตอบคำถามเดียว — "ตอนนี้ฉันต้องทำอะไร"
   function todoCard(p) {
     const s = st(p), nx = nextStage(p);
-    const mine = isActive(p) && s && s.o === role;
+    const mine = isActive(p) && s && covers(role, ownerDeptOf(s, p));
     // บอกล่วงหน้าว่างานจะไปไหน — ถ้าขั้นถัดไปเป็นแผนกตัวเอง ต้องไม่พูดว่า "ส่งต่อ" เพราะไม่ได้ส่งไปไหน
     const then = !nx ? '<div class="then">กดแล้ว PO นี้จะปิดและย้ายไปแท็บเสร็จสิ้น</div>'
-      : nx.o === (s ? s.o : "") ? '<div class="then">กดแล้ว<b>งานยังอยู่ที่คุณ</b> — ขั้นถัดไปคือ <b>' +
+      : ownerDeptOf(nx, p) === (s ? ownerDeptOf(s, p) : "") ?
+          '<div class="then">กดแล้ว<b>งานยังอยู่ที่คุณ</b> — ขั้นถัดไปคือ <b>' +
           esc(nx.n) + "</b> ไม่ได้ส่งไปแผนกอื่น</div>"
-      : '<div class="then">กดแล้วงานจะไปที่ <b>' + esc(ROLES[nx.o].name) + " (" + esc(person(nx.o)) +
+      : '<div class="then">กดแล้วงานจะไปที่ <b>' + esc(ROLES[ownerDeptOf(nx, p)].name) +
+        " (" + esc(person(ownerDeptOf(nx, p))) +
         ")</b> และระบบแจ้งเตือนให้เอง — ไม่ต้องบอกในไลน์" +
         (handOf(s.c, p) ? " · สิ่งที่คุณกรอกจะไปขึ้นบนหน้าจอของเขาเลย" : "") + "</div>";
 
@@ -1824,7 +1884,11 @@
         : fld("เลข PO ใน B1", p.sap || "ยังไม่ได้ดึงจาก B1", p.sap ? "B1" : "")) +
       fld("ผู้ขาย", p.sup, p.sap ? "B1" : "") +
       fld("จำนวน", p.qty, p.sap ? "B1" : "") +
+      /* ยอดที่แสดงเป็นมูลค่าตามบัญชี (บาท) เสมอ — รายงานจึงบวกกันได้ไม่ผิด
+         สกุลเงินที่ซื้อขายจริงแยกเป็นอีกช่อง เพราะมันคือตัวตัดสินว่าใบนี้เข้าคิวบัญชีฝั่งไหน */
       (money() ? fld("มูลค่า", baht(p.amt), p.sap ? "B1" : "") : "") +
+      (money() && isForeign(p)
+        ? fld("สกุลเงินที่ซื้อขาย", esc(p.cur) + " — เข้าคิวบัญชีต่างประเทศ", p.sap ? "B1" : "") : "") +
       fld("เงื่อนไขจ่าย", p.term, p.sap ? "B1" : "") +
       fld("ผู้ดูแล", p.owner) + fld("วันที่เปิด", p.date) +
       // สายสินค้าเป็นตัวกำหนดว่าใบตรวจของ QC ใช้ชุดช่องไหน — ต้องเห็นบนหัวเอกสาร
@@ -1891,13 +1955,15 @@
     DOCS.forEach(d => {
       const stt = docState(p, d);
       if (stt === "na") return;
-      const mine = d.o === role;
+      // เอกสารใบนี้เป็นของทีมย่อยไหน ขึ้นกับสายสินค้า/สกุลเงินของใบ ไม่ใช่แค่ชื่อแผนกในตาราง
+      const dOwner = ownerDeptOf(d, p);
+      const mine = covers(role, dOwner);
       const f = p.files[d.c];
       const badge = stt === "ok" ? '<span class="pill ok">มีแล้ว</span>'
         : stt === "wait" ? '<span class="pill ' + (mine ? "due" : "wait") + '">' +
-            (mine ? "รอคุณอัพโหลด" : "รอ " + esc(ROLES[d.o] ? ROLES[d.o].name : d.o)) + "</span>"
+            (mine ? "รอคุณอัพโหลด" : "รอ " + esc(ROLES[dOwner] ? ROLES[dOwner].name : dOwner)) + "</span>"
         : '<span class="pill wait">ยังไม่ถึงคิว</span>';
-      h += '<div class="rowline' + (stt === "wait" && d.req && mine ? " miss" : "") + '">' + dept(d.o) +
+      h += '<div class="rowline' + (stt === "wait" && d.req && mine ? " miss" : "") + '">' + dept(dOwner) +
         '<span class="nm">' + esc(d.n) +
         (f ? '<div class="sub mono">' + esc(f.n) + "</div>" : "") +
         (f && f.note ? '<div class="sub">หมายเหตุ: ' + esc(f.note) + " — " + esc(f.by) + "</div>" : "") +
@@ -1954,7 +2020,7 @@
     if (isLC(x))
       return '<span class="hint">ธนาคารจ่ายตามเอกสาร LC — ไม่ต้องตั้งเบิกที่นี่</span>';
     const b = (act, cls, t) => '<button class="btn ' + cls + '" data-payact="' + act + '" data-seq="' + x.seq + '">' + t + "</button>";
-    if (role === "AC") {
+    if (inFam("AC")) {
       if (x.status === "PENDING")  return b("req", "pri", "ตั้งเรื่องขอจ่าย");
       if (x.status === "APPROVED") return b("form", "ok", "บันทึกการจ่าย");
       if (x.status === "FAILED")   return b("form", "ok", "ทำจ่ายใหม่");
@@ -2224,14 +2290,14 @@
           '<td class="num">' + baht(q.unitPrice) + "</td>" +
           '<td class="num">' + baht(tot) + "</td>" +
           "<td>" + esc(q.leadTime) + '</td><td class="mono">' + esc(q.validUntil) + "</td>" +
-          "<td>" + (role === "SR" && r.status !== "CONVERTED" && !q.selected
+          "<td>" + (inFam("SR") && r.status !== "CONVERTED" && !q.selected
             ? '<button class="btn ok" data-qact="pick" data-id="' + esc(q.id) + '">เลือกใบนี้</button>' : "") + "</td></tr>";
       });
       h += "</tbody></table></div>";
       h += '<div class="note info"><span>เรียงราคาต่อหน่วยจากถูกไปแพง — ' +
         "เลือกใบใดใบหนึ่งแล้วเปิด PO ต่อได้ทันที ไม่ต้องพิมพ์ชื่อสินค้าหรือจำนวนซ้ำ</span></div>";
     }
-    if (role === "SR" && r.status !== "CONVERTED")
+    if (inFam("SR") && r.status !== "CONVERTED")
       h += '<div class="actions"><button class="btn pri" data-qact="add">+ เพิ่มใบเสนอราคาจากผู้ขาย</button>' +
         (sel ? '<button class="btn ok" data-qact="topo">เปิด PO จากใบที่เลือก (' + esc(sel.supplier) + ")</button>" : "") +
         "</div>";
@@ -2284,8 +2350,8 @@
       row("ผลต่อการจ่ายเงิน", c.po ? "ล็อกงวดจ่ายของ " + c.po : "ไม่กระทบฝั่งซื้อ");
     h += '<div class="actions">';
     if (role === "QC") h += '<button class="btn pri" data-cl="report">สร้าง Inspection Report</button>';
-    if (role === "SR") h += '<button class="btn pri" data-cl="send">ส่งใบเคลมให้ผู้ขาย</button>';
-    if (role === "AC" && !c.cn) h += '<button class="btn ok" data-cl="cn">บันทึกใบลดหนี้ที่ได้รับ</button>';
+    if (inFam("SR")) h += '<button class="btn pri" data-cl="send">ส่งใบเคลมให้ผู้ขาย</button>';
+    if (inFam("AC") && !c.cn) h += '<button class="btn ok" data-cl="cn">บันทึกใบลดหนี้ที่ได้รับ</button>';
     h += '<span class="hint">ลายเซ็น 5 ตำแหน่งตามฟอร์มเดิม เก็บเป็นหลักฐานในระบบ</span></div></div>';
     return h;
   }
@@ -2318,7 +2384,7 @@
     return h;
   }
   function icButtons(r) {
-    if (r.status === "WAIT_APPROVE" && role === "SR")
+    if (r.status === "WAIT_APPROVE" && inFam("SR"))
       return '<button class="btn ok" data-ic="approve" data-id="' + esc(r.id) + '">อนุมัติ</button>';
     if (r.status === "WAIT_LS" && role === "LS")
       return '<button class="btn pri" data-ic="sap" data-id="' + esc(r.id) + '">ดึงรหัสจาก B1</button>';
@@ -3833,7 +3899,7 @@
         p.bundle.name + " (" + p.bundle.pages + " หน้า) เก็บที่ " + DRIVE.folderOf(p)]);
       toast(p.no + " ปิดรายการแล้ว — รวมเอกสาร " + p.bundle.parts.length + " ใบเป็นไฟล์เดียวให้แล้ว");
     } else {
-      toast("ส่งต่อให้ " + ROLES[STAGES[p.stage].o].name + " แล้ว — ระบบแจ้งเตือนให้เอง");
+      toast("ส่งต่อให้ " + ROLES[ownerOf(p)].name + " แล้ว — ระบบแจ้งเตือนให้เอง");
     }
   }
 
@@ -4330,9 +4396,10 @@
       const sg = STAGES.filter(x => x.c === ak.dataset.ask)[0];
       const ms = missingIn(p).filter(k => FIELD_AT[k] && FIELD_AT[k].stage === ak.dataset.ask)
         .map(k => FIELD_AT[k].lb);
+      const asko = sg ? ownerDeptOf(sg, p) : "";
       p.tl.push(["วันนี้", ROLES[role].person,
-        "ถามกลับไปที่ " + (sg ? ROLES[sg.o].name : "-") + " — ขอ " + ms.join(" · ")]);
-      toast("ส่งคำถามถึง " + (sg ? person(sg.o) : "-") + " ทาง Lark แล้ว พร้อมบอกว่าขาดช่องไหน");
+        "ถามกลับไปที่ " + (asko ? ROLES[asko].name : "-") + " — ขอ " + ms.join(" · ")]);
+      toast("ส่งคำถามถึง " + (asko ? person(asko) : "-") + " ทาง Lark แล้ว พร้อมบอกว่าขาดช่องไหน");
       render(); return;
     }
 

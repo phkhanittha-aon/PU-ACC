@@ -160,6 +160,13 @@ var Notify = {
     return isForeign(d) ? 'AC_FN' : 'AC_TH';
   },
 
+  /** ทีมจัดซื้อที่ดูแลใบนี้ — อาหารหรือเครื่องจักร ตามสายสินค้า
+      ส่งเข้าทีมที่ถูกต้องดีกว่าส่งเข้าจัดซื้อทั้งแผนก คนที่ไม่เกี่ยวจะได้ไม่ชินกับการเมินข้อความ */
+  srSideOf_: function (dealNo) {
+    var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo) || {};
+    return MOD_SR[modOf(d)] || 'SR';
+  },
+
   /** จัดซื้อตั้งเรื่อง → บัญชีต้องตรวจ (ยอดเงินอยู่ในข้อความส่วนตัวได้ ไม่เข้ากลุ่ม) */
   payRequested: function (dealNo, seq, reqNo, amt, me, isResubmit) {
     try {
@@ -197,8 +204,9 @@ var Notify = {
       var to = String(reqBy || '').trim().toLowerCase();
       var sent = {};
       if (to) { Lark.queue(to, '[ถูกตีกลับ ต้องแก้] ' + dealNo, body, dealNo, 'warn'); sent[to] = 1; }
-      // แจ้งจัดซื้อคนอื่นด้วย เผื่อผู้ขอลาหรือย้ายงาน เรื่องจะได้ไม่ค้าง
-      this.deptUsers_('SR').forEach(function (u) {
+      // แจ้งคนอื่นในทีมจัดซื้อที่ดูแลใบนี้ด้วย เผื่อผู้ขอลาหรือย้ายงาน เรื่องจะได้ไม่ค้าง
+      // (deptUsers_ ครอบหัวหน้าจัดซื้อที่ตั้งเป็น SR เฉย ๆ ให้อยู่แล้ว)
+      this.deptUsers_(this.srSideOf_(dealNo)).forEach(function (u) {
         var e = String(u.email).trim().toLowerCase();
         if (sent[e]) return;
         Lark.queue(e, '[คำขอจ่ายถูกตีกลับ] ' + dealNo, body, dealNo, 'warn');

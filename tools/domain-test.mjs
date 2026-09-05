@@ -155,11 +155,13 @@ props.LARK_APP_ID = 'x'; props.LARK_APP_SECRET = 'y'; props.LARK_GROUP_CHAT_ID =
 const U = {
   sr:  'somchai@mgs.co.th',   qc:  'somying@mgs.co.th',  ls: 'anucha@mgs.co.th',
   wh:  'prasert@mgs.co.th',   ac:  'wipa@mgs.co.th',     ac2:'nid@mgs.co.th',
-  ach: 'aree@mgs.co.th',      ach2:'boss2@mgs.co.th',    gm: 'gm@mgs.co.th'
+  ach: 'aree@mgs.co.th',      ach2:'boss2@mgs.co.th',    gm: 'gm@mgs.co.th',
+  srFd:'malee@mgs.co.th',     srMc:'ekachai@mgs.co.th'
 };
 [['sr','SR','คุณสมชาย'],['qc','QC','คุณสมหญิง'],['ls','LS','คุณอนุชา'],['wh','WH','คุณประเสริฐ'],
  ['ac','AC','คุณวิภา'],['ac2','AC','คุณนิด'],['ach','ACH','คุณอารีย์'],['ach2','ACH','คุณบอส'],
- ['gm','GM','คุณผู้จัดการ']].forEach(([k, d, n]) => {
+ ['gm','GM','คุณผู้จัดการ'],
+ ['srFd','SR_FD','คุณมาลี'],['srMc','SR_MC','คุณเอกชัย']].forEach(([k, d, n]) => {
   api.Repo.insert(api.SHEETS.USERS, { email: U[k], full_name: n, dept: d, is_active: 'TRUE',
                                       lark_user_id: 'lk_' + k });
 });
@@ -231,6 +233,34 @@ ck(!notReg.ok && notReg.code === 'NOT_REGISTERED', 'คนนอกตารา�
 const notMine = as(U.qc, () => api.apiAdvanceStage(DEAL, ''));
 ck(!notMine.ok && notMine.code === 'NOT_YOUR_STAGE',
    'QC ปิดขั้นของบัญชีได้ (ขั้นปัจจุบันคือรับใบแจ้งหนี้ เจ้าของคือ AC)');
+
+/* ทีมย่อยข้ามไปทำงานของอีกทีมไม่ได้ — นี่คือด่านจริงของการแยกผู้รับผิดชอบ
+   ตารางสิทธิ์บอกแค่ว่า "จัดซื้อทำสิ่งนี้ได้" ส่วนด่านนี้บอกว่า "ใบนี้ของทีมไหน"
+   ถ้าขาดด่านนี้ การแยกทีมจะเหลือแค่ป้ายชื่อ ใครก็หยิบใบของใครไปทำก็ได้ */
+const MECH = 'PO-M126050002';
+api.Repo.insert(api.SHEETS.DEALS, {
+  deal_no: MECH, entry: 'PO', module: 'MECH', supplier: 'Sungrow',
+  item: 'อินเวอร์เตอร์ SG125CX', qty: '6 SET', amount: 420000, currency: 'THB',
+  payment_term: 'เครดิต 30 วัน', term_name: 'เครดิต 30 วัน',
+  due_date: '2026-10-31', stage: 8, status: 'ACTIVE', owner_email: U.srMc, created_at: new Date()
+});
+api.Repo.insert(api.SHEETS.PILOT, { deal_no: MECH, added_by: U.gm, added_at: new Date() });
+ck(api.ownerDeptOf(8, {deal_no: MECH, module: 'MECH'}) === 'SR_MC',
+   'ใบสายเครื่องจักรไม่ได้ตกเป็นของจัดซื้อเครื่องจักร');
+ck(api.ownerDeptOf(8, {deal_no: DEAL, module: 'FOOD'}) === 'SR_FD',
+   'ใบสายอาหารไม่ได้ตกเป็นของจัดซื้ออาหาร');
+const wrongTeam = as(U.srFd, () => api.apiAdvanceStage(MECH, ''));
+ck(!wrongTeam.ok && wrongTeam.code === 'NOT_YOUR_STAGE',
+   'จัดซื้ออาหารปิดขั้นของใบสายเครื่องจักรได้');
+/* ต้องตรวจ "ทีมที่ถูกต้องทำได้" คู่กันเสมอ
+   ถ้าตรวจแต่ด้านที่ต้องถูกปฏิเสธ ระบบที่ปฏิเสธทุกคนก็สอบผ่าน — และการแยกทีมจะกลายเป็นการล็อกงานทิ้ง */
+const rightTeam = as(U.srMc, () => api.apiAdvanceStage(MECH, ''));
+ck(rightTeam.ok || rightTeam.code !== 'NOT_YOUR_STAGE',
+   'จัดซื้อเครื่องจักรปิดขั้นของใบสายเครื่องจักรตัวเองไม่ได้ — ' + (rightTeam.error || ''));
+// หัวหน้าจัดซื้อยังต้องทำแทนได้ ไม่งั้นวันที่ลูกทีมลาก็ไม่มีใครเดินงาน
+ck(api.deptCovers('SR', 'SR_MC') && api.deptCovers('SR', 'SR_FD'),
+   'หัวหน้าจัดซื้อทำแทนทีมย่อยไม่ได้');
+ck(!api.deptCovers('SR_FD', 'SR_MC'), 'จัดซื้ออาหารทำงานของสายเครื่องจักรได้');
 
 /* ================= 4. แยกหน้าที่เรื่องเงิน ================= */
 const req = as(U.sr, () => api.apiRequestPayment(DEAL, 1, {
@@ -464,13 +494,32 @@ Object.keys(F.ROLES).forEach(d => {
   if (rd < 4.5) bad.push('สีแผนก ' + d + ' โหมดมืด ' + uiDark[v] + ' = ' + rd.toFixed(2) + ':1 ตกเกณฑ์');
 });
 
-// แผนกใหม่ต้องอยู่ในตารางสิทธิ์เรื่องเงินด้วย ไม่งั้นเข้ามาแล้วทำอะไรไม่ได้
-['AC_FN', 'AC_TH'].forEach(d => {
-  ck(api.Auth.CAN['pay.record'].indexOf(d) >= 0, d + ' บันทึกการจ่ายไม่ได้');
-  ck(api.Auth.CAN['pay.check'].indexOf(d) >= 0, d + ' ตรวจสอบเอกสารไม่ได้');
-  ck(api.Auth.CAN['pay.reject'].indexOf(d) >= 0, d + ' ตีกลับไม่ได้');
-  ck(F.ROLES[d] && F.ROLES[d].money === true, d + ' ต้องเห็นยอดเงิน');
+/* ทีมย่อยต้องทำงานของแผนกแม่ได้จริง ไม่งั้นเข้ามาแล้วทำอะไรไม่ได้
+   ตรวจที่ "ผลการตัดสิน" ไม่ใช่ที่หน้าตาของตารางสิทธิ์ — ตารางเขียนด้วยชื่อแผนกแม่
+   แล้วให้ Auth.require ไล่ไปหาวงศ์เอง ถ้าไปตรวจว่ามีชื่อทีมย่อยอยู่ในตารางไหม
+   เครื่องตรวจจะพังทันทีที่เปลี่ยนวิธีเขียนตาราง ทั้งที่สิทธิ์ยังถูกต้องดี */
+const allowed = (dept, cmd) => {
+  try { api.Auth.require({dept: dept, roleName: dept}, cmd); return true; }
+  catch (e) { return false; }
+};
+[['AC_FN', 'บัญชีต่างประเทศ'], ['AC_TH', 'บัญชีในประเทศ']].forEach(([d, n]) => {
+  ck(allowed(d, 'pay.record'), n + ' บันทึกการจ่ายไม่ได้');
+  ck(allowed(d, 'pay.check'),  n + ' ตรวจสอบเอกสารไม่ได้');
+  ck(allowed(d, 'pay.reject'), n + ' ตีกลับไม่ได้');
+  ck(allowed(d, 'get'),        n + ' เปิดดูใบไม่ได้');
+  ck(F.ROLES[d] && F.ROLES[d].money === true, n + ' ต้องเห็นยอดเงิน');
 });
+[['SR_FD', 'จัดซื้ออาหาร'], ['SR_MC', 'จัดซื้อเครื่องจักร']].forEach(([d, n]) => {
+  ck(allowed(d, 'pay.request'), n + ' ตั้งเรื่องขอจ่ายไม่ได้');
+  ck(allowed(d, 'doc.upload'),  n + ' แนบเอกสารไม่ได้');
+  ck(allowed(d, 'get'),         n + ' เปิดดูใบไม่ได้');
+  ck(F.ROLES[d] && F.ROLES[d].money === true, n + ' ต้องเห็นยอดเงิน');
+});
+// สิทธิ์ตามวงศ์ต้องไม่กลายเป็นประตูเปิดกว้าง — ทีมย่อยห้ามได้สิทธิ์ที่แผนกแม่ก็ไม่มี
+ck(!allowed('SR_FD', 'pay.approve'), 'จัดซื้ออาหารอนุมัติจ่ายได้ ทั้งที่จัดซื้อไม่มีสิทธิ์นั้น');
+ck(!allowed('AC_FN', 'pay.approve'), 'บัญชีต่างประเทศอนุมัติจ่ายเองได้');
+ck(!allowed('SR_MC', 'admin.users'), 'จัดซื้อเครื่องจักรแก้ตารางผู้ใช้ได้');
+ck(!allowed('QC', 'pay.request'),    'QC ตั้งเรื่องขอจ่ายได้');
 
 /* ================= 16. ค่าที่ส่งข้ามไปหน้าจอต้องแปลงได้จริง =================
    google.script.run แปลงได้เฉพาะ ตัวเลข ข้อความ boolean null Date array object ธรรมดา

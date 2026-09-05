@@ -15,7 +15,11 @@
 
 /* ---------- แผนกและบทบาท ---------- */
 var ROLES = {
-  SR:  {name:'จัดซื้อ',       en:'Sourcing',   money:true,  lvl:'staff', mgr:'GM'},
+  /* จัดซื้อแยกตามสายสินค้าเหมือนที่ทีมทำงานจริง — อาหารกับเครื่องจักรคนละคน
+     SR (ไม่มีคำต่อท้าย) หมายถึงหัวหน้าจัดซื้อที่ดูแทนได้ทั้งสองสาย */
+  SR:    {name:'จัดซื้อ',            en:'Sourcing',      money:true, lvl:'staff', mgr:'GM'},
+  SR_FD: {name:'จัดซื้ออาหาร',       en:'Sourcing Food', money:true, lvl:'staff', mgr:'GM'},
+  SR_MC: {name:'จัดซื้อเครื่องจักร', en:'Sourcing Mech', money:true, lvl:'staff', mgr:'GM'},
   QC:  {name:'QC',            en:'Quality',    money:false, lvl:'staff', mgr:'GM'},
   LS:  {name:'โลจิสติกส์',    en:'Logistics',  money:false, lvl:'staff', mgr:'GM'},
   WH:  {name:'คลังสินค้า',    en:'Warehouse',  money:false, lvl:'staff', mgr:'GM'},
@@ -46,15 +50,21 @@ function isForeign(deal) {
 }
 
 /** แผนกที่ถือขั้นนี้ของใบนี้จริง ๆ — ขั้นของบัญชีแตกเป็นสองฝั่งตามสกุลเงิน */
+/* จัดซื้อแยกตามสายสินค้า — คนซื้ออาหารกับคนซื้อเครื่องจักรคนละคน คนละผู้ขาย คนละเอกสาร
+   รายการค่าใช้จ่าย (OTHER) ไม่ใช่สายสินค้า จึงอยู่กับจัดซื้อกลาง ไม่ยัดเข้าทีมใดทีมหนึ่ง */
+var MOD_SR = {FOOD: 'SR_FD', MECH: 'SR_MC'};
+
 function ownerDeptOf(stageIdx, deal) {
   var st = STAGES[stageIdx];
   if (!st) return '';
-  if (st.o !== 'AC') return st.o;
-  return isForeign(deal) ? 'AC_FN' : 'AC_TH';
+  if (st.o === 'AC') return isForeign(deal) ? 'AC_FN' : 'AC_TH';
+  if (st.o === 'SR') return MOD_SR[modOf(deal)] || 'SR';
+  return st.o;
 }
 
-/* คนที่ตั้งเป็น 'AC' เฉย ๆ ทำงานได้ทั้งสองฝั่ง — ทีมเล็กที่ยังไม่แยกคนจะได้ไม่ติด */
-var DEPT_FAMILY = {AC_FN: 'AC', AC_TH: 'AC'};
+/* คนที่ตั้งเป็น 'AC' หรือ 'SR' เฉย ๆ ทำงานได้ทั้งสองทีมย่อย
+   เผื่อทีมเล็กที่ยังไม่แยกคน และเผื่อวันที่ลูกทีมลาแล้วต้องมีคนทำแทน */
+var DEPT_FAMILY = {AC_FN: 'AC', AC_TH: 'AC', SR_FD: 'SR', SR_MC: 'SR'};
 function deptCovers(meDept, wantDept) {
   if (meDept === wantDept) return true;
   return DEPT_FAMILY[wantDept] === meDept;
@@ -107,11 +117,17 @@ var MODULES = {
 var PFX_MOD = {M:'MECH', F:'FOOD', O:'OTHER'};
 var NOGOODS_SKIP = [10, 11];        // ค่าใช้จ่ายอื่นไม่มีของให้ตรวจและไม่มีของเข้าคลัง
 
-/* เลข PO จาก SAP เชื่อถือได้กว่าค่าที่คนกรอก — ดูเลขก่อน แล้วค่อยดูค่าที่ตั้งไว้ */
+/* เลข PO จาก SAP เชื่อถือได้กว่าค่าที่คนกรอก — ดูเลขก่อน แล้วค่อยดูค่าที่ตั้งไว้
+
+   รับได้ทั้งสองชื่อฟิลด์โดยตั้งใจ: แถวในชีตใช้ deal_no/module ส่วนตัวอย่างที่ใช้นำเสนอใช้ no/mod
+   เคยพลาดมาแล้ว — ฟังก์ชันนี้อ่านแค่ no/mod ทำให้ทุกใบในระบบจริงกลายเป็น FOOD หมด
+   รายการค่าใช้จ่าย (PO-O…) จึงไม่ถูกข้ามขั้น QC กับรับเข้าคลัง ทั้งที่ไม่มีของให้ตรวจ */
 function modOf(p) {
-  var m = String((p && p.no) || '').toUpperCase().match(/^PO-([A-Z])/);
+  var no = (p && (p.deal_no || p.no)) || '';
+  var m = String(no).toUpperCase().match(/^PO-([A-Z])/);
   if (m && PFX_MOD[m[1]]) return PFX_MOD[m[1]];
-  return MODULES[p && p.mod] ? p.mod : 'FOOD';
+  var set = p && (p.module || p.mod);
+  return MODULES[set] ? set : 'FOOD';
 }
 
 /* ---------- สัญญาระหว่างขั้น ----------
@@ -350,6 +366,7 @@ if (typeof module !== 'undefined' && module.exports) {
     DONE_PAY:DONE_PAY, BILLDOC:BILLDOC, WHT:WHT, UNKNOWN_TERM:UNKNOWN_TERM,
     modOf:modOf, handOf:handOf, needsOf:needsOf, moneyFieldKeys:moneyFieldKeys,
     isForeign:isForeign, ownerDeptOf:ownerDeptOf, deptCovers:deptCovers, LOCAL_CCY:LOCAL_CCY,
+    DEPT_FAMILY:DEPT_FAMILY, MOD_SR:MOD_SR,
     parseQty:parseQty, qtyDiff:qtyDiff,
     termPlan:termPlan, buildPayments:buildPayments, isLC:isLC, isDeposit:isDeposit,
     billKind:billKind, cashSkip:cashSkip, skipOf:skipOf, nextStage:nextStage
