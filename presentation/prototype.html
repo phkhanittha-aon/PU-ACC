@@ -854,7 +854,9 @@
     VOID:{t:"กลับรายการ", cls:"wait"}, CANCELLED:{t:"ยกเลิก", cls:"wait"},
     // งวดที่ชำระผ่านเลตเตอร์ออฟเครดิต — ธนาคารจ่ายตามเอกสาร ไม่ต้องตั้งเบิกในระบบนี้
     // แต่ยังอยู่ในรายการเพื่อให้ยอดรวมงวดเท่ามูลค่า PO และตามเอกสารได้
-    LC:{t:"จ่ายผ่าน LC (ธนาคาร)", cls:"info"}
+    LC:{t:"จ่ายผ่าน LC (ธนาคาร)", cls:"info"},
+    // เครดิต: SAP ตัดจ่ายตามรอบเอง ระบบนี้แค่เก็บเอกสาร ไม่มีสายอนุมัติ
+    AUTO:{t:"เครดิต — SAP ตัดจ่ายตามรอบ", cls:"info"}
   };
 
   /* ============ เงื่อนไขจ่ายจาก SAP → งวดจ่าย ============
@@ -870,6 +872,12 @@
     {m:/^\s*(\d+)%\s*advance.*?(\d+)%.*?\bl\s*\/?\s*c\b/i, n:"มัดจำโอน + ที่เหลือผ่าน LC",
      plan:g => [{pct:+g[1], type:"มัดจำ", lc:false},
                 {pct:+g[2], type:"ส่วนที่เหลือ (LC)", lc:true}]},
+    /* มัดจำ + ส่วนที่เหลือ (ไม่ผ่าน LC) — เคสที่ทีมใช้บ่อยแต่ตารางนี้ไม่เคยมีแถวรองรับ
+       ทั้งสองงวดต้องขออนุมัติจ่าย เพราะไม่ใช่รอบเครดิตที่ SAP ตัดเอง */
+    {m:/^\s*(\d+)\s*%\s*(?:advance|deposit)\b[\s\S]*?(\d+)\s*%/i, n:"มัดจำ + ส่วนที่เหลือ",
+     plan:g => [{pct:+g[1], type:"มัดจำ", lc:false}, {pct:+g[2], type:"ส่วนที่เหลือ", lc:false}]},
+    {m:/มัดจำ\s*(\d+)\s*%[\s\S]*?(\d+)\s*%/i, n:"มัดจำ + ส่วนที่เหลือ",
+     plan:g => [{pct:+g[1], type:"มัดจำ", lc:false}, {pct:+g[2], type:"ส่วนที่เหลือ", lc:false}]},
     {m:/^\s*(\d+)%.*?delivery.*?(\d+)%.*?commissioning/i, n:"แบ่งจ่ายตามงานติดตั้ง",
      plan:g => [{pct:+g[1], type:"เมื่อส่งของถึงหน้างาน", lc:false},
                 {pct:+g[2], type:"เมื่อทดสอบระบบเสร็จ", lc:false}]},
@@ -877,8 +885,10 @@
      plan:[{pct:100, type:"ชำระเต็ม (ล่วงหน้า)", lc:false}]},
     {m:/commissioning/i, n:"จ่ายหลังทดสอบระบบ",
      plan:[{pct:100, type:"ชำระเต็ม (หลังทดสอบระบบ)", lc:false}]},
+    /* เครดิต — SAP ตัดจ่ายตามรอบเองจากวันครบกำหนด ไม่ต้องตั้งเบิกในระบบนี้
+       ยอดก็รู้อยู่แล้ว (100% ของใบ) วันก็ SAP คำนวณเอง เหลือแค่แนบใบกำกับตัวจริง */
     {m:/after\s+received\s+goods|after\s+delivery|after\s+invoice|within\s+\d+\s*days/i,
-     n:"เครดิตหลังรับของ", plan:[{pct:100, type:"ชำระเต็ม", lc:false}]},
+     n:"เครดิตหลังรับของ", plan:[{pct:100, type:"ชำระเต็ม (เครดิต)", lc:false, auto:true}]},
     // ต้องอยู่ท้ายกว่าเงื่อนไขผสม ไม่งั้นจะกินแถว 30/70 ไปด้วย
     {m:/\bl\s*\/?\s*c\b/i, n:"ชำระผ่าน LC ทั้งจำนวน",
      plan:[{pct:100, type:"ชำระเต็ม (LC)", lc:true}]},
@@ -910,8 +920,10 @@
     return pl.map((g, i) => {
       const v = i === pl.length - 1 ? left : Math.round(amt * g.pct) / 100;
       left -= v;
-      return pay(i + 1, g.type, g.pct, v, dueTH || "—", g.lc ? "LC" : "PENDING", "",
-        g.lc ? {lc:true, note:"ธนาคารจ่ายตามเอกสาร LC — ไม่ต้องตั้งเบิกในระบบนี้"} : {});
+      return pay(i + 1, g.type, g.pct, v, dueTH || "—",
+        g.lc ? "LC" : (g.auto ? "AUTO" : "PENDING"), "",
+        g.lc  ? {lc:true, note:"ธนาคารจ่ายตามเอกสาร LC — ไม่ต้องตั้งเบิกในระบบนี้"} :
+        g.auto ? {auto:true, note:"เครดิต — SAP ตัดจ่ายตามรอบจากวันครบกำหนด แนบใบกำกับตัวจริงก็พอ"} : {});
     });
   }
   // วงเงินซื้อเงินสดต่อรายการ — คนละเรื่องกับสายอนุมัติจ่าย (สายอนุมัติไม่มีเกณฑ์วงเงิน)
@@ -969,9 +981,11 @@
          ["30 ก.ค. 08:30","คุณอนุชา","จองรถรับของ 31 ก.ค."],["05 ส.ค. 10:00","คุณวิภา","จ่ายมัดจำงวดที่ 1"]]},
 
     {no:"PO-26-0051", sap:"", sup:"Thai Frozen Foods", item:"ปลาหมึกกล้วย", qty:"300 KG",
-     amt:78000, cur:"THB", term:"เครดิต 30 วัน", stage:5, age:4, owner:"คุณสมชาย",
+     amt:78000, cur:"THB", term:"100% after received goods within 30 days",
+     sapTerm:"100% after received goods within 30 days", stage:5, age:4, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2], date:"30/07/2026",
-     payments:[pay(1,"ชำระเต็ม",100,78000,"—","PENDING")],
+     // งวดมาจากตาราง PAY_TERMS ไม่ได้เขียนตายตัว — เงื่อนไขเครดิตจึงออกมาเป็น AUTO เอง
+     payments:buildPayments(78000, "100% after received goods within 30 days", "—"),
      tl:[["30 ก.ค. 08:05","คุณสมชาย","สร้าง PO"],["30 ก.ค. 09:30","คุณสมชาย","อัพโหลด PI"],
          ["30 ก.ค. 09:35","ระบบ","ไม่มีรหัสสินค้าใน B1 — เปิดใบขอ IC-26-0007"]]},
 
@@ -1117,9 +1131,13 @@
 
     // ขั้นส่งมอบเอกสาร — SR รวบเอกสารครบชุดแล้วยิงคำขอทำจ่ายไปหาหัวหน้า
     {no:"PO-26-0045", sap:"10245", sup:"ABC Foods", item:"ปลากะพงขาวทั้งตัว", qty:"350 KG",
-     amt:122500, inv:122500, cur:"THB", term:"เครดิต 30 วัน", stage:13, age:9, owner:"คุณสมชาย",
+     amt:122500, inv:122500, cur:"THB", term:"100% after received goods within 30 days",
+     sapTerm:"100% after received goods within 30 days", sapDue:"26/08/2026",
+     stage:13, age:9, owner:"คุณสมชาย",
      status:"ACTIVE", claim:false, skip:[1,2,5], date:"26/07/2026",
-     payments:[pay(1,"ชำระเต็ม",100,122500,"26/08/2026","PENDING")],
+     // เครดิต — SAP ตัดจ่ายตามรอบเองจากวันครบกำหนด ไม่ต้องตั้งเบิก
+     // งวดมาจากตาราง PAY_TERMS ไม่ได้เขียนตายตัว ตัดคำว่า auto ออกจากตาราง = ใบนี้กลับไปมีปุ่มตั้งเบิกทันที
+     payments:buildPayments(122500, "100% after received goods within 30 days", "26/08/2026"),
      tl:[["26 ก.ค. 09:20","คุณสมชาย","สร้าง PO"],["01 ส.ค. 14:10","คุณประเสริฐ","อัพโหลดใบรับสินค้า (GRPO)"],
          ["04 ส.ค. 09:45","คุณวิภา","อัพโหลดใบแจ้งหนี้จากผู้ขาย"]]},
 
@@ -1547,7 +1565,10 @@
   }
   POS.forEach(p => { if (p.status === "COMPLETED" && !p.bundle) p.bundle = mergeDocs(p); });
   // LC = ธนาคารจ่ายตามเอกสารแล้ว ไม่ใช่งวดที่ค้างรอเราตั้งเบิก จึงนับเป็นงวดที่จบทางฝั่งนี้
-  const DONE_PAY = ["PAID", "CANCELLED", "VOID", "LC"];
+  /* งวดที่จบทางฝั่งเรา — ไม่ค้างรอใครในระบบนี้
+     LC ธนาคารจ่ายตามเอกสาร · AUTO ระบบ SAP ตัดจ่ายตามรอบเครดิต */
+  const DONE_PAY = ["PAID", "CANCELLED", "VOID", "LC", "AUTO"];
+  const isAutoPay = x => !!(x && (x.auto === true || x.status === "AUTO"));
   const unpaid = p => p.payments.filter(x => DONE_PAY.indexOf(x.status) < 0);
   function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");
     clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),2600);}
@@ -1963,10 +1984,14 @@
       btns = '<button class="btn pri" data-act="sappull">ดึงข้อมูล PO จาก SAP B1</button>';
     else if (s.c === "DOC_HANDOVER") {
       // รายการที่จ่ายไปแล้ว (เช่นซื้อเงินสด) ไม่มีงวดให้ขออนุมัติ — ต้องมีทางไปต่อ ไม่ใช่ทางตัน
+      /* งวดเครดิตไม่ต้องขออนุมัติจ่าย — SAP ตัดจ่ายตามรอบเอง
+         ขั้นนี้จึงเหลือแค่ส่งมอบเอกสารให้ครบ ไม่ใช่บังคับเดินสายอนุมัติที่ไม่มีผลอะไร */
+      const autoOnly = p.payments.length && p.payments.every(x => isAutoPay(x) || isLC(x));
       btns = p.payments.some(x => x.status === "PENDING")
         ? '<button class="btn pri" data-act="payreq">ส่งเอกสาร + ขออนุมัติทำจ่าย</button>'
         : '<button class="btn pri" data-act="done">ส่งมอบเอกสารครบชุด' +
-          (p.entry === "CASH" ? " (จ่ายสดไปแล้ว)" : " (จ่ายครบแล้ว)") + "</button>";
+          (p.entry === "CASH" ? " (จ่ายสดไปแล้ว)"
+           : autoOnly ? " (เครดิต — SAP ตัดจ่ายตามรอบ)" : " (จ่ายครบแล้ว)") + "</button>";
     }
     else if (s.c === "PAYMENT") {
       // ขั้นทำจ่ายต้องผูกกับการบันทึกจ่ายจริง ไม่ใช่ปุ่ม "เสร็จ" ลอย ๆ
@@ -2114,7 +2139,7 @@
       "</span></div></div>";
 
     // 5) การจ่ายเงิน
-    if (money()) h += payReqCard(p) + paymentCard(p);
+    if (money()) h += creditNote(p) + payReqCard(p) + paymentCard(p);
 
     // 6) ตรวจสอบก่อนบันทึก — แสดงเต็มเฉพาะช่วงตั้งหนี้/จ่าย หรือเมื่อมีข้อติดจริง
     const nearClose = p.stage >= PHASES[2].from || !isActive(p);
@@ -2148,6 +2173,11 @@
     // งวดที่ชำระผ่าน LC ไม่ผ่านมือเรา — ไม่ให้ตั้งเรื่อง ไม่ให้บันทึกจ่าย กันคนกดแล้วจ่ายซ้ำกับธนาคาร
     if (isLC(x))
       return '<span class="hint">ธนาคารจ่ายตามเอกสาร LC — ไม่ต้องตั้งเบิกที่นี่</span>';
+    /* เครดิต — SAP ตัดจ่ายตามรอบเองจากวันครบกำหนด
+       ไม่มีปุ่มตั้งเบิกให้กด เพราะไม่มีอะไรให้ตัดสินใจ ยอดกับวันถูกกำหนดไว้หมดแล้ว
+       แต่ต้องบอกว่าทำอะไรแทน ไม่ใช่แค่ตัดปุ่มทิ้งแล้วปล่อยให้เดา */
+    if (isAutoPay(x))
+      return '<span class="hint">SAP ตัดจ่ายตามรอบเครดิต — แนบใบกำกับตัวจริงให้ครบก็พอ</span>';
     const b = (act, cls, t) => '<button class="btn ' + cls + '" data-payact="' + act + '" data-seq="' + x.seq + '">' + t + "</button>";
     if (inFam("AC")) {
       if (x.status === "PENDING")  return b("req", "pri", "ตั้งเรื่องขอจ่าย");
@@ -2280,6 +2310,19 @@
         esc(person(x.reqTo || PAY_APPROVER)) + " กดอนุมัติ — คุณดูได้แต่กดแทนไม่ได้</span></div>";
 
     return h + "</div></div>";
+  }
+
+  /* ใบที่เป็นเงื่อนไขเครดิตล้วน — บอกให้เห็นตั้งแต่บนหน้าใบว่าไม่ต้องตั้งเบิก
+     ถ้าไม่บอก คนจะไปหาปุ่ม "ขอทำจ่าย" แล้วไม่เจอ และคิดว่าระบบพัง */
+  function creditNote(p) {
+    const ps = p.payments || [];
+    if (!ps.length || !ps.every(x => isAutoPay(x))) return "";
+    const due = ps[0].due || "—";
+    return '<div class="note good" style="border:1px solid var(--go);margin-bottom:16px">' +
+      '<span><b>ใบนี้เป็นเงื่อนไขเครดิต — ไม่ต้องตั้งเรื่องขอจ่าย</b><br>' +
+      "SAP ตัดจ่ายตามรอบเองเมื่อถึงวันครบกำหนด <b>" + esc(due) + "</b> " +
+      "ยอดก็คือเต็มจำนวนของใบอยู่แล้ว ไม่มีอะไรให้กรอกหรืออนุมัติ<br>" +
+      "สิ่งที่ต้องทำในระบบนี้คือ <b>แนบใบกำกับภาษีตัวจริงให้ครบ</b> เท่านั้น</span></div>";
   }
 
   function paymentCard(p) {

@@ -568,9 +568,11 @@ d = nodes["#main"].innerHTML;
 if (!/PO-26-0038_GR\.jpg/.test(d)) bad.push("แนบไฟล์แล้วระบบไม่ได้ตั้งชื่อไฟล์ตามรูปแบบกลาง");
 if (!/ของมาไม่ครบ 5 KG/.test(d)) bad.push("หมายเหตุที่พิมพ์ในป๊อปอัปไม่ถูกเก็บ");
 
-/* ============ 4b. ขั้น SR ส่งขอทำจ่าย: ยอดเงิน + Effective date + ประทับข้อความ ============ */
-click("data-role", { role: "SR_FD" });
-click("data-po", { po: "PO-26-0045" });   // stage 13 = ส่งมอบเอกสาร เจ้าของ SR
+/* ============ 4b. ขั้น SR ส่งขอทำจ่าย: ยอดเงิน + Effective date + ประทับข้อความ ============
+   ใช้ใบเงื่อนไข "มัดจำ 30% + ที่เหลือ 70% ผ่าน LC" — งวดมัดจำคืองวดที่ต้องขออนุมัติจริง
+   (ใบเครดิตไม่ต้องตั้งเบิกแล้ว จึงเอามาขับหน้าจอนี้ไม่ได้ ดูด่านเครดิตท้ายไฟล์) */
+click("data-role", { role: "SR_MC" });
+click("data-po", { po: "PO-26-0070" });   // stage 13 = ส่งมอบเอกสาร เจ้าของ SR · งวด 1 มัดจำ 126,000
 d = nodes["#main"].innerHTML;
 if (!/ขออนุมัติทำจ่าย<\/button>/.test(d)) bad.push("ขั้นส่งมอบเอกสารไม่มีปุ่มขออนุมัติทำจ่าย");
 click("data-act", { act: "payreq" });
@@ -590,7 +592,7 @@ click("data-pract", { pract: "send" });
 if (!/S1/.test(formFields.pr_err.innerHTML)) bad.push("ส่งขอทำจ่ายได้โดยไม่ใส่ยอดเงิน (S1)");
 
 // Effective date ย้อนหลัง → บล็อก
-prFields({pr_amt:122500, pr_eff:"2020-01-01", pr_bamt:122500});
+prFields({pr_amt:126000, pr_eff:"2020-01-01", pr_bamt:126000});
 click("data-pract", { pract: "send" });
 if (!/S4/.test(formFields.pr_err.innerHTML)) bad.push("ส่งขอทำจ่ายด้วย Effective date ย้อนหลังได้ (S4)");
 
@@ -600,32 +602,33 @@ click("data-pract", { pract: "send" });
 if (!/S2/.test(formFields.pr_err.innerHTML)) bad.push("ขอจ่ายเกินยอดคงเหลือของ PO ได้ (S2)");
 
 // ไม่แนบเอกสารเรียกเก็บของงวดนี้ → บล็อก (ผู้อนุมัติต้องมีใบให้ดู)
-prFields({pr_amt:122500, pr_eff:today(), pr_bamt:122500, pr_bfile:""});
+prFields({pr_amt:126000, pr_eff:today(), pr_bamt:126000, pr_bfile:""});
 click("data-pract", { pract: "send" });
 if (!/S9/.test(formFields.pr_err.innerHTML)) bad.push("ส่งขอจ่ายได้โดยไม่แนบเอกสารเรียกเก็บของงวด (S9)");
 
 // ไม่ใส่เลขเอกสารเรียกเก็บ → บล็อก
-prFields({pr_amt:122500, pr_eff:today(), pr_bamt:122500, pr_bno:""});
+prFields({pr_amt:126000, pr_eff:today(), pr_bamt:126000, pr_bno:""});
 click("data-pract", { pract: "send" });
 if (!/S8/.test(formFields.pr_err.innerHTML)) bad.push("ส่งขอจ่ายได้โดยไม่ระบุเลขเอกสารเรียกเก็บ (S8)");
 
 // ขอจ่ายเกินยอดในใบเรียกเก็บ → บล็อก
-prFields({pr_amt:122500, pr_eff:today(), pr_bamt:50000});
+prFields({pr_amt:126000, pr_eff:today(), pr_bamt:50000});
 click("data-pract", { pract: "send" });
 if (!/S11/.test(formFields.pr_err.innerHTML)) bad.push("ขอจ่ายเกินยอดในเอกสารเรียกเก็บได้ (S11)");
 
 /* ---------- ตัวอย่างเอกสาร + บล็อกข้อความที่ลากวางได้ ---------- */
-prFields({pr_amt:122500, pr_eff:today(), pr_bamt:122500, pr_bno:"INV-ABC-0804"});
+prFields({pr_amt:126000, pr_eff:today(), pr_bamt:126000, pr_bno:"INV-SG-0826"});
 d = nodes["#modal"].innerHTML;
 if (!/pr_page/.test(d)) bad.push("หน้าขอทำจ่ายไม่มีตัวอย่างหน้าเอกสาร");
 if (!/id="pr_stampbox"/.test(d)) bad.push("ไม่มีบล็อกข้อความบนตัวอย่างเอกสาร");
 if (!/ลากได้/.test(d)) bad.push("ไม่ได้บอกผู้ใช้ว่าบล็อกข้อความลากได้");
-if (!/INV-ABC-0804/.test(d)) bad.push("ตัวอย่างเอกสารไม่ได้ใช้เลขที่เอกสารเรียกเก็บที่กรอก");
-if (!/ABC Foods/.test(d)) bad.push("ตัวอย่างเอกสารไม่ได้ใช้ชื่อผู้ขายจริง");
+// เลขเอกสารเรียกเก็บที่บัญชีบันทึกไว้แล้วต้องเติมให้เอง — ผู้ขอไม่ต้องพิมพ์ซ้ำ
+if (!/INV-SG-0826/.test(d)) bad.push("ตัวอย่างเอกสารไม่ได้ใช้เลขที่เอกสารเรียกเก็บที่บัญชีบันทึกไว้");
+if (!/Sungrow/.test(d)) bad.push("ตัวอย่างเอกสารไม่ได้ใช้ชื่อผู้ขายจริง");
 if (!/กำหนดเอง/.test(d)) bad.push("ไม่มีตัวเลือกตำแหน่งแบบกำหนดเอง");
 
 // เปลี่ยนตัวเลือกตำแหน่งแล้วบล็อกต้องย้ายจริง (ไม่กดส่ง — แค่แก้ช่องแล้วดูตัวอย่าง)
-prFields({pr_amt:122500, pr_eff:today(), pr_bamt:122500, pr_bno:"INV-ABC-0804", pr_pos:"TL"});
+prFields({pr_amt:126000, pr_eff:today(), pr_bamt:126000, pr_bno:"INV-SG-0826", pr_pos:"TL"});
 type("pr_pos");
 if (formFields.pr_stampbox.style.left !== "4%")
   bad.push("เลือกมุมซ้ายบนแล้วบล็อกข้อความไม่ย้ายตาม (" + formFields.pr_stampbox.style.left + ")");
@@ -646,7 +649,7 @@ if (formFields.pr_stampbox.style.color !== "#1a1a1a") bad.push("เปลี่�
 formFields.pr_text.value = "ทดสอบข้อความประทับ"; type("pr_text");
 if (formFields.pr_stamptext.textContent !== "ทดสอบข้อความประทับ")
   bad.push("พิมพ์ข้อความแล้วไม่ขึ้นบนตัวอย่างเอกสาร");
-if (!/122,500/.test(formFields.pr_pgtot.textContent))
+if (!/126,000/.test(formFields.pr_pgtot.textContent))
   bad.push("ยอดบนหน้ากระดาษไม่เดินตามยอดที่กรอก");
 formFields.pr_bno.value = "INV-เปลี่ยนแล้ว"; type("pr_bno");
 if (formFields.pr_pgno.textContent !== "INV-เปลี่ยนแล้ว")
@@ -659,24 +662,24 @@ if (!dim) bad.push("ติ๊กไม่ประทับแล้วตัว
 
 // ครบ → ส่งได้ งวดต้องเป็นรออนุมัติ และวันครบกำหนดต้องเป็น Effective date ที่ระบุ
 const eff = "2026-12-15";
-prFields({pr_amt:122500, pr_eff:eff, pr_size:"16", pr_bkind:"INVOICE",
-          pr_bno:"INV-ABC-0804", pr_bamt:122500, pr_bfile:"invoice_ABC_0804.pdf",
-          pr_text:"ขออนุมัติทำจ่าย PO-26-0045\nยอด 122,500"});
+prFields({pr_amt:126000, pr_eff:eff, pr_size:"16", pr_bkind:"INVOICE",
+          pr_bno:"INV-SG-0826", pr_bamt:126000, pr_bfile:"invoice_SG_0826.pdf",
+          pr_text:"ขออนุมัติทำจ่าย PO-26-0070\nยอด 126,000"});
 click("data-pract", { pract: "send" });
-click("data-po", { po: "PO-26-0045" });
+click("data-po", { po: "PO-26-0070" });
 d = nodes["#main"].innerHTML;
 if (!/รออนุมัติจ่าย/.test(d)) bad.push("ส่งขอทำจ่ายแล้วงวดไม่เป็นสถานะรออนุมัติ");
 if (!/15\/12\/2026/.test(d)) bad.push("Effective date ที่กรอกไม่ได้ลงไปเป็นวันครบกำหนดจ่าย");
 if (!/ประทับข้อความ/.test(d)) bad.push("ไม่บันทึกประวัติว่าประทับข้อความลงเอกสาร");
 
 // หัวหน้าต้องได้ "ใบขออนุมัติ" ที่มีของให้ดู ไม่ใช่ปุ่มลอย ๆ ในตาราง
-// ยอด 122,500 — เดิมจะเด้งไปผู้บริหารเพราะเกิน 50,000 ตอนนี้ทุกยอดไปที่ผู้จัดการฝ่ายบัญชี
+// ยอด 126,000 — เดิมจะเด้งไปผู้บริหารเพราะเกิน 50,000 ตอนนี้ทุกยอดไปที่ผู้จัดการฝ่ายบัญชี
 click("data-role", { role: "GM" });
-click("data-po", { po: "PO-26-0045" });
+click("data-po", { po: "PO-26-0070" });
 if (/data-payact="apv"/.test(nodes["#main"].innerHTML))
   bad.push("ยอดใหญ่ยังเด้งไปผู้บริหาร — ต้องผ่านผู้จัดการฝ่ายบัญชีทุกยอด");
 click("data-role", { role: "ACH" });
-click("data-po", { po: "PO-26-0045" });
+click("data-po", { po: "PO-26-0070" });
 d = nodes["#main"].innerHTML;
 if (!/ใบขออนุมัติทำจ่าย/.test(d)) bad.push("คำขอจ่ายจาก SR ไม่มีใบขออนุมัติให้หัวหน้าดู");
 if (!/PRQ-26-\d{4}/.test(d)) bad.push("ใบขออนุมัติไม่มีเลขที่ให้อ้างอิง");
@@ -684,7 +687,7 @@ if (!/ที่ผู้ขอวางเอง/.test(d))
   bad.push("ผู้อนุมัติไม่เห็นว่าข้อความถูกประทับไว้ตำแหน่งไหนบนเอกสาร");
 if (!/ผู้ขอ/.test(d)) bad.push("ผู้อนุมัติไม่เห็นว่าใครเป็นคนขอ");
 if (!/เอกสารประกอบ/.test(d)) bad.push("ผู้อนุมัติไม่เห็นเอกสารประกอบที่แนบมากับคำขอ");
-if (!/INV-ABC-0804/.test(d)) bad.push("ใบขออนุมัติไม่โยงถึงใบแจ้งหนี้ที่บัญชีบันทึกไว้");
+if (!/INV-SG-0826/.test(d)) bad.push("ใบขออนุมัติไม่โยงถึงใบแจ้งหนี้ที่บัญชีบันทึกไว้");
 if (!/ระบบตรวจให้แล้วก่อนถึงคุณ/.test(d)) bad.push("ผู้อนุมัติไม่เห็นผลตรวจที่ระบบทำให้แล้ว");
 if (!/อนุมัติจ่าย ฿/.test(d)) bad.push("ไม่มีปุ่มอนุมัติในใบขออนุมัติ");
 if (/data-payact="apv"[^>]*>อนุมัติจ่าย<\/button>/.test(d))
@@ -706,7 +709,7 @@ if (!/รออนุมัติจ่าย PRQ/.test(nodes["#main"].innerHTML
 
 // ตีกลับต้องบังคับเหตุผล และเหตุผลต้องไปถึงผู้ขอ
 click("data-role", { role: "ACH" });
-click("data-po", { po: "PO-26-0045" });
+click("data-po", { po: "PO-26-0070" });
 click("data-payact", { payact: "rej", seq: "1" });
 if (!/ตีกลับ PRQ/.test(nodes["#modal"].innerHTML)) bad.push("ตีกลับไม่มีหน้าจอให้ระบุเหตุผล");
 setFields({rj_why:"", rj_note:""});
@@ -717,8 +720,8 @@ if (!/ต้องเลือกเหตุผล/.test(formFields.rj_err.inne
 setFields({rj_why:"ยอดไม่ตรงกับใบแจ้งหนี้", rj_note:"ของรับจริง 340 KG"});
 formFields.rj_err = {innerHTML:""};
 click("data-rej", { rej: "send" });
-click("data-role", { role: "SR_FD" });
-click("data-po", { po: "PO-26-0045" });
+click("data-role", { role: "SR_MC" });
+click("data-po", { po: "PO-26-0070" });
 d = nodes["#main"].innerHTML;
 if (!/ยอดไม่ตรงกับใบแจ้งหนี้/.test(d)) bad.push("ผู้ขอไม่เห็นเหตุผลที่ถูกตีกลับ");
 if (!/ของรับจริง 340 KG/.test(d)) bad.push("รายละเอียดที่หัวหน้าเขียนไม่ถึงผู้ขอ");
@@ -1306,6 +1309,23 @@ if (srOwn.indexOf("PO-O326070012") < 0)
   if (srOwn.indexOf(po) >= 0)
     bad.push("จัดซื้อทั่วไปเห็น " + po + " ซึ่งเป็นงานของทีมย่อย — ต้องเห็นเฉพาะ PO-O");
 });
+
+/* ---------- เงื่อนไขเครดิตต้องข้ามการตั้งเบิก ----------
+   SAP ตัดจ่ายตามรอบเองจากวันครบกำหนด ยอดก็เต็มจำนวนของใบอยู่แล้ว
+   ถ้ายังมีปุ่มตั้งเบิก แปลว่าบังคับคนเดินสายอนุมัติทับของที่จ่ายอัตโนมัติ */
+click("data-role", { role: "AC_TH" });
+click("data-po", { po: "PO-26-0045" });        // เครดิต 30 วัน
+const credHtml = nodes["#main"].innerHTML;
+if (!/ไม่ต้องตั้งเรื่องขอจ่าย/.test(credHtml))
+  bad.push("ใบเงื่อนไขเครดิต: ไม่ได้บอกว่าไม่ต้องตั้งเรื่องขอจ่าย");
+if (/data-payact="req"/.test(credHtml))
+  bad.push("ใบเงื่อนไขเครดิตยังมีปุ่มตั้งเรื่องขอจ่าย — SAP จ่ายเองอยู่แล้ว");
+if (!/แนบใบกำกับ/.test(credHtml))
+  bad.push("ใบเงื่อนไขเครดิต: ไม่ได้บอกว่าต้องทำอะไรแทน (แนบใบกำกับตัวจริง)");
+// ใบมัดจำต้องยังมีปุ่มตั้งเบิกตามปกติ — ตัดออกหมดคือแก้เกิน
+click("data-po", { po: "PO-26-0060" });        // มัดจำ 50% + ที่เหลือ 50%
+if (!/data-payact="req"/.test(nodes["#main"].innerHTML))
+  bad.push("ใบมัดจำไม่มีปุ่มตั้งเรื่องขอจ่าย — งวดมัดจำต้องขออนุมัติ");
 
 if (leaks.length) {
   bad.push("ยอดเงินหลุดไปยังบทบาทที่ไม่มีสิทธิ์เห็น " + leaks.length + " จุด:");

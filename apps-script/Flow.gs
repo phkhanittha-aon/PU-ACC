@@ -261,6 +261,14 @@ var PAY_TERMS = [
   {m:/^\s*(\d+)%\s*advance.*?(\d+)%.*?\bl\s*\/?\s*c\b/i, n:'มัดจำโอน + ที่เหลือผ่าน LC',
    plan:function (g) { return [{pct:+g[1], type:'มัดจำ', lc:false},
                                {pct:+g[2], type:'ส่วนที่เหลือ (LC)', lc:true}]; }},
+  /* มัดจำ + ส่วนที่เหลือ (ไม่ผ่าน LC) — เคสที่ทีมใช้บ่อยแต่ตารางนี้ไม่เคยมีแถวรองรับ
+     ทั้งสองงวดต้องขออนุมัติจ่าย เพราะไม่ใช่รอบเครดิตที่ SAP ตัดเอง */
+  {m:/^\s*(\d+)\s*%\s*(?:advance|deposit)\b[\s\S]*?(\d+)\s*%/i, n:'มัดจำ + ส่วนที่เหลือ',
+   plan:function (g) { return [{pct:+g[1], type:'มัดจำ', lc:false},
+                               {pct:+g[2], type:'ส่วนที่เหลือ', lc:false}]; }},
+  {m:/มัดจำ\s*(\d+)\s*%[\s\S]*?(\d+)\s*%/i, n:'มัดจำ + ส่วนที่เหลือ',
+   plan:function (g) { return [{pct:+g[1], type:'มัดจำ', lc:false},
+                               {pct:+g[2], type:'ส่วนที่เหลือ', lc:false}]; }},
   {m:/^\s*(\d+)%.*?delivery.*?(\d+)%.*?commissioning/i, n:'แบ่งจ่ายตามงานติดตั้ง',
    plan:function (g) { return [{pct:+g[1], type:'เมื่อส่งของถึงหน้างาน', lc:false},
                                {pct:+g[2], type:'เมื่อทดสอบระบบเสร็จ', lc:false}]; }},
@@ -268,8 +276,10 @@ var PAY_TERMS = [
    plan:[{pct:100, type:'ชำระเต็ม (ล่วงหน้า)', lc:false}]},
   {m:/commissioning/i, n:'จ่ายหลังทดสอบระบบ',
    plan:[{pct:100, type:'ชำระเต็ม (หลังทดสอบระบบ)', lc:false}]},
+  /* เครดิต — SAP ตัดจ่ายตามรอบเองจากวันครบกำหนด ไม่ต้องตั้งเบิกในระบบนี้
+     ยอดก็รู้อยู่แล้ว (100% ของใบ) วันก็ SAP คำนวณเอง เหลือแค่แนบใบกำกับตัวจริง */
   {m:/after\s+received\s+goods|after\s+delivery|after\s+invoice|within\s+\d+\s*days/i,
-   n:'เครดิตหลังรับของ', plan:[{pct:100, type:'ชำระเต็ม', lc:false}]},
+   n:'เครดิตหลังรับของ', plan:[{pct:100, type:'ชำระเต็ม (เครดิต)', lc:false, auto:true}]},
   {m:/\bl\s*\/?\s*c\b/i, n:'ชำระผ่าน LC ทั้งจำนวน',
    plan:[{pct:100, type:'ชำระเต็ม (LC)', lc:true}]},
   {m:/^unknown$/i, n:'ยังไม่ระบุเงื่อนไข',
@@ -307,10 +317,18 @@ var PAY_ST = {
   FAILED:   {t:'ธนาคารตีกลับ',           cls:'late'},
   VOID:     {t:'กลับรายการ',             cls:'wait'},
   CANCELLED:{t:'ยกเลิก',                 cls:'wait'},
-  LC:       {t:'จ่ายผ่าน LC (ธนาคาร)',   cls:'info'}
+  LC:       {t:'จ่ายผ่าน LC (ธนาคาร)',   cls:'info'},
+  // เครดิต: SAP ตัดจ่ายตามรอบเอง ระบบนี้แค่เก็บเอกสาร ไม่มีสายอนุมัติ
+  AUTO:     {t:'เครดิต — SAP ตัดจ่ายตามรอบ', cls:'info'}
 };
-var DONE_PAY = ['PAID', 'CANCELLED', 'VOID', 'LC'];
+var DONE_PAY = ['PAID', 'CANCELLED', 'VOID', 'LC', 'AUTO'];
 function isLC(x) { return !!(x && (x.lc === true || x.status === 'LC')); }
+/* งวดที่ SAP ตัดจ่ายเองตามรอบเครดิต — ไม่ต้องตั้งเรื่องขอจ่ายในระบบนี้
+   ค่าจากชีตกลับมาเป็นข้อความ 'TRUE' ได้ จึงต้องรับทั้งบูลีนและข้อความ */
+function isAutoPay(x) {
+  return !!(x && (x.auto === true || String(x.auto).toUpperCase() === 'TRUE' ||
+                  x.status === 'AUTO'));
+}
 
 /** กางเงื่อนไขเป็นงวดจ่าย — งวดสุดท้ายรับเศษ ยอดรวมจึงเท่ามูลค่า PO เสมอ */
 function buildPayments(amt, term, dueTH) {
@@ -321,8 +339,9 @@ function buildPayments(amt, term, dueTH) {
     left -= v;
     return {
       seq:i + 1, type:g.type, pct:g.pct, amount:v, due:dueTH || '—',
-      status:g.lc ? 'LC' : 'PENDING', lc:!!g.lc,
-      note:g.lc ? 'ธนาคารจ่ายตามเอกสาร LC — ไม่ต้องตั้งเบิกในระบบนี้' : '',
+      status:g.lc ? 'LC' : (g.auto ? 'AUTO' : 'PENDING'), lc:!!g.lc, auto:!!g.auto,
+      note:g.lc   ? 'ธนาคารจ่ายตามเอกสาร LC — ไม่ต้องตั้งเบิกในระบบนี้' :
+           g.auto ? 'เครดิต — SAP ตัดจ่ายตามรอบจากวันครบกำหนด แนบใบกำกับตัวจริงก็พอ' : '',
       reqNo:'', reqBy:'', reqAt:'', apvBy:'', apvAt:'', paidBy:'', paidAt:'',
       method:'', bank:'', ref:'', billKind:'', billNo:'', billAmt:0,
       whtType:'GOODS', wht:0, fee:0, feeBy:'OUR', paidAmt:0, slip:false
@@ -418,7 +437,7 @@ if (typeof module !== 'undefined' && module.exports) {
     DEPT_FAMILY:DEPT_FAMILY, COVERS_TEAMS:COVERS_TEAMS, MOD_SR:MOD_SR,
     lineCountOf:lineCountOf,
     parseQty:parseQty, qtyDiff:qtyDiff,
-    termPlan:termPlan, buildPayments:buildPayments, isLC:isLC, isDeposit:isDeposit,
+    termPlan:termPlan, buildPayments:buildPayments, isLC:isLC, isAutoPay:isAutoPay, isDeposit:isDeposit,
     billKind:billKind, cashSkip:cashSkip, skipOf:skipOf, nextStage:nextStage
   };
 }

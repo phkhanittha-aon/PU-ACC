@@ -172,14 +172,14 @@ const DEAL = 'PO-F126050001';
 api.Repo.insert(api.SHEETS.DEALS, {
   deal_no: DEAL, entry: 'PO', module: 'FOOD', supplier: 'ABC Foods',
   item: 'กุ้งแช่แข็ง 16/20', qty: '500 KG', amount: 130000, currency: 'THB',
-  payment_term: '100% after received goods within 7 days', term_name: 'เครดิตหลังรับของ',
+  payment_term: '30% advance and 70% balance', term_name: 'มัดจำ + ส่วนที่เหลือ',
   due_date: '2026-09-30', stage: 12, status: 'ACTIVE', owner_email: U.sr, created_at: new Date()
 });
 api.Repo.insert(api.SHEETS.STAGES, {
   deal_no: DEAL, seq: 12, stage_code: 'INVOICE_RECEIVED', owner_dept: 'AC',
   entered_at: new Date(), sla_hours: 72
 });
-api.buildPayments(130000, '100% after received goods within 7 days', '30/09/2026')
+api.buildPayments(130000, '30% advance and 70% balance', '30/09/2026')
   .forEach(p => api.Repo.insert(api.SHEETS.PAYMENTS, {
     deal_no: DEAL, seq: p.seq, type: p.type, pct: p.pct, amount: p.amount,
     due: p.due, status: p.status, is_lc: p.lc ? 'TRUE' : 'FALSE'
@@ -266,6 +266,39 @@ ck(api.deptCovers('AC', 'AC_FN') && api.deptCovers('AC', 'AC_TH'),
 ck(!api.deptCovers('SR', 'SR_MC') && !api.deptCovers('SR', 'SR_FD'),
    'จัดซื้อทั่วไปยังทำแทนทีมย่อยได้ ทั้งที่ต้องดูเฉพาะงานของตัวเอง');
 ck(!api.deptCovers('SR_FD', 'SR_MC'), 'Sourcing Food ทำงานของสายเครื่องจักรได้');
+
+/* ================= 3.5 เงื่อนไขเครดิต: ไม่ต้องตั้งเบิก =================
+   SAP ตัดจ่ายตามรอบเองจากวันครบกำหนด ยอดก็รู้อยู่แล้ว (100% ของใบ)
+   บังคับให้คนเดินสายอนุมัติสี่มือทับของที่จ่ายอัตโนมัติ ไม่ได้กันอะไรเพิ่ม
+   แต่ทำให้คนเชื่อว่าตัวเองคุมการจ่ายอยู่ ทั้งที่ไม่ได้คุม */
+const CREDIT = 'PO-F126050007';
+api.Repo.insert(api.SHEETS.DEALS, {
+  deal_no: CREDIT, entry: 'PO', module: 'FOOD', supplier: 'ABC Foods',
+  item: 'ปลากะพง', qty: '100 KG', amount: 60000, currency: 'THB',
+  payment_term: '100% after received goods within 30 days', term_name: 'เครดิตหลังรับของ',
+  due_date: '2026-10-31', stage: 12, status: 'ACTIVE', created_at: new Date()
+});
+api.Repo.insert(api.SHEETS.PILOT, { deal_no: CREDIT, added_at: new Date(), added_by: U.sr });
+api.buildPayments(60000, '100% after received goods within 30 days', '31/10/2026')
+  .forEach(p => api.Repo.insert(api.SHEETS.PAYMENTS, {
+    deal_no: CREDIT, seq: p.seq, type: p.type, pct: p.pct, amount: p.amount,
+    due: p.due, status: p.status, is_lc: p.lc ? 'TRUE' : 'FALSE', note: p.note
+  }));
+
+const credPay = api.Repo.where(api.SHEETS.PAYMENTS,
+  x => String(x.deal_no) === CREDIT);
+ck(credPay.length === 1 && String(credPay[0].status) === 'AUTO',
+   'งวดของเงื่อนไขเครดิตไม่ได้เป็นสถานะ AUTO (ได้ ' +
+   credPay.map(x => x.status).join(',') + ')');
+const credReq = as(U.sr, () => api.apiRequestPayment(CREDIT, 1, {
+  amount: 60000, billNo: 'INV-CRD-01', billAmt: 60000
+}));
+ck(!credReq.ok && credReq.code === 'AUTO_TERM',
+   'ตั้งเบิกงวดเครดิตได้ ทั้งที่ SAP ตัดจ่ายตามรอบเองอยู่แล้ว (ได้ ' +
+   (credReq.code || 'ผ่าน') + ')');
+// ต้องบอกด้วยว่าให้ทำอะไรแทน ไม่ใช่ปฏิเสธเฉย ๆ แล้วปล่อยให้เดาเอง
+ck(/ใบกำกับ/.test(String(credReq.error || '')),
+   'ปฏิเสธแล้วไม่ได้บอกว่าต้องแนบใบกำกับตัวจริงแทน');
 
 /* ================= 4. แยกหน้าที่เรื่องเงิน ================= */
 const req = as(U.sr, () => api.apiRequestPayment(DEAL, 1, {

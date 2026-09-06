@@ -217,8 +217,13 @@ store['Assignments'].slice(1).forEach(r => {
    PO 420,000 (3 รายการ) เข้าระบบเป็น 200,000 รายการเดียว โดยไม่มีรายงานอะไรเลย
    แล้วยอดที่ต่ำกว่าจริงไปทำให้ตั้งเบิกยอดที่ถูกต้องไม่ได้เพราะติดเพดาน */
 const rows = [
-  {'PO Number':'PO-F126050001', 'Supplier':'ABC Foods', 'PO Payment Term':'100% after received goods within 7 days',
+  /* ใบนี้เป็นเงื่อนไขมัดจำ เพื่อให้สายอนุมัติจ่ายสี่มือถูกเดินจริงในชุดทดสอบ
+     เงื่อนไขเครดิตทดสอบแยกต่างหากด้านล่าง เพราะมันข้ามสายอนุมัติทั้งเส้น */
+  {'PO Number':'PO-F126050001', 'Supplier':'ABC Foods', 'PO Payment Term':'30% advance and 70% balance',
    'Price':130000, 'Currency':'THB', 'Due Date':'2026-09-30', 'Payment_Status':'🟢', '_item':'กุ้งแช่แข็ง 16/20', '_module':'FOOD'},
+  // เงื่อนไขเครดิต — SAP ตัดจ่ายตามรอบเอง ไม่ต้องตั้งเบิก
+  {'PO Number':'PO-F126050005', 'Supplier':'Siam Marine', 'PO Payment Term':'100% after received goods within 30 days',
+   'Price':88000, 'Currency':'THB', 'Due Date':'2026-10-31', 'Payment_Status':'🟢', '_item':'ปลากะพง', '_module':'FOOD'},
   {'PO Number':'PO-M226050002', 'Supplier':'Sungrow', 'PO Payment Term':'30% advance and 70% L/C',
    'Price':200000, 'Currency':'USD', 'Due Date':'2026-10-15', 'Payment_Status':'🟢',
    '_item':'อินเวอร์เตอร์ SG125CX', '_qty':'4 SET', '_module':'MECH'},
@@ -233,11 +238,11 @@ const imp = as(U.SR, () => {
   const me = app.Auth.me();
   return app.Intake.run(me, rows);
 });
-ck(imp && imp.created === 2, 'นำเข้าไม่ได้ 2 รายการ (ได้ ' + (imp && imp.created) + ')');
+ck(imp && imp.created === 3, 'นำเข้าไม่ได้ 3 รายการ (ได้ ' + (imp && imp.created) + ')');
 step.push('นำเข้า ' + (imp && imp.created) + ' รายการ · เริ่มที่ขั้น ' +
           app.STAGES[imp.startStage].n + ' (' + app.STAGES[imp.startStage].o + ')');
 const dealsNow = app.Repo.readAll(app.SHEETS.DEALS);
-ck(dealsNow.length === 2, 'ตาราง Deals ไม่มี 2 แถว');
+ck(dealsNow.length === 3, 'ตาราง Deals ไม่มี 3 แถว');
 /* PO หลายรายการ: 1 ใบ · ยอดต้องเป็นผลรวมทุกบรรทัด · รายการย่อยต้องถูกเก็บครบ
    ตรวจยอดด้วย ไม่ใช่ตรวจแค่จำนวนใบ — ระบบที่ทิ้งบรรทัดจะได้ "1 ใบ" เหมือนกันแต่ยอดผิด */
 const mech = dealsNow.filter(d => String(d.deal_no) === 'PO-M226050002')[0];
@@ -247,18 +252,28 @@ const itemsNow = app.Repo.readAll(app.SHEETS.ITEMS);
 ck(itemsNow.filter(x => String(x.deal_no) === 'PO-M226050002').length === 3,
    'รายการย่อยของ PO หลายรายการไม่ครบ 3 บรรทัด (ได้ ' +
    itemsNow.filter(x => String(x.deal_no) === 'PO-M226050002').length + ')');
-ck(imp.lines === 4, 'จำนวนรายการสินค้าที่นำเข้าไม่ครบ (ได้ ' + imp.lines + ' ควรได้ 4)');
+ck(imp.lines === 5, 'จำนวนรายการสินค้าที่นำเข้าไม่ครบ (ได้ ' + imp.lines + ' ควรได้ 5)');
 ck(imp.multiLine.length === 1, 'ไม่ได้รายงานว่ามีใบที่มีหลายรายการ');
 step.push('PO หลายรายการ: 1 ใบ · ยอดรวมทุกบรรทัด · เก็บรายการย่อยครบทุกบรรทัด');
-ck(String(dealsNow[0].owner_email) === U.SR, 'ใบสายอาหารไม่ได้เจ้าของงานตามกลุ่ม');
-ck(String(dealsNow[1].owner_email) === '', 'ใบสายเครื่องจักรไม่ควรมีเจ้าของ (ยังไม่ได้ระบุในตาราง)');
+/* อ้างด้วยเลขที่ใบ ไม่ใช่ตำแหน่งแถว — เพิ่มใบทดสอบเมื่อไหร่ตำแหน่งก็เลื่อน
+   แล้วข้อตรวจจะไปจับใบผิดโดยที่ยังเขียว ซึ่งแย่กว่าแดง */
+const dealOf = no => dealsNow.filter(d => String(d.deal_no) === no)[0] || {};
+ck(String(dealOf('PO-F126050001').owner_email) === U.SR, 'ใบสายอาหารไม่ได้เจ้าของงานตามกลุ่ม');
+ck(String(dealOf('PO-M226050002').owner_email) === '',
+   'ใบสายเครื่องจักรไม่ควรมีเจ้าของ (ยังไม่ได้ระบุในตาราง)');
+/* เงื่อนไขเครดิต: SAP ตัดจ่ายตามรอบเอง — งวดต้องเป็น AUTO และตั้งเบิกไม่ได้ */
+const credRows = app.Repo.readAll(app.SHEETS.PAYMENTS)
+  .filter(x => String(x.deal_no) === 'PO-F126050005');
+ck(credRows.length === 1 && String(credRows[0].status) === 'AUTO',
+   'ใบเงื่อนไขเครดิตไม่ได้เป็นงวด AUTO (ได้ ' + credRows.map(x => x.status).join(',') + ')');
+step.push('เงื่อนไขเครดิต → งวด AUTO · SAP ตัดจ่ายตามรอบเอง ไม่ต้องตั้งเบิก');
 
 /* ===== 6. พนักงานเปิดเว็บ — เส้นทางเดียวกับที่หน้าจอเรียก ===== */
 const boot = ok(as(U.SR, () => app.apiBoot()), 'เปิดระบบ (apiBoot)');
 ck(boot && boot.me && boot.me.dept === 'SR', 'เปิดระบบแล้วบทบาทไม่ถูก');
 ck(boot && boot.flow && boot.flow.STAGES.length === 17, 'เปิดระบบแล้วไม่ได้นิยามกระบวนการ');
 const list = ok(as(U.SR, () => app.apiListDeals()), 'ดึงรายการ (apiListDeals)');
-ck(Array.isArray(list) && list.length === 2, 'ดึงรายการแล้วไม่ได้ 2 ใบ');
+ck(Array.isArray(list) && list.length === 3, 'ดึงรายการแล้วไม่ได้ 3 ใบ');
 step.push('จัดซื้อเปิดเว็บ เห็น ' + (list ? list.length : 0) + ' รายการ');
 
 const DEAL = 'PO-F126050001';
@@ -514,7 +529,7 @@ ck(again2 && again2.inProgress.length > 0,
 const rowsChanged = rows.map(r => Object.assign({}, r, {Price: r.Price + 5000}));
 const chg = as(U.SR, () => { const me = app.Auth.me(); return app.Intake.run(me, rowsChanged); });
 ck(chg && chg.created === 0, 'ยอดเปลี่ยนแล้วสร้างใบใหม่ซ้ำ');
-ck(chg && chg.changed.length === 2,
+ck(chg && chg.changed.length === 3,
    'ไม่ได้เตือนว่ายอดใน SAP ไม่ตรงกับในระบบ (ได้ ' + (chg && chg.changed.length) + ')');
 step.push('นำเข้าซ้ำ: ไม่สร้างใบซ้ำ · บอกว่าใบไหนดำเนินการอยู่ · เตือนเมื่อยอดใน SAP เปลี่ยน');
 

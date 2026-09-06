@@ -108,7 +108,8 @@ flowchart ให้เป็นระบบจริง — แต่ละแ�
 node tools/e2e-test.mjs     # เดินทั้งกระบวนการจริง ตั้งแต่ชีตว่างจนปิดบัญชี (17 ขั้น + จ่ายเงิน)
 node tools/domain-test.mjs  # กติกาฝั่งเซิร์ฟเวอร์ของระบบจริง — รันได้โดยไม่ต้องมีบัญชี Google
 node tools/walkthrough.js   # เดินทั้งกระบวนการตั้งแต่ใบขอราคาจนปิดบัญชี พิมพ์ใบส่งงานทุกทอด
-node tools/smoke.js         # ชุดทดสอบ 294 การเรนเดอร์ (7 บทบาท) + เคสของทุกฟีเจอร์
+node tools/smoke.js         # ชุดทดสอบ 504 การเรนเดอร์ (12 บทบาท) + เคสของทุกฟีเจอร์
+node tools/flow-parity.mjs  # นิยามกระบวนการใน Flow.gs กับในตัวอย่าง ยังตรงกันอยู่ไหม
 python3 tools/build-schema-xlsx.py   # สร้างไฟล์ Excel โครงสร้างหลังบ้านใหม่ (ต้องมี openpyxl)
 python3 tools/costing-extract.py "Costing Mech.xlsx" "Costing Food.xlsx"   # ตรวจข้อมูล Costing จาก SAP (หลายสายได้)
 python3 tools/costing-extract-test.py                  # กฎการสกัดข้อมูล + เทียบ Python กับ Apps Script
