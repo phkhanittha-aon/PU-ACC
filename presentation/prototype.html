@@ -403,6 +403,9 @@
   .errbox .w1{color:var(--warn);background:var(--warn-bg);border-left:3px solid var(--warn);
     border-radius:var(--r-sm);padding:6px 11px}
   .chkline{display:flex;gap:8px;align-items:center;font-size:13.5px}
+  .filepick{display:flex;gap:8px;align-items:center}
+  .filepick input{flex:1;min-width:0}
+  .filepick .btn{flex:none;white-space:nowrap;padding:8px 13px;font-size:12.5px}
 
   /* ---------- กล่อง "ตอนนี้ต้องทำอะไร" ---------- */
   .todo{background:var(--paper);margin-bottom:18px;border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sh-2)}
@@ -2025,7 +2028,8 @@
          ขั้นนี้จึงเหลือแค่ส่งมอบเอกสารให้ครบ ไม่ใช่บังคับเดินสายอนุมัติที่ไม่มีผลอะไร */
       const autoOnly = p.payments.length && p.payments.every(x => isAutoPay(x) || isLC(x));
       btns = p.payments.some(x => x.status === "PENDING")
-        ? '<button class="btn pri" data-act="payreq">ส่งเอกสาร + ขออนุมัติทำจ่าย</button>'
+        ? '<button class="btn pri" data-act="payreq">ส่งเอกสาร + ขออนุมัติทำจ่าย</button>' +
+          payReqWaitHint(p)
         : '<button class="btn pri" data-act="done">ส่งมอบเอกสารครบชุด' +
           (p.entry === "CASH" ? " (จ่ายสดไปแล้ว)"
            : autoOnly ? " (เครดิต — SAP ตัดจ่ายตามรอบ)" : " (จ่ายครบแล้ว)") + "</button>";
@@ -2230,7 +2234,7 @@
       return '<span class="hint">SAP ตัดจ่ายตามรอบเครดิต — แนบใบกำกับตัวจริงให้ครบก็พอ</span>';
     const b = (act, cls, t) => '<button class="btn ' + cls + '" data-payact="' + act + '" data-seq="' + x.seq + '">' + t + "</button>";
     if (inFam("AC")) {
-      if (x.status === "PENDING")  return b("req", "pri", "ตั้งเรื่องขอจ่าย");
+      if (x.status === "PENDING")  return b("req", "pri", "ตั้งเรื่องขอจ่าย") + payReqWaitHint(p);
       if (x.status === "APPROVED") return b("form", "ok", "บันทึกการจ่าย");
       if (x.status === "FAILED")   return b("form", "ok", "ทำจ่ายใหม่");
       if (x.status === "PAID")     return b("void", "bad", "กลับรายการ");
@@ -3512,6 +3516,20 @@
   const fld1 = (lb, inp, req) => '<div class="fld"><span class="lbl">' + esc(lb) +
     (req ? ' <span class="req">*</span>' : "") + "</span>" + inp + "</div>";
 
+  /* ============ ช่องแนบไฟล์ในตัวอย่าง ============
+     ตัวอย่างนี้ไม่มีตัวเลือกไฟล์จริง (เปิดจากไฟล์เดียว ไม่มีที่เก็บ) ช่องจึงเป็นการพิมพ์ชื่อไฟล์
+     แต่ป้ายเขียนว่า "เลือกไฟล์…" คนกดเลยรอหน้าต่างเลือกไฟล์ที่ไม่มีวันเด้ง แล้วติดตรงนั้น
+     ใส่ปุ่มจำลองให้กดแล้วได้ชื่อไฟล์เลย และบอกตรง ๆ ว่าพิมพ์เองก็ได้ */
+  const fileField = (lb, id, val, sample, req) =>
+    '<div class="fld"><span class="lbl">' + esc(lb) +
+      (req ? ' <span class="req">*</span>' : "") + "</span>" +
+      '<div class="filepick">' +
+        '<input type="text" id="' + id + '" placeholder="พิมพ์ชื่อไฟล์ หรือกดปุ่มข้าง ๆ" value="' +
+          esc(val || "") + '">' +
+        '<button type="button" class="btn" data-pickfile="' + id + '" data-sample="' +
+          esc(sample) + '">เลือกไฟล์…</button>' +
+      "</div></div>";
+
   function upTarget() { return upOpen ? (POS.filter(x => x.no === upOpen.po)[0] || null) : null; }
 
   /* ============ ข้อค้างจากใบตรวจ (Defect & Remark ที่ยัง "รอสรุป") ============
@@ -3597,8 +3615,8 @@
       // ข้อบกพร่องที่ใบตรวจเขียนว่า "รอสรุป" — เดิมจบอยู่ในไฟล์ PDF ปลายทางไม่มีทางรู้
       (upOpen.step === "QC_INCOMING" ? qcOpenFields(p) : "") +
 
-      fld1("ไฟล์ที่แนบ", '<input type="text" id="up_file" placeholder="เลือกไฟล์… เช่น scan_2026-08-08.pdf" value="' +
-        esc(prev ? prev.n : "") + '">', !!(d && d.req)) +
+      fileField("ไฟล์ที่แนบ", "up_file", prev ? prev.n : "",
+        (d ? d.c.toLowerCase() : "scan") + "_" + p.no.slice(-4) + ".pdf", !!(d && d.req)) +
       '<div class="hint" style="margin:-4px 0 2px">ระบบเปลี่ยนชื่อไฟล์ให้เป็น <b id="up_named">' +
         esc(DRIVE.fileName(p, code, prev ? prev.n : "scan.pdf")) + "</b> แล้ววางในโฟลเดอร์ของรายการนี้ให้เอง — " +
         "ไม่ต้องตั้งชื่อและไม่ต้องเปิด Drive</div>" +
@@ -3739,6 +3757,33 @@
   }
   const prRemain = p => p.payments.filter(y => y.status !== "PAID" && y.status !== "VOID" &&
     y.status !== "CANCELLED").reduce((s, y) => s + y.amount, 0);
+
+  /* ============ อะไรที่ทำให้ "ยังตั้งเบิกไม่ได้" และคนกรอกแก้เองไม่ได้ ============
+     เดิมเงื่อนไขพวกนี้ปนอยู่ในกองข้อผิดพลาดของฟอร์มเหมือนกับช่องที่ลืมกรอก
+     คนเปิดฟอร์มจึงเจอรหัสแดงห้าข้อโดยไม่รู้ว่าข้อไหนของตัวเอง ข้อไหนต้องไปตามคนอื่น
+     แยกออกมาแล้วบอกชื่อคนที่ต้องทำก่อน — และบอกตั้งแต่ข้างปุ่ม ไม่ต้องเปิดเข้าไปเจอกำแพง */
+  function payReqWaits(p) {
+    const out = [];
+    if (p.claim) {
+      const sr = srSideOf(p);
+      out.push({who:(ROLES[sr] || {}).name + " (" + person(sr) + ")",
+                t:"ใบนี้มีเคลมค้าง ต้องได้ใบลดหนี้จากผู้ขายก่อน"});
+    }
+    missing(p).forEach(d => {
+      const own = ownerDeptOf(d, p);
+      out.push({who:(ROLES[own] || {}).name + " (" + person(own) + ")",
+                t:"ยังไม่ได้แนบ " + d.n});
+    });
+    return out;
+  }
+  // ข้อความสั้น ๆ ข้างปุ่มตั้งเบิก — ให้รู้ตั้งแต่ยังไม่กด
+  function payReqWaitHint(p) {
+    const w = payReqWaits(p);
+    if (!w.length) return "";
+    return '<div class="sub" style="color:var(--warn);margin-top:4px">รอ ' +
+      esc(w.map(x => x.who).join(" · ")) + " ก่อน — " + esc(w[0].t) +
+      (w.length > 1 ? " (และอีก " + (w.length - 1) + " ข้อ)" : "") + "</div>";
+  }
 
   function prText() {
     const t = prTarget(); if (!t || !t.x) return "";
@@ -3914,8 +3959,9 @@
         esc(bNo) + '">', true) +
       fld1("ยอดตามเอกสารเรียกเก็บ (บาท)", '<input type="number" step="0.01" id="pr_bamt" value="' +
         esc(bAmt === "" ? "" : bAmt) + '">', true) +
-      fld1("ไฟล์เอกสารเรียกเก็บ", '<input type="text" id="pr_bfile" placeholder="เลือกไฟล์… เช่น invoice_ABC_0804.pdf" value="' +
-        esc(x.billFile ? x.billFile.orig : "") + '">', true) +
+      fileField("ไฟล์เอกสารเรียกเก็บ", "pr_bfile", x.billFile ? x.billFile.orig : "",
+        (bKind === "DEPOSIT" ? "PI_" : "invoice_") +
+        String(p.sup).replace(/[^A-Za-z0-9]/g, "").slice(0, 10) + "_" + p.no.slice(-4) + ".pdf", true) +
       "</div>" +
       '<div class="hint" style="margin:-4px 0 6px">ระบบเปลี่ยนชื่อไฟล์เป็น <b id="pr_bnamed">' +
         esc(DRIVE.fileName(p, payDocCode(x), "invoice.pdf")) + "</b> แล้ววางในโฟลเดอร์เดียวกับเอกสารอื่นของรายการนี้</div>" +
@@ -4011,9 +4057,6 @@
     if (!eff) errs.push("S3 · ต้องระบุ Effective date");
     else if (dayDiff(eff, todayISO()) < 0)
       errs.push("S4 · Effective date เป็นวันย้อนหลัง — บัญชีจะทำจ่ายตามวันนี้ไม่ได้");
-    if (p.claim) errs.push("S5 · PO นี้มีใบเคลมค้าง — ขอจ่ายไม่ได้จนกว่าจะได้ใบลดหนี้");
-    if (missing(p).length)
-      errs.push("S6 · ยังขาดเอกสาร " + missing(p).map(d => d.n).join(" · ") + " — หัวหน้าจะตีกลับ");
     if (stamp && !valOf("pr_text").trim()) errs.push("S7 · ติ๊กประทับข้อความแล้วแต่ข้อความว่าง");
 
     // เอกสารเรียกเก็บของงวดนี้ — บังคับทุกงวด ไม่ใช่แนบครั้งเดียวทั้ง PO
@@ -4033,15 +4076,20 @@
             " ไปแล้ว รวมกับงวดนี้เป็น " + baht(tot) + " เกินยอดในใบ (" + baht(bamt) + ") — จ่ายซ้ำ");
       }
     }
-    if (bkind === "INVOICE" && p.stage < 12 && !p.hand.invNo)
-      errs.push("S13 · เลือกใบแจ้งหนี้ตัวจริงแต่ยังไม่ถึงขั้นรับใบแจ้งหนี้ — ถ้าเป็นงวดมัดจำให้เลือก PI");
+    if (bkind === "INVOICE" && !isDeposit(t.x) && p.stage < 12 && !p.hand.invNo)
+      errs.push("S13 · งวดนี้ต้องเรียกเก็บด้วยใบแจ้งหนี้ตัวจริง แต่ยังไม่ได้รับ — " +
+        "ถ้าผู้ขายวางบิลด้วย PI หรือใบวางบิล ให้เปลี่ยนประเภทเอกสารด้านบน");
 
     const eb = document.getElementById("pr_err");
-    if (eb) eb.innerHTML = errs.map(e => '<div class="e1">' + esc(e) + "</div>").join("") +
-      (errs.length ? "" : '<div class="w1">ส่งแล้วจะไปที่ ' +
+    const w = payReqWaits(p);
+    if (eb) eb.innerHTML =
+      w.map(x => '<div class="w1"><b>รออยู่ที่ ' + esc(x.who) + "</b> — " + esc(x.t) +
+        "<br>ข้อนี้คุณแก้ที่หน้านี้ไม่ได้ ต้องให้เขาทำก่อน</div>").join("") +
+      errs.map(e => '<div class="e1">' + esc(e) + "</div>").join("") +
+      (errs.length || w.length ? "" : '<div class="w1">ส่งแล้วจะไปที่ ' +
         esc(ROLES[PAY_APPROVER].name) + " (" + esc(person(PAY_APPROVER)) +
         ") — ทุกยอดต้องผ่านผู้จัดการ ไม่มียอดไหนข้ามได้ · ระบบแจ้งเตือนให้เอง</div>");
-    return errs;
+    return errs.concat(w.map(x => x.t));
   }
 
   /* เปิดใบเคลมจากผลตรวจที่ QC เพิ่งบันทึก — ไม่ใช่ตัวเลขตายตัว */
@@ -4169,6 +4217,15 @@
     if (nb) { page = nb.dataset.page; openPo = null; openClaim = null; openIC = null; openPR = null;
       upOpen = null; payReqOpen = null; payOpen = null;
       subtab = SUB0[page] || "ACTIVE"; render(); return; }
+
+    /* ปุ่มเลือกไฟล์จำลอง — เติมชื่อไฟล์ให้แล้วตรวจซ้ำทันที เหมือนผู้ใช้พิมพ์เอง
+       ต้องอยู่ก่อนด่าน openPo เพราะป๊อปอัปเปิดได้ทั้งจากหน้ารายละเอียดและจากตารางงวด */
+    const pf = ev.target.closest("[data-pickfile]");
+    if (pf) {
+      const el = document.getElementById(pf.dataset.pickfile);
+      if (el) { el.value = pf.dataset.sample; modalInput(pf.dataset.pickfile); }
+      return;
+    }
 
     const bg = ev.target.closest("[data-bug]");
     if (bg) {
