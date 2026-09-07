@@ -33,7 +33,9 @@ var COLS = {
   Users: ['email', 'full_name', 'dept', 'title', 'lark_user_id', 'manager_email',
           'delegate_email', 'delegate_until', 'is_active', 'note'],
   Deals: ['deal_no', 'entry', 'module', 'b1_po_no', 'supplier', 'item', 'qty', 'uom',
-         'line_count',
+         // sr_side = ทีมจัดซื้อเจ้าของใบ · ปกติเว้นว่างแล้วให้ระบบอ่านจากสายสินค้า
+         // กรอกเมื่อสายสินค้าบอกไม่ได้ เช่นรายการเงินสดที่ไม่มีเลข PO
+         'sr_side', 'line_count',
           'amount', 'currency', 'payment_term', 'term_name', 'due_date', 'stage',
           'status', 'owner_email', 'qc_bypass', 'qc_bypass_why', 'qc_bypass_by',
           'cash_why', 'short_closed_by', 'short_closed_at', 'short_note', 'short_qty',

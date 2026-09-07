@@ -272,13 +272,26 @@ step.push('เงื่อนไขเครดิต → งวด AUTO · SAP 
 const boot = ok(as(U.SR, () => app.apiBoot()), 'เปิดระบบ (apiBoot)');
 ck(boot && boot.me && boot.me.dept === 'SR', 'เปิดระบบแล้วบทบาทไม่ถูก');
 ck(boot && boot.flow && boot.flow.STAGES.length === 17, 'เปิดระบบแล้วไม่ได้นิยามกระบวนการ');
-const list = ok(as(U.SR, () => app.apiListDeals()), 'ดึงรายการ (apiListDeals)');
-ck(Array.isArray(list) && list.length === 3, 'ดึงรายการแล้วไม่ได้ 3 ใบ');
-step.push('จัดซื้อเปิดเว็บ เห็น ' + (list ? list.length : 0) + ' รายการ');
+/* จัดซื้อเห็นแค่สายของตัวเอง — นำเข้ามา 3 ใบ (อาหาร 2 · เครื่องจักร 1)
+   Sourcing Food จึงต้องเห็น 2 ใบ ไม่ใช่ 3 · ตรวจสองทาง ไม่ใช่แค่นับจำนวน */
+const list = ok(as(U.SR_FD, () => app.apiListDeals()), 'ดึงรายการ (apiListDeals)');
+const listNo = (list || []).map(x => String(x.deal_no));
+ck(listNo.indexOf('PO-F126050001') >= 0 && listNo.indexOf('PO-F126050005') >= 0,
+   'Sourcing Food ไม่เห็นใบสายอาหารของตัวเองครบ (ได้ ' + listNo.join(',') + ')');
+ck(listNo.indexOf('PO-M226050002') < 0,
+   'Sourcing Food เห็นใบสายเครื่องจักรที่เซิร์ฟเวอร์ส่งมา — กรองที่หน้าจอไม่นับ');
+const listMc = (ok(as(U.SR_MC, () => app.apiListDeals()), 'ดึงรายการ (Mech)') || [])
+  .map(x => String(x.deal_no));
+ck(listMc.length === 1 && listMc[0] === 'PO-M226050002',
+   'Sourcing Mech ไม่ได้เห็นเฉพาะใบสายเครื่องจักร (ได้ ' + listMc.join(',') + ')');
+ck((ok(as(U.GM, () => app.apiListDeals()), 'ดึงรายการ (ผู้บริหาร)') || []).length === 3,
+   'ผู้บริหารไม่เห็นครบทุกสาย — กติกาสายใช้กับจัดซื้อเท่านั้น');
+step.push('จัดซื้อเปิดเว็บ เห็นเฉพาะสายตัวเอง — อาหาร ' + listNo.length +
+          ' ใบ · เครื่องจักร ' + listMc.length + ' ใบ');
 
 const DEAL = 'PO-F126050001';
-ok(as(U.SR, () => app.apiAddToPilot(DEAL, 'ทดลอง')), 'เพิ่มเข้าช่วงทดลอง');
-const det = ok(as(U.SR, () => app.apiGetDeal(DEAL)), 'เปิดใบ (apiGetDeal)');
+ok(as(U.SR_FD, () => app.apiAddToPilot(DEAL, 'ทดลอง')), 'เพิ่มเข้าช่วงทดลอง');
+const det = ok(as(U.SR_FD, () => app.apiGetDeal(DEAL)), 'เปิดใบ (apiGetDeal)');
 ck(det && det.inPilot === true, 'เพิ่มเข้าช่วงทดลองแล้วแต่ใบยังไม่ติดธง');
 ck(det && Number(det.stage) === 8, 'ใบไม่ได้เริ่มที่ขั้นจัดซื้อแนบ PO');
 
@@ -286,8 +299,9 @@ ck(det && Number(det.stage) === 8, 'ใบไม่ได้เริ่มท�
    ใบนี้เป็นสายอาหาร เจ้าของขั้นจึงเป็น Sourcing Food ไม่ใช่จัดซื้อทั่วไป
    จัดซื้อทั่วไปดูเฉพาะรายการค่าใช้จ่าย (PO-O…) และทำแทนทีมย่อยไม่ได้ตามนโยบายที่ทีมกำหนด */
 const srOther = as(U.SR, () => app.apiAdvanceStage(DEAL, ''));
-ck(srOther && !srOther.ok && srOther.code === 'NOT_YOUR_STAGE',
-   'จัดซื้อทั่วไปเดินขั้นของใบสายอาหารได้ ทั้งที่ไม่ใช่งานของตัวเอง');
+ck(srOther && !srOther.ok && srOther.code === 'OTHER_LINE',
+   'จัดซื้อทั่วไปเดินขั้นของใบสายอาหารได้ ทั้งที่ไม่ใช่สายของตัวเอง (ได้ ' +
+   ((srOther || {}).code || 'ผ่าน') + ')');
 
 const noDoc = as(U.SR_FD, () => app.apiAdvanceStage(DEAL, ''));
 ck(noDoc && !noDoc.ok && ['NEED_DOC', 'REQUIRED'].indexOf(noDoc.code) >= 0,
@@ -380,7 +394,7 @@ if (pays.length) {
   const seq = Number(pays[0].seq);
   /* สายอนุมัติสี่มือ: จัดซื้อตั้งเรื่อง → บัญชีตรวจ → หัวหน้าอนุมัติ → บัญชีบันทึกจ่าย
      พร้อมทดสอบทางตีกลับซึ่งเป็นเส้นทางที่เกิดจริงบ่อยกว่าทางผ่านฉลุย */
-  const rq = as(U.SR, () => app.apiRequestPayment(DEAL, seq, {
+  const rq = as(U.SR_FD, () => app.apiRequestPayment(DEAL, seq, {
     amount: 130000, billNo: 'INV-ABC-0804', billAmt: 130000}));
   ck(rq.ok, 'จัดซื้อตั้งเรื่องขอจ่ายไม่ผ่าน: ' + (rq.error || ''));
 
@@ -411,13 +425,13 @@ if (pays.length) {
   ck(String(rowRej.rej_note).includes('เลขผู้เสียภาษี'), 'ไม่ได้เก็บหมายเหตุที่ตีกลับ');
 
   // จัดซื้อแก้แล้วส่งใหม่ ต้องได้เลขคำขอเดิม จะได้ตามเรื่องเดียวกันต่อได้
-  const again = as(U.SR, () => app.apiRequestPayment(DEAL, seq, {
+  const again = as(U.SR_FD, () => app.apiRequestPayment(DEAL, seq, {
     amount: 130000, billNo: 'INV-ABC-0804-R1', billAmt: 130000}));
   ck(again.ok, 'แก้แล้วส่งใหม่ไม่ผ่าน: ' + (again.error || ''));
   ck(again.ok && again.data.reqNo === rq.data.reqNo, 'ส่งใหม่แล้วเลขคำขอเปลี่ยน');
   step.push('จัดซื้อแก้แล้วส่งใหม่ ใช้เลขคำขอเดิม');
 
-  const selfChk = as(U.SR, () => app.apiCheckPayment(DEAL, seq, ''));
+  const selfChk = as(U.SR_FD, () => app.apiCheckPayment(DEAL, seq, ''));
   ck(!selfChk.ok, 'ผู้ตั้งเรื่องตรวจงานตัวเองได้');
   const chk = as(U.AC_TH, () => app.apiCheckPayment(DEAL, seq, 'เอกสารครบแล้ว'));
   ck(chk.ok, 'บัญชีตรวจสอบไม่ผ่าน: ' + (chk.error || ''));
@@ -435,29 +449,29 @@ if (pays.length) {
 
 /* ===== 12. ทวนสอบการตรวจยอดจ่าย และการรับของเกิน/ขาด ===== */
 const D2 = 'PO-M226050002';                 // ใบสกุล USD ยอด 420,000
-ok(as(U.SR, () => app.apiAddToPilot(D2, 'ทดสอบ')), 'เพิ่มใบที่สองเข้าช่วงทดลอง');
+ok(as(U.SR_MC, () => app.apiAddToPilot(D2, 'ทดสอบ')), 'เพิ่มใบที่สองเข้าช่วงทดลอง');
 const p2 = app.Repo.readAll(app.SHEETS.PAYMENTS).filter(x => x.deal_no === D2);
 // ใบนี้เงื่อนไข 30% advance + 70% L/C จึงมีสองงวด งวดที่สองเป็น LC
 ck(p2.length === 2, 'ใบสกุล USD ควรมี 2 งวด (ได้ ' + p2.length + ')');
 const lcRow = p2.filter(x => String(x.status) === 'LC')[0];
 ck(!!lcRow, 'ไม่มีงวดที่เป็น LC');
 if (lcRow) {
-  const lcTry = as(U.SR, () => app.apiRequestPayment(D2, Number(lcRow.seq), {
+  const lcTry = as(U.SR_MC, () => app.apiRequestPayment(D2, Number(lcRow.seq), {
     amount: 1000, billNo: 'X1'}));
   ck(!lcTry.ok && lcTry.code === 'LC', 'ตั้งเบิกงวด LC ได้ ทั้งที่ธนาคารจ่ายเอง');
 }
 const dep = p2.filter(x => String(x.status) === 'PENDING')[0];
 if (dep) {
   // ขอเกินยอดของงวด/ของใบ ต้องถูกปฏิเสธ
-  const over = as(U.SR, () => app.apiRequestPayment(D2, Number(dep.seq), {
+  const over = as(U.SR_MC, () => app.apiRequestPayment(D2, Number(dep.seq), {
     amount: 9999999, billNo: 'PI-001'}));
   ck(!over.ok && over.code === 'OVER_PO',
      'ขอจ่ายเกินยอดคงเหลือของใบได้ (พิมพ์เลขเกินมาแล้วไม่มีอะไรทัก)');
   // ขอเกินยอดในเอกสารเรียกเก็บ ต้องถูกปฏิเสธ
-  const overBill = as(U.SR, () => app.apiRequestPayment(D2, Number(dep.seq), {
+  const overBill = as(U.SR_MC, () => app.apiRequestPayment(D2, Number(dep.seq), {
     amount: 126000, billNo: 'PI-001', billAmt: 100000}));
   ck(!overBill.ok && overBill.code === 'OVER_BILL', 'ขอจ่ายเกินยอดในเอกสารเรียกเก็บได้');
-  const okReq = as(U.SR, () => app.apiRequestPayment(D2, Number(dep.seq), {
+  const okReq = as(U.SR_MC, () => app.apiRequestPayment(D2, Number(dep.seq), {
     amount: 126000, billNo: 'PI-001', billAmt: 126000}));
   ck(okReq.ok, 'ขอจ่ายตามยอดที่ถูกต้องไม่ผ่าน: ' + (okReq.error || ''));
   step.push('เพดานยอดจ่าย: เกินยอดใบ · เกินยอดเอกสารเรียกเก็บ · งวด LC — กันได้ทั้งสามแบบ');
@@ -534,7 +548,7 @@ ck(chg && chg.changed.length === 3,
 step.push('นำเข้าซ้ำ: ไม่สร้างใบซ้ำ · บอกว่าใบไหนดำเนินการอยู่ · เตือนเมื่อยอดใน SAP เปลี่ยน');
 
 /* ===== 15. สถานะเรียลไทม์ ===== */
-const pulse1 = ok(as(U.SR, () => app.apiPulse()), 'ตรวจความเปลี่ยนแปลง');
+const pulse1 = ok(as(U.SR_FD, () => app.apiPulse()), 'ตรวจความเปลี่ยนแปลง');
 app.Repo.update(app.SHEETS.DEALS, 'deal_no', D3, {status: 'CANCELLED'});
 const pulse2 = ok(as(U.SR, () => app.apiPulse()), 'ตรวจความเปลี่ยนแปลงรอบสอง');
 ck(pulse1 && pulse2 && pulse1.sig !== pulse2.sig,

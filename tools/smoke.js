@@ -473,7 +473,7 @@ if (!/ไปที่ PO-26-/.test(d)) bad.push("ใบขอราคาที�
 if (/data-qact="add"/.test(d)) bad.push("ใบขอราคาที่แปลงเป็น PO แล้วยังเพิ่มใบเสนอราคาใหม่ได้");
 
 /* ================= 1. รายการซื้อเงินสด (ไม่มี PO) + ข้าม QC ================= */
-click("data-role", { role: "SR_FD" });
+click("data-role", { role: "SR" });
 click("data-page", { page: "po" });
 d = nodes["#main"].innerHTML;
 if (!/เพิ่มรายการซื้อเงินสด/.test(d)) bad.push("หน้า PO ไม่มีปุ่มเพิ่มรายการซื้อเงินสด");
@@ -871,7 +871,7 @@ setFields({up_file:"bill.jpg", up_note:"", up_none:false, hf_invNo:"BILL-7", hf_
 formFields.up_err={innerHTML:""}; formFields.up_named={textContent:""};
 click("data-act", { act: "done" });
 click("data-uact", { uact: "save" });
-click("data-role", { role: "SR_FD" });
+click("data-role", { role: "SR" });
 click("data-po", { po: "CS-26-0007" });
 d = nodes["#main"].innerHTML;
 if (/data-act="payreq"/.test(d))
@@ -992,7 +992,7 @@ if (!/ผลรวมงวดจ่ายเท่ากับมูลค่�
   bad.push("แยกงวดแล้วยอดรวมไม่เท่ามูลค่า PO");
 
 // 3) สายที่สาม: ค่าใช้จ่ายที่ไม่มีของเข้าคลัง — ข้ามขั้น QC และคลัง
-click("data-role", { role: "SR_FD" });
+click("data-role", { role: "SR" });
 click("data-po", { po: "PO-O326060001" });
 d = nodes["#main"].innerHTML;
 if (!/ค่าใช้จ่ายอื่น/.test(d)) bad.push("รายการค่าใช้จ่ายไม่ได้บอกว่าอยู่สายไหน");
@@ -1298,16 +1298,63 @@ click("data-po", { po: "PO-26-0075" });
 if (nodes["#main"].innerHTML.indexOf("ชุดยึดแผง") < 0)
   bad.push("คลังเปิดใบหลายรายการแล้วไม่เห็นรายการสินค้า — รับของไม่ถูก");
 
-/* จัดซื้อทั่วไปเห็นเฉพาะงานของตัวเอง — สายค่าใช้จ่าย (PO-O…) เท่านั้น
-   ตรวจสองทาง: ต้องเห็นของตัวเอง และต้องไม่เห็นของทีมย่อยแม้แต่ใบเดียว */
-click("data-role", { role: "SR" });
-click("data-page", { page: "home" });
-const srOwn = myQueueHtml();
-if (srOwn.indexOf("PO-O326070012") < 0)
-  bad.push("จัดซื้อทั่วไปไม่เห็นรายการค่าใช้จ่ายของตัวเอง");
-["PO-26-0045", "PO-26-0070"].forEach(po => {
-  if (srOwn.indexOf(po) >= 0)
-    bad.push("จัดซื้อทั่วไปเห็น " + po + " ซึ่งเป็นงานของทีมย่อย — ต้องเห็นเฉพาะ PO-O");
+/* ============ จัดซื้อเห็นแค่สายของตัวเองเท่านั้น ============
+   ไม่ใช่แค่ "คิวงาน" แต่รวมรายการ PO · ค้นหา · รายงาน · และการเปิดใบตรงด้วยลิงก์
+   ตรวจสองทางเสมอ: ต้องเห็นของตัวเอง และต้องไม่เห็นของสายอื่นแม้แต่ใบเดียว
+   (ระบบที่ซ่อนทุกใบจากทุกคนก็ผ่านการทดสอบทางเดียว) */
+const LINE = {
+  SR:    {mine: ["PO-O326070012", "PO-O326060001"],
+          others:["PO-26-0045", "PO-26-0070", "PO-26-0075", "PO-26-0060"], n:"จัดซื้อทั่วไป"},
+  SR_FD: {mine: ["PO-26-0045", "PO-26-0042", "PO-26-0038"],
+          others:["PO-26-0070", "PO-26-0075", "PO-O326060001"], n:"Sourcing Food"},
+  SR_MC: {mine: ["PO-26-0070", "PO-26-0075", "PO-26-0060"],
+          others:["PO-26-0045", "PO-O326060001"], n:"Sourcing Mech"}
+};
+Object.keys(LINE).forEach(r => {
+  const L = LINE[r];
+  click("data-role", { role: r });
+  // 1) หน้ารายการ PO
+  click("data-page", { page: "po" });
+  const list = nodes["#main"].innerHTML;
+  L.mine.forEach(po => { if (list.indexOf(po) < 0)
+    bad.push(L.n + " ไม่เห็น " + po + " ในหน้ารายการ PO ทั้งที่เป็นสายตัวเอง"); });
+  L.others.forEach(po => { if (list.indexOf(po) >= 0)
+    bad.push(L.n + " เห็น " + po + " ในหน้ารายการ PO — ต้องเห็นแค่สายตัวเอง"); });
+  // 2) ค้นหา — ช่องทางอ้อมที่มักลืมกรอง
+  click("data-sub", { sub: "SEARCH" });
+  // ช่องค้นหาถูกวาดใหม่ทุกครั้ง จึงต้องมี focus/setSelectionRange เหมือนช่องจริง
+  formFields.q = { id:"q", value:"PO", focus(){}, setSelectionRange(){} };
+  type("q");
+  const found = nodes["#main"].innerHTML;
+  L.others.forEach(po => { if (found.indexOf(po) >= 0)
+    bad.push(L.n + " ค้นหาแล้วเจอ " + po + " ของสายอื่น — ค้นหาต้องกรองด้วย"); });
+  // 3) เปิดใบของสายอื่นตรง ๆ ต้องไม่เห็นข้อมูลในใบ แต่ต้องบอกว่าไปถามใคร
+  click("data-po", { po: L.others[0] });
+  const deny = nodes["#main"].innerHTML;
+  if (!/ใบนี้ไม่ใช่สายของคุณ/.test(deny))
+    bad.push(L.n + " เปิด " + L.others[0] + " ของสายอื่นได้ — กรองแค่ในรายการคือแค่ซ่อน");
+  if (/ตรวจสอบก่อนบันทึก|การจ่ายเงิน<\/h3>/.test(deny))
+    bad.push(L.n + " เปิดใบสายอื่นแล้วยังเห็นเนื้อในใบ");
+  if (!/ไปถาม|เป็นงานของ/.test(deny))
+    bad.push(L.n + " ถูกปฏิเสธแล้วไม่บอกว่าใบนี้เป็นของใคร — คนไม่รู้จะไปถามใคร");
+});
+/* รายการเงินสดไม่มีเลข PO ให้อ่านสาย — ต้องอยู่กับทีมที่ออกไปซื้อ ไม่ใช่เดาเป็นสายอาหารเสมอ
+   (ใบนี้ถูกเดินจนปิดไปแล้วตอนต้นไฟล์ จึงดูที่แท็บ "เสร็จสิ้น") */
+const cashSeen = r => { click("data-role", { role: r }); click("data-page", { page: "po" });
+  click("data-sub", { sub: "DONE" }); return nodes["#main"].innerHTML.indexOf("CS-26-0007") >= 0; };
+if (!cashSeen("SR")) bad.push("จัดซื้อทั่วไปไม่เห็นรายการเงินสดที่ตัวเองบันทึก");
+if (cashSeen("SR_FD")) bad.push("Sourcing Food เห็นรายการเงินสดของจัดซื้อทั่วไป — เดาสายจากสินค้าแทนคนซื้อ");
+if (cashSeen("SR_MC")) bad.push("Sourcing Mech เห็นรายการเงินสดของจัดซื้อทั่วไป");
+
+// คนที่ไม่ใช่จัดซื้อต้องไม่ถูกจำกัดด้วยสาย — QC/คลัง/บัญชี/หัวหน้า ทำงานข้ามสาย
+["QC", "WH", "AC_TH", "ACH", "GM"].forEach(r => {
+  click("data-role", { role: r });
+  click("data-page", { page: "po" });
+  const seen = nodes["#main"].innerHTML;
+  ["PO-26-0045", "PO-26-0070", "PO-O326060001"].forEach(po => {
+    if (seen.indexOf(po) < 0)
+      bad.push(r + " ไม่เห็น " + po + " — กติกาสายใช้กับจัดซื้อเท่านั้น ไม่ใช่ทุกแผนก");
+  });
 });
 
 /* ---------- เงื่อนไขเครดิตต้องข้ามการตั้งเบิก ----------

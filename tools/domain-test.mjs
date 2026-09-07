@@ -173,7 +173,7 @@ api.Repo.insert(api.SHEETS.DEALS, {
   deal_no: DEAL, entry: 'PO', module: 'FOOD', supplier: 'ABC Foods',
   item: 'กุ้งแช่แข็ง 16/20', qty: '500 KG', amount: 130000, currency: 'THB',
   payment_term: '30% advance and 70% balance', term_name: 'มัดจำ + ส่วนที่เหลือ',
-  due_date: '2026-09-30', stage: 12, status: 'ACTIVE', owner_email: U.sr, created_at: new Date()
+  due_date: '2026-09-30', stage: 12, status: 'ACTIVE', owner_email: U.srFd, created_at: new Date()
 });
 api.Repo.insert(api.SHEETS.STAGES, {
   deal_no: DEAL, seq: 12, stage_code: 'INVOICE_RECEIVED', owner_dept: 'AC',
@@ -249,9 +249,44 @@ ck(api.ownerDeptOf(8, {deal_no: MECH, module: 'MECH'}) === 'SR_MC',
    'ใบสายเครื่องจักรไม่ได้ตกเป็นของSourcing Mech');
 ck(api.ownerDeptOf(8, {deal_no: DEAL, module: 'FOOD'}) === 'SR_FD',
    'ใบสายอาหารไม่ได้ตกเป็นของSourcing Food');
+/* ข้ามสายต้องถูกกันตั้งแต่ "หยิบใบขึ้นมา" ไม่ใช่กันตอนเช็คว่าเป็นเจ้าของขั้นไหม
+   เพราะถ้ากันแค่ขั้น วันที่ใบสายอื่นบังเอิญมาอยู่ขั้นของเรา ก็จะทำได้ทันที */
 const wrongTeam = as(U.srFd, () => api.apiAdvanceStage(MECH, ''));
-ck(!wrongTeam.ok && wrongTeam.code === 'NOT_YOUR_STAGE',
-   'Sourcing Food ปิดขั้นของใบสายเครื่องจักรได้');
+ck(!wrongTeam.ok && wrongTeam.code === 'OTHER_LINE',
+   'Sourcing Food ปิดขั้นของใบสายเครื่องจักรได้ (ได้ ' +
+   (wrongTeam.code || 'ผ่าน') + ')');
+
+/* ---------- จัดซื้อเห็นแค่สายของตัวเอง ---------- */
+/* ตรวจสองทางเสมอ: ต้องเห็นของตัวเอง และต้องไม่เห็นของสายอื่น
+   ระบบที่ปิดทุกใบจากทุกคนก็ผ่านการทดสอบทางเดียว */
+const LINES = [['srFd', 'SR_FD', DEAL, MECH], ['srMc', 'SR_MC', MECH, DEAL]];
+const listOf = k => {
+  const r = as(U[k], () => api.apiListDeals());
+  return r && r.ok && Array.isArray(r.data) ? r.data.map(x => String(x.deal_no)) : null;
+};
+LINES.forEach(([k, dept, mine, other]) => {
+  const nos = listOf(k);
+  ck(nos !== null, dept + ': ดึงรายการไม่ได้');
+  if (!nos) return;
+  ck(nos.indexOf(mine) >= 0, dept + ' ไม่เห็นใบของสายตัวเอง (' + mine + ') ในรายการ');
+  ck(nos.indexOf(other) < 0,
+     dept + ' เห็นใบสายอื่น (' + other + ') ในรายการที่เซิร์ฟเวอร์ส่งมา — กรองที่หน้าจอไม่นับ');
+  const peek = as(U[k], () => api.apiGetDeal(other));
+  ck(peek && peek.ok === false && peek.code === 'OTHER_LINE',
+     dept + ' เปิดใบสายอื่นตรง ๆ ได้ (' + ((peek || {}).code || 'ผ่าน') + ') — กรองรายการคือแค่ซ่อน');
+  ck(!/130000|"amount"|"payments"/.test(JSON.stringify(peek || {})),
+     dept + ' ถูกปฏิเสธแล้วแต่ยังได้เนื้อในใบสายอื่นติดมา');
+});
+// จัดซื้อทั่วไปถือเฉพาะสายค่าใช้จ่าย — ใบสายสินค้าทั้งสองสายต้องไม่อยู่ในรายการของเขา
+const srSees = listOf('sr') || [];
+ck(srSees.indexOf(DEAL) < 0 && srSees.indexOf(MECH) < 0,
+   'จัดซื้อทั่วไปเห็นใบของทีมย่อย — ต้องเห็นเฉพาะสายค่าใช้จ่าย');
+// แผนกอื่นทำงานข้ามสาย ต้องไม่ถูกกติกานี้กระทบ
+['qc', 'wh', 'ac', 'ach', 'gm'].forEach(k => {
+  const all = listOf(k) || [];
+  ck(all.indexOf(DEAL) >= 0 && all.indexOf(MECH) >= 0,
+     k.toUpperCase() + ' ไม่เห็นใบครบทุกสาย — กติกาสายใช้กับจัดซื้อเท่านั้น');
+});
 /* ต้องตรวจ "ทีมที่ถูกต้องทำได้" คู่กันเสมอ
    ถ้าตรวจแต่ด้านที่ต้องถูกปฏิเสธ ระบบที่ปฏิเสธทุกคนก็สอบผ่าน — และการแยกทีมจะกลายเป็นการล็อกงานทิ้ง */
 const rightTeam = as(U.srMc, () => api.apiAdvanceStage(MECH, ''));
@@ -290,7 +325,7 @@ const credPay = api.Repo.where(api.SHEETS.PAYMENTS,
 ck(credPay.length === 1 && String(credPay[0].status) === 'AUTO',
    'งวดของเงื่อนไขเครดิตไม่ได้เป็นสถานะ AUTO (ได้ ' +
    credPay.map(x => x.status).join(',') + ')');
-const credReq = as(U.sr, () => api.apiRequestPayment(CREDIT, 1, {
+const credReq = as(U.srFd, () => api.apiRequestPayment(CREDIT, 1, {
   amount: 60000, billNo: 'INV-CRD-01', billAmt: 60000
 }));
 ck(!credReq.ok && credReq.code === 'AUTO_TERM',
@@ -301,7 +336,7 @@ ck(/ใบกำกับ/.test(String(credReq.error || '')),
    'ปฏิเสธแล้วไม่ได้บอกว่าต้องแนบใบกำกับตัวจริงแทน');
 
 /* ================= 4. แยกหน้าที่เรื่องเงิน ================= */
-const req = as(U.sr, () => api.apiRequestPayment(DEAL, 1, {
+const req = as(U.srFd, () => api.apiRequestPayment(DEAL, 1, {
   amount: 130000, billNo: 'INV-ABC-0804', billKind: 'INVOICE', billAmt: 130000
 }));
 ck(req.ok, 'จัดซื้อตั้งเรื่องขอจ่ายไม่ได้ — ' + (req.error || ''));
@@ -309,13 +344,13 @@ ck(req.ok, 'จัดซื้อตั้งเรื่องขอจ่า�
 // จ่ายซ้ำด้วยใบเรียกเก็บใบเดิม
 api.Repo.insert(api.SHEETS.PAYMENTS, { deal_no: DEAL, seq: 2, type: 'งวดทดสอบ',
   amount: 1000, status: 'PENDING', is_lc: 'FALSE' });
-const dupBill = as(U.sr, () => api.apiRequestPayment(DEAL, 2, {
+const dupBill = as(U.srFd, () => api.apiRequestPayment(DEAL, 2, {
   amount: 1000, billNo: 'INV-ABC-0804'
 }));
 ck(!dupBill.ok && dupBill.code === 'DUP_BILL', 'ตั้งเบิกซ้ำด้วยใบเรียกเก็บใบเดิมได้');
 
 // ตั้งเรื่องซ้ำงวดเดิม (กดสองครั้ง)
-const twice = as(U.sr, () => api.apiRequestPayment(DEAL, 1, {
+const twice = as(U.srFd, () => api.apiRequestPayment(DEAL, 1, {
   amount: 130000, billNo: 'INV-ABC-0805'
 }));
 ck(!twice.ok && twice.code === 'BAD_STATUS', 'กดตั้งเรื่องซ้ำงวดเดิมแล้วได้สองครั้ง');

@@ -21,7 +21,10 @@ var Domain = {
   listDeals: function (me) {
     var pilot = this.pilotSet_();
     var pilotOnly = String(Config.get('PILOT_ONLY', 'TRUE')).toUpperCase() === 'TRUE';
-    return Repo.readAll(SHEETS.DEALS).map(function (d) {
+    // จัดซื้อเห็นแค่สายของตัวเอง — กรองก่อนประกอบคำตอบ ไม่ใช่ส่งไปครบแล้วให้หน้าจอซ่อน
+    return Repo.readAll(SHEETS.DEALS).filter(function (d) {
+      return canSeeDeal(me.dept, d);
+    }).map(function (d) {
       var out = Auth.scrubDeal(me, d);
       out.stage = Number(d.stage);
       out.inPilot = pilot[String(d.deal_no)] === true;
@@ -38,10 +41,24 @@ var Domain = {
     return set;
   },
 
-  /** รายการหนึ่งใบพร้อมทุกอย่างที่หน้าจอต้องใช้ */
-  getDeal: function (me, dealNo) {
+  /* ---------- ตัวกันเดียวของทั้งไฟล์: ใบนี้คนนี้แตะได้ไหม ----------
+     จัดซื้อเห็นแค่สายของตัวเอง — ถ้ากันแค่ตอนอ่าน คนที่เดาเลขใบถูกก็ยังสั่งงานใบสายอื่นได้
+     สิทธิ์ที่ครอบแค่การอ่านไม่ใช่สิทธิ์ จึงให้ทุกทางที่หยิบใบขึ้นมาผ่านตรงนี้ที่เดียว
+     แผนกอื่นไม่ถูกจำกัด (canSeeDeal คืน true ให้เสมอ) — QC/คลัง/บัญชีทำงานข้ามสาย */
+  mustSee_: function (me, dealNo) {
     var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
     if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+    if (!canSeeDeal(me.dept, d))
+      throw AppError('OTHER_LINE',
+        'ใบ ' + dealNo + ' เป็นงานของ' +
+        ((ROLES[srSideOf(d)] || {}).name || 'จัดซื้ออีกสาย') +
+        ' — จัดซื้อแต่ละสายทำได้เฉพาะใบของสายตัวเอง');
+    return d;
+  },
+
+  /** รายการหนึ่งใบพร้อมทุกอย่างที่หน้าจอต้องใช้ */
+  getDeal: function (me, dealNo) {
+    var d = this.mustSee_(me, dealNo);
 
     var hand = {};
     Repo.where(SHEETS.HANDOFF, function (h) {
@@ -104,8 +121,7 @@ var Domain = {
     Auth.require(me, 'handoff.save');
     var self = this;
     return withLock_(function () {
-      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
-      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      var d = Domain.mustSee_(me, dealNo);
       self.assertEditable_(d);
       var st = Auth.assertStageOwner(me, d);
       var spec = handOf(st.c, d);
@@ -155,8 +171,7 @@ var Domain = {
     Auth.require(me, 'stage.advance');
     var self = this;
     return withLock_(function () {
-      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
-      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      var d = Domain.mustSee_(me, dealNo);
       self.assertEditable_(d);
       if (String(d.status) !== 'ACTIVE')
         throw AppError('NOT_ACTIVE', 'รายการนี้ปิดไปแล้ว เดินขั้นต่อไม่ได้');
@@ -262,8 +277,7 @@ var Domain = {
     Auth.require(me, 'pay.request');
     var self = this;
     return withLock_(function () {
-      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
-      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      var d = Domain.mustSee_(me, dealNo);
       self.assertEditable_(d);
       var p = self.payment_(dealNo, seq);
 
@@ -343,8 +357,7 @@ var Domain = {
     Auth.require(me, 'pay.check');
     var self = this;
     return withLock_(function () {
-      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
-      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      var d = Domain.mustSee_(me, dealNo);
       self.assertEditable_(d);
       var p = self.payment_(dealNo, seq);
       if (String(p.status) !== 'REQUESTED')
@@ -380,8 +393,7 @@ var Domain = {
         'ต้องเขียนเหตุผลที่ตีกลับอย่างน้อย 5 ตัวอักษร — ผู้ขอจะได้รู้ว่าต้องแก้อะไร');
 
     return withLock_(function () {
-      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
-      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      var d = Domain.mustSee_(me, dealNo);
       self.assertEditable_(d);
       var p = self.payment_(dealNo, seq);
       if (['REQUESTED', 'CHECKED'].indexOf(String(p.status)) < 0)
@@ -404,8 +416,7 @@ var Domain = {
     Auth.require(me, 'pay.approve');
     var self = this;
     return withLock_(function () {
-      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
-      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      var d = Domain.mustSee_(me, dealNo);
       self.assertEditable_(d);
       var p = self.payment_(dealNo, seq);
       if (String(p.status) === 'REQUESTED')
@@ -439,8 +450,7 @@ var Domain = {
     Auth.require(me, 'pay.record');
     var self = this;
     return withLock_(function () {
-      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
-      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      var d = Domain.mustSee_(me, dealNo);
       self.assertEditable_(d);
       var p = self.payment_(dealNo, seq);
       if (String(p.status) !== 'APPROVED')
@@ -531,8 +541,7 @@ var Domain = {
       throw AppError('NEED_REASON',
         'ต้องเขียนเหตุผลที่จบ PO ทั้งที่รับไม่ครบ อย่างน้อย 5 ตัวอักษร');
     return withLock_(function () {
-      var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo);
-      if (!d) throw AppError('NOT_FOUND', 'ไม่พบรายการ ' + dealNo);
+      var d = Domain.mustSee_(me, dealNo);
       self.assertEditable_(d);
       var vr = self.qtyVarianceOf_(dealNo);
 

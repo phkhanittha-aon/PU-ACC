@@ -55,12 +55,35 @@ function isForeign(deal) {
    รายการค่าใช้จ่าย (OTHER) ไม่ใช่สายสินค้า จึงอยู่กับจัดซื้อกลาง ไม่ยัดเข้าทีมใดทีมหนึ่ง */
 var MOD_SR = {FOOD: 'SR_FD', MECH: 'SR_MC'};
 
+/** ทีมจัดซื้อที่เป็นเจ้าของ "ใบนี้" — ไม่ขึ้นกับว่าตอนนี้อยู่ขั้นไหน
+    ปกติตัดสินจากสายสินค้า แต่รายการเงินสดไม่มีเลข PO ให้อ่านสาย
+    จึงให้ผู้สร้างติดธง sr_side ไว้ตอนบันทึก ไม่งั้นใบที่ตัวเองเพิ่งสร้างจะหายไปจากสายตา */
+function srSideOf(deal) {
+  var pinned = deal && (deal.sr_side || deal.srSide);
+  if (pinned && SR_TEAMS.indexOf(String(pinned)) >= 0) return String(pinned);
+  return MOD_SR[modOf(deal)] || 'SR';
+}
+
 function ownerDeptOf(stageIdx, deal) {
   var st = STAGES[stageIdx];
   if (!st) return '';
   if (st.o === 'AC') return isForeign(deal) ? 'AC_FN' : 'AC_TH';
-  if (st.o === 'SR') return MOD_SR[modOf(deal)] || 'SR';
+  if (st.o === 'SR') return srSideOf(deal);
   return st.o;
+}
+
+/* ---------- ใครมองเห็นใบไหนได้บ้าง ----------
+   กติกาที่ทีมกำหนด: จัดซื้อ "เห็นแค่สายของตัวเองเท่านั้น" — ไม่ใช่แค่คิวงาน แต่รวมถึงรายการ
+   ค้นหา และรายงานด้วย · ซ่อนที่หน้าจออย่างเดียวไม่พอ เพราะเปิด DevTools ก็เห็นข้อมูลที่ส่งมา
+   จึงต้องกันตั้งแต่ตอนเซิร์ฟเวอร์ประกอบคำตอบ (Domain.listDeals / Domain.getDeal)
+
+   แผนกอื่นไม่ถูกจำกัด — QC/โลจิสติกส์/คลังทำงานข้ามสายอยู่แล้ว
+   บัญชีแยกตามสกุลเงินไม่ใช่ตามสายสินค้า และหัวหน้ากับผู้บริหารต้องเห็นภาพรวมทั้งบริษัท */
+var SR_TEAMS = ['SR', 'SR_FD', 'SR_MC'];
+
+function canSeeDeal(meDept, deal) {
+  if (SR_TEAMS.indexOf(String(meDept)) < 0) return true;   // ไม่ใช่คนจัดซื้อ = ไม่ถูกจำกัดด้วยสาย
+  return srSideOf(deal) === String(meDept);
 }
 
 /* ---------- วงศ์ของแผนก: สองเรื่องที่ต้องแยกกัน ----------
@@ -435,6 +458,7 @@ if (typeof module !== 'undefined' && module.exports) {
     modOf:modOf, handOf:handOf, needsOf:needsOf, moneyFieldKeys:moneyFieldKeys,
     isForeign:isForeign, ownerDeptOf:ownerDeptOf, deptCovers:deptCovers, LOCAL_CCY:LOCAL_CCY,
     DEPT_FAMILY:DEPT_FAMILY, COVERS_TEAMS:COVERS_TEAMS, MOD_SR:MOD_SR,
+    SR_TEAMS:SR_TEAMS, srSideOf:srSideOf, canSeeDeal:canSeeDeal,
     lineCountOf:lineCountOf,
     parseQty:parseQty, qtyDiff:qtyDiff,
     termPlan:termPlan, buildPayments:buildPayments, isLC:isLC, isAutoPay:isAutoPay, isDeposit:isDeposit,

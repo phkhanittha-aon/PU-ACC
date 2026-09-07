@@ -668,6 +668,22 @@
     return c ? LOCAL_CCY.indexOf(c) < 0 : false;    // ไม่รู้สกุลเงิน ถือเป็นในประเทศ
   };
   const MOD_SR = {FOOD:"SR_FD", MECH:"SR_MC"};   // OTHER = ค่าใช้จ่าย ไม่ใช่สายสินค้า → จัดซื้อกลาง
+  /* ทีมจัดซื้อเจ้าของ "ใบนี้" — ไม่ขึ้นกับว่าอยู่ขั้นไหน (ตรงกับ srSideOf ใน Flow.gs)
+     รายการเงินสดไม่มีเลข PO ให้อ่านสาย จึงติดธง srSide ไว้ตอนสร้าง
+     ไม่งั้นใบที่ตัวเองเพิ่งบันทึกจะหายไปจากสายตาทันทีที่กดบันทึก */
+  const SR_TEAMS = ["SR", "SR_FD", "SR_MC"];
+  const srSideOf = p => {
+    const pinned = p && p.srSide;
+    return pinned && SR_TEAMS.indexOf(pinned) >= 0 ? pinned : (MOD_SR[modOf(p)] || "SR");
+  };
+  /* จัดซื้อ "เห็นแค่สายของตัวเองเท่านั้น" — ไม่ใช่แค่คิวงาน แต่รวมรายการ ค้นหา และรายงาน
+     แผนกอื่นไม่ถูกจำกัด: QC/โลจิสติกส์/คลังทำงานข้ามสาย · บัญชีแยกตามสกุลเงินไม่ใช่สายสินค้า
+     หัวหน้าและผู้บริหารต้องเห็นภาพรวมทั้งบริษัท
+     ของจริงกันที่เซิร์ฟเวอร์ (Domain.listDeals / getDeal) ตรงนี้เป็นแค่หน้าจอของตัวอย่าง */
+  const canSeeDeal = (meRole, p) =>
+    SR_TEAMS.indexOf(meRole) < 0 || srSideOf(p) === meRole;
+  // รายการทั้งหมดที่บทบาทปัจจุบันมีสิทธิ์เห็น — ทุกหน้าจอต้องเริ่มจากตรงนี้ ไม่ใช่จาก POS ตรง ๆ
+  const myPos = () => POS.filter(p => canSeeDeal(role, p));
   /* วงศ์ของแผนก ใช้สองเรื่องที่ต้องแยกกัน (ตรงกับ Flow.gs ของระบบจริง)
        1) สืบทอดสิทธิ์ ลูก → แม่ : Sourcing Food ทำทุกอย่างที่จัดซื้อทำได้ — คงไว้เสมอ
        2) ทำแทนขั้นของทีมย่อย แม่ → ลูก : เป็นนโยบาย ไม่เหมือนกันทุกแผนก */
@@ -992,6 +1008,8 @@
     // รายการซื้อเงินสดหน้าตลาด — ไม่มี PO ใน B1 · ข้าม QC เพราะเป็นผักสดตรวจหน้างาน
     {no:"CS-26-0007", sap:"", entry:"CASH", sup:"ตลาดไท — ร้านเจ๊หมวย", item:"ผักชี / ต้นหอม สดตลาด", qty:"60 KG",
      amt:5400, cur:"THB", term:"เงินสด — จ่ายหน้างาน", stage:11, age:5, owner:"คุณสมชาย",
+     // เงินสดไม่มีเลข PO ให้อ่านสาย — ใบนี้จัดซื้อทั่วไปเป็นคนออกไปซื้อเอง จึงเป็นของทีมนั้น
+     srSide:"SR",
      status:"ACTIVE", claim:false, skip:cashSkip(true), date:"07/08/2026",
      cashWhy:"ร้านไม่รับเครดิตและไม่ออกใบกำกับล่วงหน้า ต้องจ่ายสดหน้างาน",
      qcBypass:true, qcBypassBy:"คุณสมหญิง",
@@ -1514,7 +1532,7 @@
   const ownerDeptOf = (s, p) => {
     if (!s) return "—";
     if (s.o === "AC") return isForeign(p) ? "AC_FN" : "AC_TH";
-    if (s.o === "SR") return MOD_SR[modOf(p)] || "SR";
+    if (s.o === "SR") return srSideOf(p);
     return s.o;
   };
   const ownerOf = p => ownerDeptOf(st(p), p);
@@ -1602,7 +1620,7 @@
     const r = ROLES[role];
     document.documentElement.style.setProperty("--rc", "var(" + r.v + ")");
     document.documentElement.style.setProperty("--rc-soft", "var(" + r.v + "-soft)");
-    const myQueue = POS.filter(p => isActive(p) && ownedByMe(p)).length;
+    const myQueue = myPos().filter(p => isActive(p) && ownedByMe(p)).length;
     const reqOpen = CLAIMS.filter(c=>!c.cn).length + ITEMREQS.filter(x=>x.status!=="DONE").length +
       PRICEREQS.filter(x=>x.status==="NEW").length;
 
@@ -1641,7 +1659,7 @@
   }
 
   function pageHome() {
-    const act = POS.filter(isActive);
+    const act = myPos().filter(isActive);
     const mine = act.filter(p => ownedByMe(p));
     const mineLate = mine.filter(p => st(p) && p.age > st(p).sla);
     const soon = act.filter(comingToMe);
@@ -1672,7 +1690,7 @@
       '<div class="kpi r"><div class="n">' + mineLate.length + '</div><div class="k">เลยกำหนดของคุณ</div></div>' +
       '<div class="kpi b"><div class="n">' + soon.length + '</div><div class="k">กำลังจะถึงคิวคุณ</div></div>' +
       (money() ? '<div class="kpi"><div class="n">' + duePay + '</div><div class="k">งวดที่ยังไม่จ่าย</div></div>' : "") +
-      '<div class="kpi g"><div class="n">' + POS.filter(p => p.status === "COMPLETED").length + '</div><div class="k">ปิดแล้วเดือนนี้</div></div>' +
+      '<div class="kpi g"><div class="n">' + myPos().filter(p => p.status === "COMPLETED").length + '</div><div class="k">ปิดแล้วเดือนนี้</div></div>' +
       "</div>";
 
     if (!mine.length && !toApprove.length)
@@ -1725,9 +1743,10 @@
 
   /* ================= PO list / search ================= */
   function pagePo() {
-    const act  = POS.filter(p => p.status === "ACTIVE");
-    const done = POS.filter(p => p.status === "COMPLETED");
-    const canc = POS.filter(p => p.status === "CANCELLED");
+    const mine = myPos();
+    const act  = mine.filter(p => p.status === "ACTIVE");
+    const done = mine.filter(p => p.status === "COMPLETED");
+    const canc = mine.filter(p => p.status === "CANCELLED");
 
     let h = '<div class="ph"><h1>ใบสั่งซื้อ (PO)</h1><span class="d">1 PO = 1 รายการงาน ตั้งแต่เช็คราคาจนปิดบัญชี · ' +
       "รายการซื้อเงินสดที่ไม่ได้เปิด PO อยู่ในรายการเดียวกันนี้ ติดป้าย <b>CASH</b></span></div>";
@@ -1768,7 +1787,7 @@
     const needle = q.toLowerCase();
     const claimPo = {};
     CLAIMS.forEach(c => { if (c.po) claimPo[c.po] = c.id; });
-    const res = POS.filter(p => {
+    const res = myPos().filter(p => {
       if (fDept && (!isActive(p) || !covers(fDept, ownerOf(p)))) return false;
       if (!needle) return true;
       return [p.no, p.sap, p.sup, p.item, claimPo[p.no] || ""].join(" ").toLowerCase().indexOf(needle) >= 0;
@@ -2024,6 +2043,19 @@
   function pageDetail() {
     const p = POS.filter(x => x.no === openPo)[0];
     if (!p) return "<p>ไม่พบ PO</p>";
+    /* เดาเลขใบแล้วเปิดตรง ๆ ต้องไม่ผ่านด้วย — ไม่งั้นการกรองในรายการเป็นแค่การซ่อน
+       บอกว่าเป็นของสายไหน แต่ไม่บอกอะไรในใบ คนจะได้รู้ว่าต้องไปถามใคร
+       (ของจริงเซิร์ฟเวอร์ปฏิเสธด้วยรหัส OTHER_LINE ตั้งแต่ก่อนส่งข้อมูลมา) */
+    if (!canSeeDeal(role, p)) {
+      const own = srSideOf(p);
+      return '<button class="back" data-back="1">← กลับไปรายการ PO</button>' +
+        '<div class="todo calm"><h3>ใบนี้ไม่ใช่สายของคุณ</h3>' +
+        '<div class="big">' + esc(p.no) + " เป็นงานของ <b>" + esc(ROLES[own].name) +
+          " (" + esc(person(own)) + ")</b></div>" +
+        '<div class="then">จัดซื้อแต่ละสายเห็นเฉพาะใบของสายตัวเอง — ' +
+          "สายอาหาร สายเครื่องจักร และค่าใช้จ่ายอื่น แยกกันทั้งรายการ ค้นหา และรายงาน<br>" +
+          "ถ้าต้องใช้ข้อมูลใบนี้จริง ให้ถาม" + esc(person(own)) + " หรือให้หัวหน้าเปิดให้</div></div>";
+    }
     const s = st(p), miss = missing(p);
     const bl = blockedBy(p);
 
@@ -2588,7 +2620,7 @@
      งวดที่ชำระผ่าน LC ไม่อยู่ในคิวนี้ เพราะธนาคารจ่ายตามเอกสาร ไม่ต้องตั้งเบิก */
   function payDue() {
     const out = [];
-    POS.filter(isActive).forEach(p => p.payments.forEach(x => {
+    myPos().filter(isActive).forEach(p => p.payments.forEach(x => {
       if (DONE_PAY.indexOf(x.status) >= 0) return;
       out.push({p:p, x:x, mod:modOf(p), iso:thToISO(x.due) || "9999-99-99"});
     }));
@@ -2605,7 +2637,7 @@
     const tot = {};
     list.forEach(r => { tot[r.p.cur] = (tot[r.p.cur] || 0) + r.x.amount; });
     const lc = [];
-    POS.filter(isActive).forEach(p => p.payments.forEach(x => { if (isLC(x)) lc.push({p:p, x:x}); }));
+    myPos().filter(isActive).forEach(p => p.payments.forEach(x => { if (isLC(x)) lc.push({p:p, x:x}); }));
 
     let h = '<div class="card"><h3>คิวตั้งเบิกทำจ่าย<span class="c">' + list.length + " งวด" +
       (money() && Object.keys(tot).length
@@ -2650,7 +2682,7 @@
   }
 
   function pageReport() {
-    const act = POS.filter(isActive);
+    const act = myPos().filter(isActive);
     const agg = {};
     act.forEach(p => {
       const s = st(p); if (!s) return;
@@ -2675,7 +2707,7 @@
 
     if (money()) {
       const all = [];
-      POS.forEach(p => p.payments.forEach(x => all.push({p:p, x:x})));
+      myPos().forEach(p => p.payments.forEach(x => all.push({p:p, x:x})));
       const paid = all.filter(r => r.x.status === "PAID");
       const onTime = paid.filter(r => r.x.lateDays <= 0).length;
       const owed = all.filter(r => DONE_PAY.indexOf(r.x.status) < 0 && isActive(r.p));
@@ -2697,7 +2729,7 @@
       h += "</div>";
     }
 
-    const done = POS.filter(p => p.status === "COMPLETED");
+    const done = myPos().filter(p => p.status === "COMPLETED");
     h += '<div class="kpis">' +
       '<div class="kpi b"><div class="n">' + act.length + '</div><div class="k">กำลังดำเนินการ</div></div>' +
       '<div class="kpi g"><div class="n">' + done.length + '</div><div class="k">ปิดแล้ว</div></div>' +
@@ -2981,9 +3013,9 @@
     }
 
     if (subtab === "FILES") {
-      const cash = POS.filter(x => x.entry === "CASH");
+      const cash = myPos().filter(x => x.entry === "CASH");
       const byp = cash.filter(x => x.qcBypass);
-      const bundles = POS.filter(x => x.bundle);
+      const bundles = myPos().filter(x => x.bundle);
       h += '<div class="card"><h3>ไดรฟ์กลางที่เดียว<span class="c">ไม่มีใครสร้างโฟลเดอร์เอง</span></h3>' +
         '<div class="rowline"><span class="nm">Shared drive</span><span class="droot">' +
           esc(DRIVE.root) + '</span></div>' +
@@ -4229,6 +4261,9 @@
         const p2 = {
           no:no, sap:"", entry:"CASH", sup:valOf("cs_sup").trim(), item:valOf("cs_item").trim(),
           qty:valOf("cs_qty").trim(), amt:amt, cur:"THB", term:"เงินสด — จ่ายหน้างาน",
+          // เงินสดไม่มีเลข PO ให้อ่านสาย — ติดธงว่าเป็นของทีมที่กดบันทึก
+          // ไม่งั้นใบที่เพิ่งสร้างจะหายไปจากสายตาตัวเองทันที เพราะระบบเดาเป็นสายอาหารเสมอ
+          srSide:SR_TEAMS.indexOf(role) >= 0 ? role : "SR",
           stage:by ? 11 : 10, age:0, owner:ROLES[role].person, status:"ACTIVE", claim:false,
           skip:cashSkip(by), date:isoToTH(d), files:{}, bundle:null, hand:{},
           spec:"ซื้อหน้างาน — ตรวจด้วยสายตาตอนรับของ",
@@ -4786,7 +4821,10 @@
     const m = h.match(/^#po\/(.+)$/);
     if (!m) return false;
     const no = decodeURIComponent(m[1]).trim();
-    if (POS.some(p => p.no === no)) { openPo = no; page = "detail"; return true; }
+    // ลิงก์ตรงจากที่อื่นก็ต้องเคารพกติกาสาย — เจอใบแต่ไม่ใช่สายตัวเอง ให้ตกไปทางเดียวกับ "ไม่พบ"
+    if (POS.some(p => p.no === no && canSeeDeal(role, p))) {
+      openPo = no; page = "detail"; return true;
+    }
     // เลข PO ที่ระบบ Costing ส่งมาแต่ยังไม่มีรายการในระบบนี้ — ให้ค้นหาให้เลย
     page = "po"; subtab = "SEARCH"; q = no; openPo = null;
     pendingHashMiss = no;
