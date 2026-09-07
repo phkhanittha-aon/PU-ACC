@@ -672,6 +672,16 @@
      รายการเงินสดไม่มีเลข PO ให้อ่านสาย จึงติดธง srSide ไว้ตอนสร้าง
      ไม่งั้นใบที่ตัวเองเพิ่งบันทึกจะหายไปจากสายตาทันทีที่กดบันทึก */
   const SR_TEAMS = ["SR", "SR_FD", "SR_MC"];
+  // กลุ่มสินค้าในใบขอราคา → สายสินค้า · ทีมจัดซื้อ → สายที่ทีมนั้นดูแล (ใช้เมื่อใบขอราคาไม่ได้ระบุ)
+  const GROUP_MOD = {food:"FOOD", อาหาร:"FOOD", mech:"MECH", solar:"MECH",
+                     เครื่องจักร:"MECH", other:"OTHER", "ค่าใช้จ่าย":"OTHER"};
+  const MOD_OF_TEAM = {SR_FD:"FOOD", SR_MC:"MECH"};
+  /* ใบขอราคาก็อยู่ในกติกาเดียวกัน — ไม่งั้น Sourcing Food จะเห็นและกดเปิด PO
+     จากใบขอราคาของสายเครื่องจักรได้ แล้ว PO ที่ได้ก็ไปโผล่ผิดทีม */
+  const prSideOf = r => MOD_SR[GROUP_MOD[String(r && r.group || "").toLowerCase()] || "FOOD"] || "SR";
+  const canSeePr = (meRole, r) =>
+    SR_TEAMS.indexOf(meRole) < 0 || prSideOf(r) === meRole;
+  const myPrs = () => PRICEREQS.filter(r => canSeePr(role, r));
   const srSideOf = p => {
     const pinned = p && p.srSide;
     return pinned && SR_TEAMS.indexOf(pinned) >= 0 ? pinned : (MOD_SR[modOf(p)] || "SR");
@@ -1281,7 +1291,15 @@
      by:"คุณสมชาย", date:"25 ก.ค. 09:00", status:"CONVERTED", note:""},
     {id:"PR-26-0005", item:"ปลาหมึกกล้วยทั้งตัวไซส์ 3", brand:"—", group:"Food", uom:"KG", qty:"300 KG",
      spec:"ทั้งตัว ไม่ควักไส้ แช่แข็งเดี่ยว IQF", needBy:"25/08/2026",
-     by:"คุณสมชาย", date:"31 ก.ค. 13:40", status:"NEW", note:""}
+     by:"คุณมาลี", date:"31 ก.ค. 13:40", status:"NEW", note:""},
+    /* ใบขอราคาของอีกสองสาย — เดิมมีแต่สายอาหารทั้งสามใบ ซึ่งไม่ตรงกับที่แยกทีมกันแล้ว
+       กลุ่มสินค้าในใบเป็นตัวบอกว่า PO ที่เปิดต่อจะไปอยู่สายไหน */
+    {id:"PR-26-0006", item:"อินเวอร์เตอร์ SG50CX-P2", brand:"Sungrow", group:"Mech", uom:"SET", qty:"4 SET",
+     spec:"รับประกัน 10 ปี · ต่อระบบ 3 เฟส 380V", needBy:"30/09/2026",
+     by:"คุณเอกชัย", date:"01 ส.ค. 09:15", status:"NEW", note:"ลูกค้าโครงการหลังคาโรงงาน"},
+    {id:"PR-26-0007", item:"ค่าเช่าพื้นที่ออกงานแสดงสินค้า", brand:"—", group:"Other", uom:"งาน", qty:"1 งาน",
+     spec:"บูธ 3x6 เมตร พร้อมไฟและปลั๊ก", needBy:"15/10/2026",
+     by:"คุณสมชาย", date:"01 ส.ค. 10:30", status:"NEW", note:"ไม่ใช่สายสินค้า — จัดซื้อทั่วไปดูแล"}
   ];
   const PR_ST = {NEW:{t:"ยังไม่มีใบเสนอราคา",cls:"due"}, QUOTING:{t:"กำลังเทียบราคา",cls:"info"},
     CONVERTED:{t:"เปิด PO แล้ว",cls:"ok"}, CANCELLED:{t:"ยกเลิก",cls:"wait"}};
@@ -1622,7 +1640,7 @@
     document.documentElement.style.setProperty("--rc-soft", "var(" + r.v + "-soft)");
     const myQueue = myPos().filter(p => isActive(p) && ownedByMe(p)).length;
     const reqOpen = CLAIMS.filter(c=>!c.cn).length + ITEMREQS.filter(x=>x.status!=="DONE").length +
-      PRICEREQS.filter(x=>x.status==="NEW").length;
+      myPrs().filter(x=>x.status==="NEW").length;
 
     $("#nav").innerHTML = myNav().map(n => {
       const cur = n.k === page ? ' aria-current="page"' : "";
@@ -2443,10 +2461,11 @@
     let h = '<div class="note info"><span>' +
       "กรอกครั้งเดียวตอนขอราคา ทุกใบเสนอราคาที่เทียบและ PO ที่เปิดต่อ " +
       "<b>ดึงชื่อสินค้า สเปก และจำนวนมาให้เอง</b> — ไม่ต้องพิมพ์ซ้ำ</span></div>";
-    h += '<div class="card"><h3>ใบขอราคา<span class="c">' + PRICEREQS.length + " ใบ</span></h3>" +
+    const prs = myPrs();
+    h += '<div class="card"><h3>ใบขอราคา<span class="c">' + prs.length + " ใบ</span></h3>" +
       '<div class="tw"><table><thead><tr><th>เลขที่</th><th>สินค้า</th><th>จำนวน</th>' +
       "<th>ต้องการภายใน</th><th>ใบเสนอราคา</th><th>สถานะ</th></tr></thead><tbody>";
-    PRICEREQS.forEach(r => {
+    prs.forEach(r => {
       const s = PR_ST[r.status] || PR_ST.NEW, qn = quotesOf(r.id).length;
       h += '<tr class="click" data-propen="' + esc(r.id) + '">' +
         '<td><span class="pono">' + esc(r.id) + "</span></td>" +
@@ -2462,6 +2481,14 @@
 
   function priceDetail() {
     const r = PRICEREQS.filter(x => x.id === openPR)[0];
+    if (r && !canSeePr(role, r)) {
+      const own = prSideOf(r);
+      return '<button class="back" data-back="req">← กลับไปรายการขอราคา</button>' +
+        '<div class="todo calm"><h3>ใบนี้ไม่ใช่สายของคุณ</h3>' +
+        '<div class="big">' + esc(r.id) + " เป็นงานของ <b>" + esc(ROLES[own].name) +
+          " (" + esc(person(own)) + ")</b></div>" +
+        '<div class="then">ถ้าเปิด PO จากใบขอราคาของสายอื่น PO ที่ได้จะไปโผล่ผิดทีม</div></div>';
+    }
     const qs = quotesOf(r.id), sel = qs.filter(q => q.selected)[0];
     const s = PR_ST[r.status] || PR_ST.NEW;
     let h = '<button class="back" data-back="req">← กลับไปรายการขอราคา</button>';
@@ -4354,6 +4381,12 @@
           amt:total, cur:sel.cur, term:"รอกำหนดตอนผูกกับ B1", stage:3, age:0, owner:person(role) || "คุณสมชาย",
           status:"ACTIVE", claim:false, skip:[1,2,5], date:"05/08/2026",
           entry:"PO", files:{}, bundle:null, hand:{}, spec:r.spec, needBy:r.needBy,
+          /* เลข PO ที่ระบบออกเอง (PO-26-xxxx) ยังไม่มีอักษรสายให้อ่าน และ SAP ยังไม่ได้ให้เลขจริง
+             ถ้าไม่ติดธงไว้ ระบบจะเดาเป็นสายอาหารเสมอ แล้วคนที่เพิ่งกดเปิด PO
+             จะถูกล็อกออกจากใบของตัวเองทันที — ทางตันที่ไม่มีปุ่มไหนพากลับมาได้
+             สายสินค้าเอาจากกลุ่มสินค้าในใบขอราคา ส่วนทีมเจ้าของใบคือคนที่กดเปิด */
+          mod:GROUP_MOD[String(r.group || "").toLowerCase()] || MOD_OF_TEAM[role] || "FOOD",
+          srSide:SR_TEAMS.indexOf(role) >= 0 ? role : "SR",
           fromQuote:sel.id, fromReq:r.id,
           payments:[pay(1, "ชำระเต็ม", 100, total, "—", "PENDING")],
           tl:[["วันนี้", "ระบบ", "เปิด PO จากใบเสนอราคา " + sel.id + " (" + sel.supplier + ") — " +

@@ -1346,6 +1346,80 @@ if (!cashSeen("SR")) bad.push("จัดซื้อทั่วไปไม่�
 if (cashSeen("SR_FD")) bad.push("Sourcing Food เห็นรายการเงินสดของจัดซื้อทั่วไป — เดาสายจากสินค้าแทนคนซื้อ");
 if (cashSeen("SR_MC")) bad.push("Sourcing Mech เห็นรายการเงินสดของจัดซื้อทั่วไป");
 
+/* ============ ใบที่เพิ่งสร้างเอง ต้องไม่หายไปจากสายตาคนสร้าง ============
+   กติกาสายกรองจาก "สายสินค้า" ซึ่งอ่านจากอักษรในเลข PO — แต่ใบที่ระบบออกเลขเอง
+   (เปิดจากใบเสนอราคา · รายการเงินสด) ยังไม่มีอักษรสายให้อ่าน ระบบจึงเดาเป็นสายอาหารเสมอ
+   ผลคือทุกทีมที่ไม่ใช่ Sourcing Food กดสร้างแล้วถูกล็อกออกจากใบของตัวเองทันที
+   เป็นทางตันที่ไม่มีปุ่มไหนพากลับมาได้ — เคยพลาดมาแล้วจริง ๆ ตอนเพิ่มกติกาสาย
+   ตรวจทุกทางที่สร้างใบได้ ไม่ใช่แค่ทางที่เคยพัง */
+// ใบขอราคาคนละใบต่อทีม — ใบหนึ่งเปิด PO ได้ครั้งเดียว จึงใช้ใบร่วมกันไม่ได้
+const PR_OF = {SR: "PR-26-0007", SR_FD: "PR-26-0005", SR_MC: "PR-26-0006"};
+/* ใบขอราคาอยู่ในกติกาสายเดียวกับใบ PO — ไม่งั้นเปิด PO จากใบของสายอื่นได้
+   แล้ว PO ที่ได้ก็ไปโผล่ผิดทีม · ตรวจสองทางเหมือนเดิม */
+Object.keys(PR_OF).forEach(r => {
+  click("data-role", { role: r });
+  click("data-page", { page: "req" });
+  const prList = nodes["#main"].innerHTML;
+  if (prList.indexOf(PR_OF[r]) < 0)
+    bad.push(r + " ไม่เห็นใบขอราคาของสายตัวเอง (" + PR_OF[r] + ")");
+  Object.keys(PR_OF).filter(o => o !== r).forEach(o => {
+    if (prList.indexOf(PR_OF[o]) >= 0)
+      bad.push(r + " เห็นใบขอราคา " + PR_OF[o] + " ของสายอื่นในรายการ");
+  });
+  const other = PR_OF[Object.keys(PR_OF).filter(o => o !== r)[0]];
+  click("data-propen", { propen: other });
+  if (!/ใบนี้ไม่ใช่สายของคุณ/.test(nodes["#main"].innerHTML))
+    bad.push(r + " เปิดใบขอราคา " + other + " ของสายอื่นตรง ๆ ได้");
+});
+// แผนกอื่นต้องเห็นใบขอราคาครบ — กติกาสายใช้กับจัดซื้อเท่านั้น
+click("data-role", { role: "GM" });
+click("data-page", { page: "req" });
+Object.keys(PR_OF).forEach(r => {
+  if (nodes["#main"].innerHTML.indexOf(PR_OF[r]) < 0)
+    bad.push("ผู้บริหารไม่เห็นใบขอราคา " + PR_OF[r] + " — กติกาสายใช้กับจัดซื้อเท่านั้น");
+});
+["SR", "SR_FD", "SR_MC"].forEach(r => {
+  // ทางที่ 1: เปิด PO จากใบเสนอราคา
+  click("data-role", { role: r });
+  click("data-page", { page: "req" });
+  click("data-propen", { propen: PR_OF[r] });
+  click("data-qact", { qact: "add" });
+  setFields({q_supplier:"ผู้ขายทดสอบ " + r, q_price:100, q_lead:"5 วัน", q_valid:today()});
+  formFields.q_err = {innerHTML:""}; formFields.q_calc = {innerHTML:""};
+  click("data-qact", { qact: "save" });
+  const qid = (nodes["#main"].innerHTML.match(/data-id="(QT-26-\d+)"/) || [])[1];
+  if (!qid) { bad.push(r + ": เพิ่มใบเสนอราคาไม่สำเร็จ"); return; }
+  click("data-qact", { qact: "pick", id: qid });
+  click("data-qact", { qact: "topo" });
+  const made = nodes["#main"].innerHTML;
+  const no = (made.match(/PO-26-\d{4}/) || [])[0];
+  if (/ใบนี้ไม่ใช่สายของคุณ/.test(made))
+    bad.push(r + " เปิด PO จากใบเสนอราคาแล้วถูกล็อกออกจากใบของตัวเองทันที — ทางตัน");
+  if (no) {
+    click("data-page", { page: "po" });
+    if (nodes["#main"].innerHTML.indexOf(no) < 0)
+      bad.push(r + " เปิด PO " + no + " เองแล้วไม่เห็นในรายการของตัวเอง");
+  }
+  // ทางที่ 2: บันทึกรายการซื้อเงินสด
+  click("data-page", { page: "po" });
+  click("data-cash", { cash: "open" });
+  setFields({cs_sup:"ตลาดทดสอบ", cs_item:"ของทดสอบ " + r, cs_qty:"5 KG", cs_amt:900,
+             cs_date:today(), cs_from:"PETTY", cs_why:"ทดสอบว่าคนสร้างยังเห็นใบตัวเอง",
+             cs_bypass:false, cs_bywhy:""});
+  formFields.cs_err = {innerHTML:""}; formFields.cs_calc = {innerHTML:""};
+  formFields.cs_bywrap = {style:{}};
+  click("data-cash", { cash: "save" });
+  const cash = nodes["#main"].innerHTML;
+  const cs = (cash.match(/CS-26-\d{4}/) || [])[0];
+  if (/ใบนี้ไม่ใช่สายของคุณ/.test(cash))
+    bad.push(r + " บันทึกรายการเงินสดแล้วถูกล็อกออกจากใบของตัวเองทันที — ทางตัน");
+  if (cs) {
+    click("data-page", { page: "po" });
+    if (nodes["#main"].innerHTML.indexOf(cs) < 0)
+      bad.push(r + " บันทึกเงินสด " + cs + " เองแล้วไม่เห็นในรายการของตัวเอง");
+  }
+});
+
 // คนที่ไม่ใช่จัดซื้อต้องไม่ถูกจำกัดด้วยสาย — QC/คลัง/บัญชี/หัวหน้า ทำงานข้ามสาย
 ["QC", "WH", "AC_TH", "ACH", "GM"].forEach(r => {
   click("data-role", { role: r });
