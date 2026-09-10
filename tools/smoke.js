@@ -1469,6 +1469,37 @@ click("data-po", { po: "PO-26-0060" });        // มัดจำ 50% + ที�
 if (!/data-payact="req"/.test(nodes["#main"].innerHTML))
   bad.push("ใบมัดจำไม่มีปุ่มตั้งเรื่องขอจ่าย — งวดมัดจำต้องขออนุมัติ");
 
+/* ============ ฟอร์มต้องไม่เติมค่าที่ตัวเองบล็อก ============
+   วันครบกำหนดของงวดมักผ่านมาแล้ว (ใบค้างหลายอาทิตย์กว่าเอกสารจะครบ)
+   เดิมฟอร์มเติมวันเดิมมาให้ แล้วบล็อกด้วย S4 ว่า "เป็นวันย้อนหลัง"
+   ช่องมีค่าอยู่แล้ว คนจึงกดส่งแล้วเจอ "แก้ข้อที่ติดก่อน" โดยไม่เห็นว่าต้องแก้ช่องไหน
+   ตอนนั้นตรวจด้วยใบเดียวที่วันครบกำหนดยังไม่ถึง เลยไม่เจอ — คราวนี้ไล่ทุกใบ */
+{
+  const before = bad.length;
+  POS.forEach(po => {
+    ["SR", "SR_FD", "SR_MC", "AC_TH", "AC_FN"].some(r => {
+      click("data-role", { role: r });
+      click("data-page", { page: "po" });
+      if (nodes["#main"].innerHTML.indexOf('data-po="' + po + '"') < 0) return false;
+      click("data-po", { po: po });
+      const d0 = nodes["#main"].innerHTML;
+      if (!/data-act="payreq"|data-payact="req"/.test(d0)) return false;
+      if (/data-act="payreq"/.test(d0)) click("data-act", { act: "payreq" });
+      else click("data-payact", { payact: "req",
+        seq: (d0.match(/data-payact="req" data-seq="(\d+)"/) || [, "1"])[1] });
+      const m = nodes["#modal"].innerHTML;
+      const eff = (m.match(/id="pr_eff" value="([^"]*)"/) || [])[1];
+      if (eff && eff < today())
+        bad.push(po + ": ฟอร์มขอจ่ายเติม Effective date " + eff +
+          " ที่เป็นวันย้อนหลังมาให้เอง แล้วบล็อกด้วย S4 — คนกดส่งแล้วไม่เห็นว่าต้องแก้ช่องไหน");
+      click("data-pract", { pract: "close" });
+      return true;
+    });
+  });
+  void before;
+}
+
+
 if (leaks.length) {
   bad.push("ยอดเงินหลุดไปยังบทบาทที่ไม่มีสิทธิ์เห็น " + leaks.length + " จุด:");
   leaks.slice(0, 12).forEach(l => bad.push("    " + l));

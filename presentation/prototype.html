@@ -135,6 +135,8 @@
   .demo{background:var(--gold-50);color:var(--gold-800);padding:8px 20px;font-size:12.5px;text-align:center;
     border-bottom:1px solid var(--gold-200)}
   .demo b{color:var(--gold-800);font-weight:600}
+  .demo .build{display:inline-block;margin-left:8px;font-family:var(--mono);font-size:11px;
+    background:var(--gold-200);color:var(--gold-800);border-radius:999px;padding:1px 9px;white-space:nowrap}
 
   /* ---------- แถบบน: โลโก้ + เมนู + เครื่องมือ + ผู้ใช้ ---------- */
   .app{min-height:100vh;display:flex;flex-direction:column}
@@ -578,6 +580,9 @@
 
 <div class="demo">
   <b>ตัวอย่างระบบ</b> — ข้อมูลสมมติ กดเล่นได้ ยังไม่เชื่อม SAP B1 จริง · ลองเปลี่ยน <b>บทบาท</b> เพื่อดูหน้าจอของแผนกตัวเอง
+  <!-- ป้ายรุ่น — เวลาแจ้งว่า "แก้แล้วแต่ยังเป็นเหมือนเดิม" จะได้รู้ทันทีว่าเปิดรุ่นไหนอยู่
+       ลิงก์ที่แชร์ไว้อาจถูกปักหมุดไว้ที่รุ่นเก่า แล้วคนเปิดจะเห็นของเดิมทั้งที่แก้ไปแล้ว -->
+  <span class="build">รุ่น 2026-09-10 · ปุ่มเลือกไฟล์ + แยก “รออยู่ที่คนอื่น”</span>
 </div>
 
 <div class="app">
@@ -3757,6 +3762,9 @@
   }
   const prRemain = p => p.payments.filter(y => y.status !== "PAID" && y.status !== "VOID" &&
     y.status !== "CANCELLED").reduce((s, y) => s + y.amount, 0);
+  // งวดนี้เลยวันครบกำหนดมาแล้วหรือยัง — ใช้ตัดสินว่าจะเติมวันเดิมหรือเติมวันนี้
+  const dueGone = x => { const d = thToISO(x && x.due); return !!d && dayDiff(d, todayISO()) < 0; };
+  const prEffDefault = x => dueGone(x) ? todayISO() : (thToISO(x && x.due) || todayISO());
 
   /* ============ อะไรที่ทำให้ "ยังตั้งเบิกไม่ได้" และคนกรอกแก้เองไม่ได้ ============
      เดิมเงื่อนไขพวกนี้ปนอยู่ในกองข้อผิดพลาดของฟอร์มเหมือนกับช่องที่ลืมกรอก
@@ -3940,9 +3948,19 @@
       '<div class="grid2">' +
       fld1("ยอดเงินที่ต้องจ่าย (บาท)", '<input type="number" step="0.01" id="pr_amt" value="' +
         x.amount + '">', true) +
+      /* วันครบกำหนดของงวดนี้ผ่านมาแล้วบ่อยมาก (ใบค้างมาหลายอาทิตย์กว่าจะครบเอกสาร)
+         เดิมเติมวันเดิมมาให้แล้วบล็อกด้วย S4 ว่า "เป็นวันย้อนหลัง" — ช่องมีค่าอยู่แล้ว
+         คนจึงกดส่งแล้วเจอ "แก้ข้อที่ติดก่อน" โดยไม่เห็นว่าต้องแก้ช่องไหน
+         ไม่เติมค่าที่ผิดกติกาตั้งแต่แรก: เลยกำหนดแล้วให้ตั้งเป็นวันนี้ แล้วบอกว่าทำไม */
       fld1("Effective date — วันที่ต้องมีผลจ่าย", '<input type="date" id="pr_eff" value="' +
-        (thToISO(x.due) || todayISO()) + '">', true) +
+        prEffDefault(x) + '">', true) +
       "</div>" +
+      (dueGone(x)
+        ? '<div class="note warn" style="border-radius:var(--r-md);margin:-2px 0 6px"><span>' +
+          "วันครบกำหนดเดิมของงวดนี้คือ <b>" + esc(x.due) + "</b> ซึ่ง<b>ผ่านมาแล้ว</b> — " +
+          "ตั้ง Effective date เป็นวันนี้ให้ก่อน แก้เป็นวันอื่นได้ แต่ย้อนหลังไม่ได้ " +
+          "เพราะบัญชีทำจ่ายตามวันที่ผ่านไปแล้วไม่ได้</span></div>"
+        : "") +
 
       /* เอกสารเรียกเก็บของงวดนี้ — บังคับทุกงวด ผู้อนุมัติจะได้เห็นว่าจ่ายตามใบไหน */
       '<div class="note info" style="border:1px solid var(--line);border-radius:var(--r-md);margin:6px 0 4px">' +
