@@ -1500,6 +1500,65 @@ if (!/data-payact="req"/.test(nodes["#main"].innerHTML))
 }
 
 
+/* ---------- หน้ารายการต้องตอบ "ไปถึงไหน ค้างที่ใคร ช้าหรือยัง" ---------- */
+/* ที่ต้องตรวจตรงนี้ เพราะข้อมูลสามอย่างนี้มีอยู่ในระบบตั้งนานแล้ว
+   แต่หน้ารายการโชว์แค่ชื่อขั้นกับรหัสแผนก ซึ่งตอบคำถามที่คนถามจริงไม่ได้
+   รหัสอย่าง AC_TH ไม่ได้บอกว่าใคร และ "10 วัน" ไม่บอกว่าช้าถ้าไม่มีกำหนดเทียบ */
+{
+  click("data-role", { role: "GM" });     // ผู้บริหารเห็นทุกสาย จึงได้ตารางที่ครบที่สุด
+  click("data-page", { page: "po" });
+  const h = nodes["#main"].innerHTML;
+
+  ["ค้างที่ใคร", "ค้างมา"].forEach(c => {
+    if (h.indexOf("<th>" + c + "</th>") < 0)
+      bad.push('ตาราง PO ไม่มีคอลัมน์ "' + c + '"');
+  });
+  /* จำนวนขั้นและรายชื่อคนอ่านจากไฟล์จริง ไม่เขียนตายตัวไว้ที่นี่
+     เพิ่มขั้นหรือเปลี่ยนชื่อคนแล้วเครื่องตรวจต้องตามไปเอง ไม่ใช่ต้องมาแก้ที่สองที่ */
+  const stageBlock = (src.match(/const STAGES = \[[\s\S]*?\n  \];/) || [""])[0];
+  const stageN = (stageBlock.match(/\{\s*c\s*:/g) || []).length;
+  /* ต้องกรองค่าว่างกับขีดออก — ในไฟล์มี person:"" และ person:"-" อยู่ด้วย
+     ถ้าไม่กรอง indexOf("") จะคืนจริงเสมอ แล้วด่านนี้จะผ่านทุกครั้งโดยไม่ได้ตรวจอะไรเลย */
+  const people = [...src.matchAll(/person\s*:\s*"([^"]+)"/g)]
+    .map(m => m[1].trim()).filter(x => x.length > 1);
+  if (stageN < 17) bad.push("อ่านจำนวนขั้นจากไฟล์ไม่ได้ (ได้ " + stageN + ")");
+  // แถบจุดต้องมีครบทุกขั้นในทุกแถว ไม่ใช่แค่แถวแรก
+  const strips = h.match(/<div class="trk"[^>]*>(?:<i[^>]*><\/i>)+<\/div>/g) || [];
+  if (!strips.length) bad.push("ตาราง PO ไม่มีแถบขั้นให้เห็นว่าไปถึงไหนแล้ว");
+  strips.forEach((t, i) => {
+    const dots = (t.match(/<i/g) || []).length;
+    if (dots !== stageN)
+      bad.push("แถบขั้นแถวที่ " + (i + 1) + " มี " + dots + " จุด ควรมี " + stageN);
+  });
+  if (!/<i class="now/.test(h)) bad.push("แถบขั้นไม่ได้ชี้ว่าขั้นปัจจุบันอยู่จุดไหน");
+  // ชื่อคนต้องขึ้น ไม่ใช่รหัสแผนกลอย ๆ
+  /* ต้องดูในช่อง "ค้างที่ใคร" เท่านั้น — ชื่อคนโผล่ที่มุมบนขวา (ผู้ใช้ที่ล็อกอิน) อยู่แล้ว
+     ถ้าตรวจทั้งหน้า ก็จะผ่านทั้งที่ตารางยังโชว์แต่รหัสแผนก */
+  const holdCells = h.match(/<td class="hold">[\s\S]*?<\/td>/g) || [];
+  if (!holdCells.length) bad.push('ตาราง PO ไม่มีช่อง "ค้างที่ใคร" ที่แยกออกมา');
+  if (!holdCells.some(c => people.some(nm => c.indexOf(nm) >= 0)))
+    bad.push('ช่อง "ค้างที่ใคร" ไม่ได้โชว์ชื่อคน — รหัสแผนกอย่าง AC_TH ไม่ได้บอกว่าใคร');
+  // เวลาที่ค้างต้องมีกำหนดเทียบข้าง ๆ เสมอ
+  if (!/\/ ให้ \d+ ชม\.|เลยมา/.test(h))
+    bad.push('คอลัมน์ "ค้างมา" ไม่ได้เทียบกับเวลาที่ให้ไว้ — ตัวเลขดิบไม่บอกว่าช้าหรือไม่');
+  // ตัวกรองกดเดียวต้องมี และกดแล้วต้องกรองจริง
+  const chips = [...h.matchAll(/data-pofilter="([a-z]+)"/g)].map(m => m[1]);
+  ["mine", "late", "stuck", "vendor"].forEach(k => {
+    if (chips.indexOf(k) < 0) bad.push('ไม่มีตัวกรองกดเดียว "' + k + '" ในหน้ารายการ');
+  });
+  const allRows = (h.match(/data-po="/g) || []).length;
+  click("data-pofilter", { pofilter: "late" });
+  const lateH = nodes["#main"].innerHTML;
+  const lateRows = (lateH.match(/data-po="/g) || []).length;
+  if (lateRows >= allRows && allRows > 1)
+    bad.push("กดตัวกรองเลยกำหนดแล้วได้แถวเท่าเดิม (" + lateRows + "/" + allRows + ") — ตัวกรองไม่ทำงาน");
+  if (lateRows && !/wait late|<i class="now late/.test(lateH))
+    bad.push("ตัวกรองเลยกำหนดได้ใบที่ไม่ได้ติดธงช้ามาด้วย");
+  click("data-pofilter", { pofilter: "all" });
+  if ((nodes["#main"].innerHTML.match(/data-po="/g) || []).length !== allRows)
+    bad.push('กด "ทั้งหมด" กลับมาแล้วไม่ได้รายการเดิมครบ');
+}
+
 if (leaks.length) {
   bad.push("ยอดเงินหลุดไปยังบทบาทที่ไม่มีสิทธิ์เห็น " + leaks.length + " จุด:");
   leaks.slice(0, 12).forEach(l => bad.push("    " + l));
@@ -1509,6 +1568,7 @@ console.log("เรนเดอร์ทั้งหมด " + n + " ครั�
   "  + ใบตรวจ Food/Mech คนละชุด + ข้อค้างท้ายใบตรวจล็อกจ่าย + เอกสารเรียกเก็บรายงวด\n" +
   "  + เชื่อมแอปตรวจรับ QC (คิวจับคู่ใบตรวจ + กรอกให้เอง)\n" +
   "  + สแกนยอดเงินรั่ว " + scans + " จุดตรวจ (" + NOMONEY.join(" · ") + ") ไม่พบการหลุด\n" +
-  "  + ตรวจคอนทราสต์ชุดสี " + (FG.length * 4 + 2) + " คู่ ผ่าน WCAG AA ทั้งสองโหมด");
+  "  + ตรวจคอนทราสต์ชุดสี " + (FG.length * 4 + 2) + " คู่ ผ่าน WCAG AA ทั้งสองโหมด\n" +
+  "  + หน้ารายการ: แถบขั้น + ชื่อคนที่ถืองาน + เวลาที่ค้างเทียบกำหนด + ตัวกรองกดเดียว");
 if (bad.length) { console.log("พบปัญหา " + bad.length + ":"); bad.slice(0, 30).forEach(b => console.log("  - " + b)); process.exit(1); }
 console.log("ผ่านทั้งหมด");

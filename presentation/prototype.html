@@ -229,6 +229,25 @@
   td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
   .pono{font-family:var(--mono);font-weight:600;color:var(--ink);white-space:nowrap}
   .sub{font-size:11.5px;color:var(--ink-3)}
+  /* แถบขั้น — ตอบ "ไปถึงไหนแล้ว" ด้วยสายตาเดียว ไม่ต้องอ่านเลขขั้นหรือเปิดใบ */
+  .trk{display:flex;gap:2px;align-items:center;margin-top:5px}
+  .trk i{width:5px;height:5px;border-radius:50%;background:var(--line-2);flex:none}
+  .trk i.done{background:var(--ink-3)}
+  .trk i.now{width:9px;height:9px;background:var(--gold);box-shadow:0 0 0 2px var(--gold-bg)}
+  .trk i.now.late{background:var(--stop);box-shadow:0 0 0 2px var(--stop-bg)}
+  .trk i.skip{background:transparent;border:1px solid var(--line-2)}
+  /* ค้างที่ใคร — ชื่อคนมาก่อน รหัสแผนกเป็นตัวประกอบ */
+  .hold b{display:block;font-weight:600;font-size:12.5px}
+  .wait{font-family:var(--mono);font-size:11px;color:var(--ink-3);white-space:nowrap}
+  .wait.late{color:var(--stop);font-weight:600}
+  /* ตัวกรองกดเดียว — คำถามที่คนถามจริงทุกวัน ทำเป็นปุ่มไว้เลย */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+  .chips button{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;font:inherit;
+    font-size:12.5px;color:var(--ink-2);background:var(--paper);border:1px solid var(--line-2);
+    border-radius:999px;cursor:pointer}
+  .chips button:hover{border-color:var(--gold)}
+  .chips button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .chips button .c{font-family:var(--mono);font-size:11px;opacity:.75}
 
   /* ---------- ป้ายสถานะ ---------- */
   .pill{display:inline-block;font-size:11px;padding:3px 10px;white-space:nowrap;font-family:var(--mono);border-radius:999px}
@@ -582,7 +601,7 @@
   <b>ตัวอย่างระบบ</b> — ข้อมูลสมมติ กดเล่นได้ ยังไม่เชื่อม SAP B1 จริง · ลองเปลี่ยน <b>บทบาท</b> เพื่อดูหน้าจอของแผนกตัวเอง
   <!-- ป้ายรุ่น — เวลาแจ้งว่า "แก้แล้วแต่ยังเป็นเหมือนเดิม" จะได้รู้ทันทีว่าเปิดรุ่นไหนอยู่
        ลิงก์ที่แชร์ไว้อาจถูกปักหมุดไว้ที่รุ่นเก่า แล้วคนเปิดจะเห็นของเดิมทั้งที่แก้ไปแล้ว -->
-  <span class="build">รุ่น 2026-09-10 · ปุ่มเลือกไฟล์ + แยก “รออยู่ที่คนอื่น”</span>
+  <span class="build">รุ่น 2026-10-15 · แถบขั้น + ค้างที่ใคร + ตัวกรองกดเดียว</span>
 </div>
 
 <div class="app">
@@ -1562,6 +1581,49 @@
     return s.o;
   };
   const ownerOf = p => ownerDeptOf(st(p), p);
+  /* ค้างมานานแค่ไหน เทียบกับเวลาที่ให้ — ตัวเลขดิบไม่สื่อ ต้องเห็นคู่กัน
+     "10 วัน" เฉย ๆ ไม่บอกว่าช้าหรือไม่ช้า ถ้าไม่รู้ว่าขั้นนี้ให้เวลาเท่าไหร่ */
+  function waitTxt(p) {
+    if (!isActive(p)) return '<span class="wait">ปิดแล้ว</span>';
+    const s = st(p);
+    if (!s || !s.sla) return '<span class="wait">' + ageTxt(p.age) + "</span>";
+    const late = p.age > s.sla;
+    return '<span class="wait' + (late ? " late" : "") + '">' + ageTxt(p.age) +
+      (late ? " · เลยมา " + ageTxt(p.age - s.sla) : " / ให้ " + s.sla + " ชม.") + "</span>";
+  }
+  /* แถบจุดต่อหนึ่งขั้น — ผ่านแล้วทึบ ขั้นปัจจุบันวงใหญ่ ขั้นที่ใบนี้ข้ามเป็นวงกลวง
+     ขั้นที่ข้าม (ใบค่าใช้จ่ายไม่มีของเข้าคลัง) ต้องดูต่างจากขั้นที่ยังไม่ถึง
+     ไม่งั้นคนจะนับว่าใบนี้เหลืออีกหลายขั้น ทั้งที่จริงข้ามไปแล้ว */
+  function trackStrip(p) {
+    const n = STAGES.length, cur = p.stage, skip = p.skip || [];
+    let h = '<div class="trk" aria-label="ขั้นที่ ' + (cur + 1) + " จาก " + n + '">';
+    for (let i = 0; i < n; i++) {
+      let cls = "";
+      if (!isActive(p)) cls = "done";
+      else if (skip.indexOf(i) >= 0) cls = "skip";
+      else if (i < cur) cls = "done";
+      else if (i === cur) cls = "now" + (st(p) && p.age > st(p).sla ? " late" : "");
+      h += '<i class="' + cls + '"></i>';
+    }
+    return h + "</div>";
+  }
+  /* ตัวกรองกดเดียว — ห้าคำถามที่คนถามจริงทุกวัน
+     เดิมต้องไล่อ่านทั้งตารางเอง ซึ่งพอใบเกินสองสามสิบใบก็เลิกไล่ */
+  const PO_FILTERS = [
+    {k:"all",   t:"ทั้งหมด",                 f:() => true},
+    {k:"mine",  t:"ค้างที่ฉัน",              f:p => isActive(p) && covers(role, ownerOf(p))},
+    {k:"late",  t:"เลยกำหนด",                f:p => isActive(p) && st(p) && p.age > st(p).sla},
+    {k:"stuck", t:"ค้างที่คนอื่นเกิน 2 วัน", f:p => isActive(p) && !covers(role, ownerOf(p)) && p.age >= 48},
+    {k:"vendor",t:"รอผู้ขายตอบ",             f:p => isActive(p) && st(p) &&
+       ["SUPPLIER_SIGN", "PI_RECEIVED", "RECEIPT_ORIGINAL"].indexOf(st(p).c) >= 0}
+  ];
+  let poFilter = "all";
+  const poFilterF = k => (PO_FILTERS.filter(x => x.k === k)[0] || PO_FILTERS[0]).f;
+  function poChips(list) {
+    return '<div class="chips">' + PO_FILTERS.map(x =>
+      '<button data-pofilter="' + x.k + '" aria-pressed="' + (x.k === poFilter) + '">' +
+      esc(x.t) + '<span class="c">' + list.filter(x.f).length + "</span></button>").join("") + "</div>";
+  }
   // งานใบนี้เป็นของฉันไหม (ครอบคลุมกรณี AC ดูแทนทั้งสองฝั่ง)
   const ownedByMe = p => covers(role, ownerOf(p));
   const isActive = p => p.status === "ACTIVE";
@@ -1790,7 +1852,16 @@
     if (subtab === "SEARCH") return h + searchPanel();
     const list = subtab === "DONE" ? done : subtab === "CANCELLED" ? canc : act;
     const title = subtab === "DONE" ? "PO ที่ปิดแล้ว" : subtab === "CANCELLED" ? "PO ที่ยกเลิก" : "PO ที่ยังไม่ปิด";
-    return h + poTable(title, list, "ไม่มีรายการ");
+    // ตัวกรองใช้กับรายการที่ยังไม่ปิดเท่านั้น — ใบที่ปิดแล้วไม่มีใครค้างอยู่ จึงไม่มีอะไรให้กรอง
+    if (subtab !== "ACTIVE") return h + poTable(title, list, "ไม่มีรายการ");
+    const shown = list.filter(poFilterF(poFilter));
+    h += poChips(list);
+    if (!shown.length && list.length)
+      return h + '<div class="card"><div class="empty">ไม่มีใบไหนเข้าเงื่อนไข “' +
+        esc((PO_FILTERS.filter(x => x.k === poFilter)[0] || {}).t || "") +
+        "” — กด <b>ทั้งหมด</b> เพื่อดูทุกใบ</div></div>";
+    return h + poTable(title + (poFilter === "all" ? "" : " · " +
+      (PO_FILTERS.filter(x => x.k === poFilter)[0] || {}).t), shown, "ไม่มีรายการ");
   }
   function tabBtn(k, t, n) {
     return '<button data-sub="' + k + '" aria-current="' + (subtab===k) + '">' + esc(t) +
@@ -1827,7 +1898,7 @@
     if (!list.length) return h + '<div class="empty">' + esc(emptyText) + "</div></div>";
     h += '<div class="tw"><table><thead><tr><th>เลข PO</th><th>ผู้ขาย / สินค้า</th>' +
       (money() ? '<th class="num">มูลค่า</th><th>การจ่าย</th>' : "") +
-      "<th>เฟส</th><th>ค้างที่</th><th>สถานะ</th></tr></thead><tbody>";
+      "<th>เฟส / ขั้นตอน</th><th>ค้างที่ใคร</th><th>ค้างมา</th><th>สถานะ</th></tr></thead><tbody>";
     list.forEach(p => {
       const s = st(p), ph = phaseOf(p);
       const paid = p.payments.filter(x => x.status === "PAID").length;
@@ -1840,8 +1911,15 @@
             ? '<span class="mono" style="font-size:12px">' + paid + "/" + p.payments.length + " งวด</span>" +
               (p.payments.length > 1 ? '<div class="sub">' + esc(p.term) + "</div>" : "")
             : "—") + "</td>" : "") +
-        '<td>' + esc(ph.name) + (isActive(p) && s ? '<div class="sub">' + esc(s.n) + "</div>" : "") + "</td>" +
-        "<td>" + (isActive(p) && s ? dept(s.o) + '<div class="sub">' + ageTxt(p.age) + "</div>" : "—") + "</td>" +
+        '<td>' + esc(ph.name) +
+          (isActive(p) && s ? '<div class="sub">' + esc(s.n) + " · ขั้นที่ " + (p.stage + 1) +
+            " จาก " + STAGES.length + "</div>" : "") + trackStrip(p) + "</td>" +
+        // ค้างที่ใคร: ชื่อคนมาก่อน รหัสแผนกเป็นตัวประกอบ — รหัสอย่าง AC_TH ไม่ได้บอกว่าใคร
+        '<td class="hold">' + (isActive(p) && s
+          ? "<b>" + esc(person(ownerOf(p)) || person(s.o) || "ยังไม่ระบุผู้รับผิดชอบ") + "</b>" +
+            dept(ownerOf(p))
+          : '<span class="sub">—</span>') + "</td>" +
+        "<td>" + waitTxt(p) + "</td>" +
         "<td>" + statusPill(p) + "</td></tr>";
     });
     return h + "</tbody></table></div></div>";
@@ -4335,6 +4413,9 @@
     // ชิปกรองสายสินค้าในคิวตั้งเบิกทำจ่าย
     const pq2 = ev.target.closest("[data-payq]");
     if (pq2) { payQ = pq2.dataset.payq; renderMain(); return; }
+
+    const poFl = ev.target.closest("[data-pofilter]");
+    if (poFl) { poFilter = poFl.dataset.pofilter; renderMain(); return; }
 
     const sb = ev.target.closest("[data-sub]");
     if (sb) { subtab = sb.dataset.sub; openClaim = null; openIC = null; openPR = null; render(); return; }
