@@ -1,0 +1,226 @@
+<!-- index.html — minimal SPA shell for the office-side front-end.
+     It renders the role-aware work queue, the bottleneck board, global search and the
+     traceability view. Department entry screens (PO grid, GRN capture, QC form, match
+     workbench) plug in as additional views; the API contract is in 08_Api.gs. -->
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #fff; --ink: #1f2328; --muted: #5f6368;
+      --line: #dfe1e5; --accent: #1a73e8; --warn: #b3261e; --ok: #1e8e3e;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+           background: var(--bg); color: var(--ink); }
+    header { background: var(--card); border-bottom: 1px solid var(--line); padding: 10px 20px;
+             display: flex; align-items: center; gap: 20px; position: sticky; top: 0; z-index: 10; }
+    .brand { font-weight: 700; letter-spacing: .5px; }
+    nav a { color: var(--muted); text-decoration: none; margin-right: 16px; padding: 4px 0; }
+    nav a.on { color: var(--accent); border-bottom: 2px solid var(--accent); }
+    .spacer { flex: 1; }
+    #search { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; width: 260px; }
+    .who { color: var(--muted); font-size: 12px; text-align: right; }
+    main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    .card h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase;
+               letter-spacing: .4px; color: var(--muted); }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0;
+           border-bottom: 1px solid #f1f3f4; }
+    .row:last-child { border-bottom: none; }
+    .no { font-weight: 600; color: var(--accent); cursor: pointer; white-space: nowrap; }
+    .sum { color: var(--muted); text-align: right; }
+    .age { color: var(--warn); font-variant-numeric: tabular-nums; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f1f3f4;
+             font-variant-numeric: tabular-nums; }
+    th { font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: .3px; }
+    .bar { height: 8px; background: var(--accent); border-radius: 4px; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px;
+            background: #e8f0fe; color: #174ea6; }
+    .pill.bad { background: #fce8e6; color: #a50e0e; }
+    .pill.good { background: #e6f4ea; color: #137333; }
+    .empty { color: var(--muted); padding: 30px; text-align: center; }
+    .err { background: #fce8e6; color: #a50e0e; padding: 10px 14px; border-radius: 6px;
+           margin-bottom: 16px; }
+    .tl { border-left: 2px solid var(--line); margin-left: 8px; padding-left: 14px; }
+    .tl div { padding: 4px 0; color: var(--muted); font-size: 13px; }
+    @media (max-width: 640px) { #search { width: 130px; } nav a { margin-right: 10px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="brand">PU-ACC</span>
+    <nav id="nav">
+      <a href="#" data-view="queue" class="on">My queue</a>
+      <a href="#" data-view="bottleneck">Bottleneck</a>
+    </nav>
+    <span class="spacer"></span>
+    <input id="search" placeholder="PO / GRN / QC / invoice / lot no." autocomplete="off">
+    <div class="who" id="who"></div>
+  </header>
+  <main id="main"><div class="empty">Loading…</div></main>
+
+<script>
+  var BOOT = <?!= bootstrap ?>;
+  var state = { view: 'queue', data: {} };
+
+  function call(action, payload) {
+    return new Promise(function (resolve, reject) {
+      google.script.run
+        .withSuccessHandler(function (r) { r && r.ok ? resolve(r.data) : reject(r || { error: 'No response' }); })
+        .withFailureHandler(reject)
+        .apiCall(action, payload || {});
+    });
+  }
+
+  function esc(s) {
+    return String(s === undefined || s === null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function el(id) { return document.getElementById(id); }
+  function showError(msg) {
+    el('main').innerHTML = '<div class="err">' + esc(msg) + '</div>';
+  }
+
+  function renderQueue(groups) {
+    if (!groups || !groups.length) {
+      el('main').innerHTML = '<div class="empty">Nothing is waiting on you. </div>';
+      return;
+    }
+    el('main').innerHTML = '<div class="grid">' + groups.map(function (g) {
+      return '<div class="card"><h3>' + esc(g.title) + ' (' + g.rows.length + ')</h3>' +
+        g.rows.slice(0, 12).map(function (r) {
+          return '<div class="row"><span class="no" data-no="' + esc(r.no) + '">' + esc(r.no) + '</span>' +
+            '<span class="sum">' + esc(r.summary) +
+            (r.aging_hrs ? ' <span class="age">' + esc(r.aging_hrs) + 'h</span>' : '') +
+            '</span></div>';
+        }).join('') +
+        (g.rows.length > 12 ? '<div class="row"><span class="sum">… and ' +
+          (g.rows.length - 12) + ' more</span></div>' : '') +
+        '</div>';
+    }).join('') + '</div>';
+    bindNos();
+  }
+
+  function renderBottleneck(rows) {
+    if (!rows || !rows.length) {
+      el('main').innerHTML = '<div class="empty">No dashboard data yet — run "Rebuild dashboards".</div>';
+      return;
+    }
+    var max = Math.max.apply(null, rows.map(function (r) { return Number(r.bottleneck_score) || 0; })) || 1;
+    el('main').innerHTML = '<div class="card"><h3>Where is it stuck</h3><table><tr>' +
+      '<th>Stage</th><th>Owner</th><th>Open</th><th>Mean aging</th><th>Breached</th><th></th></tr>' +
+      rows.map(function (r) {
+        return '<tr><td>' + esc(r.stage) + '</td><td>' + esc(r.owner_role) + '</td>' +
+          '<td>' + esc(r.open_count) + '</td><td>' + esc(r.mean_aging_hrs) + ' h</td>' +
+          '<td>' + (Number(r.breached_count) ? '<span class="pill bad">' + esc(r.breached_count) + '</span>'
+                                             : '<span class="pill good">0</span>') + '</td>' +
+          '<td style="width:180px"><div class="bar" style="width:' +
+          Math.round((Number(r.bottleneck_score) || 0) / max * 100) + '%"></div></td></tr>';
+      }).join('') + '</table></div>';
+  }
+
+  function renderTrace(t) {
+    var docs = (t.documents || []).filter(function (d) { return String(d.is_current) !== 'FALSE'; });
+    el('main').innerHTML =
+      '<div class="card"><h3>' + esc(t.po.po_no) + ' — ' + esc(t.po.vendor_name) + '</h3>' +
+        '<div class="row"><span>Status</span><span class="sum"><span class="pill">' +
+          esc(t.po.status) + '</span> receipt ' + esc(t.po.receipt_status) +
+          ' · invoice ' + esc(t.po.invoice_status) + '</span></div>' +
+        '<div class="row"><span>Receipts</span><span class="sum">' +
+          (t.grns || []).map(function (g) { return esc(g.grn_no) + ' (' + esc(g.status) + ')'; }).join(', ') +
+          '</span></div>' +
+        '<div class="row"><span>Inspections</span><span class="sum">' +
+          (t.qcs || []).map(function (q) { return esc(q.qc_no) + ' (' + esc(q.result) + ')'; }).join(', ') +
+          '</span></div>' +
+        '<div class="row"><span>NCRs</span><span class="sum">' +
+          ((t.ncrs || []).map(function (n) { return esc(n.ncr_no) + ' (' + esc(n.status) + ')'; }).join(', ') || '—') +
+          '</span></div>' +
+        '<div class="row"><span>Invoices</span><span class="sum">' +
+          ((t.invoices || []).map(function (i) {
+            return esc(i.inv_internal_no) + ' (' + esc(i.match_status) + ')'; }).join(', ') || '—') +
+          '</span></div>' +
+      '</div>' +
+      '<div class="grid" style="margin-top:16px">' +
+        '<div class="card"><h3>Documents (' + docs.length + ')</h3>' +
+          (docs.map(function (d) {
+            return '<div class="row"><a class="no" href="' + esc(d.file_url) + '" target="_blank">' +
+              esc(d.doc_type) + '</a><span class="sum">' + esc(d.file_name) + ' · v' + esc(d.version) +
+              '</span></div>'; }).join('') || '<div class="empty">No documents attached</div>') +
+        '</div>' +
+        '<div class="card"><h3>Timeline</h3><div class="tl">' +
+          (t.timeline || []).map(function (h) {
+            return '<div>' + esc(String(h.at_ts).replace('T', ' ').slice(0, 16)) + ' · ' +
+              esc(h.entity_no) + ' · <b>' + esc(h.action) + '</b> · ' + esc(h.actor_email) +
+              (h.duration_in_prev_status_hrs ? ' (' + esc(h.duration_in_prev_status_hrs) + 'h)' : '') +
+              '</div>'; }).join('') +
+        '</div></div>' +
+      '</div>';
+  }
+
+  function bindNos() {
+    Array.prototype.forEach.call(document.querySelectorAll('.no[data-no]'), function (n) {
+      n.onclick = function () { openTrace(n.getAttribute('data-no')); };
+    });
+  }
+
+  function openTrace(no) {
+    el('main').innerHTML = '<div class="empty">Loading ' + esc(no) + '…</div>';
+    call('trace', { no: no }).then(renderTrace).catch(function (e) { showError(e.error || e.message); });
+  }
+
+  function go(view) {
+    state.view = view;
+    Array.prototype.forEach.call(document.querySelectorAll('#nav a'), function (a) {
+      a.className = a.getAttribute('data-view') === view ? 'on' : '';
+    });
+    if (view === 'queue') {
+      call('myQueue').then(renderQueue).catch(function (e) { showError(e.error || e.message); });
+    } else {
+      call('bottleneck').then(renderBottleneck).catch(function (e) { showError(e.error || e.message); });
+    }
+  }
+
+  document.getElementById('nav').addEventListener('click', function (e) {
+    var v = e.target.getAttribute && e.target.getAttribute('data-view');
+    if (v) { e.preventDefault(); go(v); }
+  });
+
+  var searchTimer;
+  el('search').addEventListener('keyup', function (e) {
+    var q = e.target.value.trim();
+    clearTimeout(searchTimer);
+    if (e.key === 'Enter' && q) { openTrace(q); return; }
+    if (q.length < 3) return;
+    searchTimer = setTimeout(function () {
+      call('search', { q: q }).then(function (rows) {
+        el('main').innerHTML = '<div class="card"><h3>Search: ' + esc(q) + ' (' + rows.length + ')</h3>' +
+          (rows.map(function (r) {
+            return '<div class="row"><span class="no" data-no="' + esc(r.no) + '">' + esc(r.no) +
+              '</span><span class="sum">' + esc(r.entityType) + ' · ' + esc(r.summary) + '</span></div>';
+          }).join('') || '<div class="empty">Nothing found</div>') + '</div>';
+        bindNos();
+      }).catch(function (e2) { showError(e2.error || e2.message); });
+    }, 350);
+  });
+
+  (function init() {
+    if (!BOOT || !BOOT.ok) {
+      showError((BOOT && BOOT.error) || 'Could not load your profile. Ask IT to register your account.');
+      return;
+    }
+    var u = BOOT.data.user;
+    el('who').innerHTML = esc(u.name || u.email) + '<br>' + esc((u.roles || []).join(' · '));
+    renderQueue(BOOT.data.queue);
+    if (BOOT.data.config && BOOT.data.config.env !== 'PROD') {
+      document.querySelector('.brand').innerHTML += ' <span class="pill bad">' +
+        esc(BOOT.data.config.env) + '</span>';
+    }
+  })();
+</script>
+</body>
+</html>
