@@ -15,6 +15,7 @@ function onOpen() {
     .addSeparator()
     .addItem('เพิ่มผู้ใช้จากอีเมล...', 'promptAddUser')
     .addItem('ตรวจตารางผู้ใช้', 'checkUsers')
+    .addItem('ล้างแคชการตั้งค่า (หลังแก้แท็บ Config)', 'bustConfigCache')
     .addSeparator()
     .addItem('อ่านไฟล์ Costing (ดูผลก่อนนำเข้า)', 'updateDashboard')
     .addItem('ตรวจไฟล์ต้นทางที่จะใช้', 'showSourceInfo')
@@ -22,6 +23,14 @@ function onOpen() {
     .addItem('หา chat_id ของกลุ่ม Lark', 'listLarkGroups')
     .addItem('ทดสอบส่ง Lark', 'testLark')
     .addToUi();
+}
+
+/** ล้างแคชการตั้งค่า — ค่าในแท็บ Config ถูกจำไว้ 6 ชั่วโมงเพื่อไม่ให้อ่านชีตทุกครั้ง
+    คนที่แก้ค่าแล้วเห็นว่า "ไม่มีอะไรเปลี่ยน" มักสรุปว่าแก้ผิดช่องแล้วแก้ซ้ำไปเรื่อย ๆ
+    จึงต้องมีทางกดล้างให้เห็นผลทันที ไม่ใช่ให้รอหกชั่วโมงโดยไม่รู้ว่าต้องรอ */
+function bustConfigCache() {
+  Config.bust();
+  SpreadsheetApp.getUi().alert('ล้างแคชการตั้งค่าแล้ว — ค่าในแท็บ Config มีผลทันที');
 }
 
 /** สร้างทุกแท็บพร้อมหัวคอลัมน์ — ไม่แตะแท็บที่มีข้อมูลอยู่แล้ว */

@@ -130,7 +130,7 @@ var STAGES = [
   {c:'INTERNAL_APPROVAL', n:'อนุมัติภายใน',       o:'GM', sla:24},
   {c:'SUPPLIER_SIGN',     n:'ผู้ขายเซ็น PO กลับ', o:'SR', sla:72},
   {c:'DELIVERY_BOOKING',  n:'จองรถรับของ',        o:'LS', sla:24},
-  {c:'QC_INCOMING',       n:'QC ตรวจรับ',         o:'QC', sla:24},
+  {c:'QC_INCOMING',       n:'QC ตรวจรับ',         o:'QC', sla:24, noti:'QC_APP'},
   {c:'GR',                n:'รับเข้าคลัง + GR',   o:'WH', sla:24},
   {c:'INVOICE_RECEIVED',  n:'รับใบแจ้งหนี้',      o:'AC', sla:72},
   {c:'DOC_HANDOVER',      n:'ส่งมอบเอกสาร',       o:'SR', sla:24},
@@ -138,6 +138,29 @@ var STAGES = [
   {c:'RECEIPT_ORIGINAL',  n:'ใบเสร็จตัวจริง',     o:'AC', sla:336},
   {c:'AC_CLOSE',          n:'ตรวจ 3 ทาง + ปิด',   o:'AC', sla:48}
 ];
+
+/* ใครเป็นคนบอกว่า "ถึงคิวแล้ว" ของแต่ละขั้น
+   =========================================================================
+   QC มีเว็บของตัวเองที่ออกรีพอร์ตและแจ้งเตือนลากอยู่แล้ว และรู้เรื่อง "ถึงคิวตรวจ"
+   เหมือนกับระบบนี้ ถ้าเปิดสองระบบพร้อมกันโดยไม่แบ่งเจ้าของเหตุการณ์
+   QC จะได้ข้อความเดียวกันสองครั้ง แล้วคนจะเริ่มปิดการแจ้งเตือนทั้งช่อง
+   ซึ่งแย่กว่าไม่มีการแจ้งเตือนเลย
+
+   จึงเขียนไว้ใน STAGES ว่าขั้นไหน "ระบบไหนเป็นคนบอก" (noti) ไม่ใช่ฝังไว้ในฟังก์ชัน
+   วันที่ขอบเขตของเว็บ QC ขยายขึ้น ก็เติม noti ที่แถวนั้น ไม่ต้องแก้ตรรกะ
+
+   ค่าตั้งต้นของสวิตช์เป็น FALSE โดยตั้งใจ — ตราบใดที่ทีม QC ยังต่อไม่เสร็จ
+   ระบบนี้ต้องแจ้งเองไว้ก่อน เพราะความเงียบจากทั้งสองฝ่ายเสียหายกว่าการได้ข้อความซ้ำ
+
+   ขอบเขตที่แบ่ง: ยกให้เว็บ QC เฉพาะ "ถึงคิวตรวจ" เท่านั้น
+   ส่วนการเตือนเลยกำหนด (jobSlaSweep) ยังเป็นของระบบนี้ เพราะเว็บ QC ไม่รู้เวลาที่ตกลงไว้ */
+var NOTI_MGS = 'MGS', NOTI_QC_APP = 'QC_APP';
+function notiOwnerOf(stageIdx) {
+  var st = STAGES[stageIdx];
+  if (!st || st.noti !== NOTI_QC_APP) return NOTI_MGS;
+  return String(Config.get('QC_APP_NOTIFY', 'FALSE')).toUpperCase() === 'TRUE'
+    ? NOTI_QC_APP : NOTI_MGS;
+}
 
 /* เอกสารบังคับ — สลิปไม่อยู่ตรงนี้เพราะผูกกับ "งวดจ่าย" ไม่ใช่ผูกกับ PO */
 var DOCS = [
@@ -462,6 +485,7 @@ if (typeof module !== 'undefined' && module.exports) {
     lineCountOf:lineCountOf,
     parseQty:parseQty, qtyDiff:qtyDiff,
     termPlan:termPlan, buildPayments:buildPayments, isLC:isLC, isAutoPay:isAutoPay, isDeposit:isDeposit,
-    billKind:billKind, cashSkip:cashSkip, skipOf:skipOf, nextStage:nextStage
+    billKind:billKind, cashSkip:cashSkip, skipOf:skipOf, nextStage:nextStage,
+    NOTI_MGS:NOTI_MGS, NOTI_QC_APP:NOTI_QC_APP, notiOwnerOf:notiOwnerOf
   };
 }

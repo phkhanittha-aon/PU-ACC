@@ -119,6 +119,15 @@ var Notify = {
     try {
       var st = STAGES[stageIdx];
       if (!st) return;
+      /* ขั้นที่ระบบอื่นเป็นคนบอกว่าถึงคิว ต้องเงียบตรงนี้ ไม่ใช่ส่งซ้ำ
+         แต่ต้องบันทึกไว้ว่าเงียบเพราะยกให้ใคร ไม่งั้นวันที่ไม่มีใครได้ข้อความ
+         จะหาสาเหตุไม่ได้ว่าระบบนี้ไม่ส่ง หรือระบบนั้นไม่ส่ง */
+      var owner_sys = notiOwnerOf(stageIdx);
+      if (owner_sys !== NOTI_MGS) {
+        History.log('(ระบบ)', 'ไม่แจ้งเตือนขั้น ' + st.c + ' — ' + owner_sys + ' เป็นผู้แจ้ง',
+                    'Notify', dealNo, null, null);
+        return;
+      }
       var d = Repo.findBy(SHEETS.DEALS, 'deal_no', dealNo) || {};
       var want = ownerDeptOf(stageIdx, d);
       var body = 'รายการ ' + dealNo + ' · ' + (d.supplier || '') + '\n' +

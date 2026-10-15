@@ -144,6 +144,7 @@ const api = new Function(...names, src + `
             apiRequestPayment, apiApprovePayment, apiRecordPayment, apiSendFeedback,
             apiListUsers, apiListFeedback, apiAddToPilot, apiCheckPayment,
             apiRejectPayment, apiListDiag, Repo, SHEETS, COLS, withLock_,
+            Notify, notiOwnerOf,
             Auth, Domain, Config,
             STAGES, DOCS, ROLES, buildPayments, setupWorkspace,
             ownerDeptOf, deptCovers, isForeign};
@@ -659,6 +660,49 @@ function transferable(v, path, out) {
   ck(!JSON.stringify(res).includes('"_row"'), name + ' ส่ง _row ที่ใช้ภายในไปหน้าจอด้วย');
 });
 
+/* ---------- แจ้งเตือนต้องไม่ซ้ำกับเว็บ QC ที่ QC ใช้อยู่แล้ว ---------- */
+/* QC มีเว็บของตัวเองที่ออกรีพอร์ตและแจ้งเตือนลากอยู่แล้ว และรู้เรื่อง "ถึงคิวตรวจ" เหมือนกัน
+   ถ้าเปิดสองระบบพร้อมกันโดยไม่แบ่งเจ้าของเหตุการณ์ QC จะได้ข้อความเดียวกันสองครั้ง
+   แล้วคนจะเริ่มปิดการแจ้งเตือนทั้งช่อง ซึ่งแย่กว่าไม่มีการแจ้งเตือนเลย
+   ทางแก้คือเขียนไว้ในนิยามกระบวนการว่าขั้นไหน "ระบบไหนเป็นคนบอก" ไม่ใช่ฝังในฟังก์ชัน */
+ck(typeof api.notiOwnerOf === 'function', 'ไม่มีการระบุว่าขั้นไหนระบบไหนเป็นคนแจ้ง');
+if (typeof api.notiOwnerOf === 'function') {
+  api.Repo.insert(api.SHEETS.CONFIG, {config_key: 'QC_APP_NOTIFY', config_value: 'TRUE'});
+  api.Repo.flush(); api.Config.bust();
+  const qcStage = api.STAGES.map((x, i) => [x, i]).filter(([x]) => x && x.c === 'QC_INCOMING')[0][1];
+  ck(api.notiOwnerOf(qcStage) === 'QC_APP',
+     'ขั้น QC ตรวจรับยังเป็นหน้าที่ของระบบนี้ ทั้งที่เว็บ QC แจ้งเองอยู่แล้ว (ได้ ' +
+     api.notiOwnerOf(qcStage) + ')');
+  const acStage = api.STAGES.map((x, i) => [x, i]).filter(([x]) => x && x.o === 'AC')[0][1];
+  ck(api.notiOwnerOf(acStage) === 'MGS',
+     'ขั้นของบัญชีถูกยกไปให้ระบบอื่นแจ้ง ซึ่งไม่มีระบบอื่นรู้เรื่องนี้');
+
+  /* ปิดสวิตช์ต้องกลับมาแจ้งเอง — วันที่ทีม QC ยังต่อไม่เสร็จ ห้ามเงียบทั้งสองฝ่าย
+     ความเงียบจากทั้งสองระบบคือความเสียหายที่หนักกว่าการได้ข้อความซ้ำ */
+  api.Repo.update(api.SHEETS.CONFIG, 'config_key', 'QC_APP_NOTIFY', {config_value: 'FALSE'});
+  api.Repo.flush(); api.Config.bust();
+  ck(api.notiOwnerOf(qcStage) === 'MGS',
+     'ปิดสวิตช์เชื่อมเว็บ QC แล้วขั้นตรวจรับยังไม่กลับมาแจ้งเอง — จะเงียบทั้งสองฝ่าย');
+
+  /* ตรวจที่ผลจริง ไม่ใช่ที่ค่าที่ฟังก์ชันคืน: เปิดสวิตช์แล้วต้องไม่มีข้อความถึงคิวส่งถึง QC */
+  api.Repo.update(api.SHEETS.CONFIG, 'config_key', 'QC_APP_NOTIFY', {config_value: 'TRUE'});
+  api.Repo.flush(); api.Config.bust();
+  sent.length = 0;
+  api.Notify.stageArrived(MECH, qcStage);
+  const toQc = sent.filter(m => /ถึงคิวคุณ/.test(JSON.stringify(m)) &&
+                                /lk_qc|somying/.test(JSON.stringify(m)));
+  ck(toQc.length === 0,
+     'เปิดเชื่อมเว็บ QC แล้วระบบนี้ยังส่ง "ถึงคิวคุณ" หา QC อีกใบ — QC ได้สองครั้ง');
+  /* แต่ขั้นของแผนกอื่นต้องส่งเหมือนเดิม ไม่ใช่เงียบไปทั้งระบบ
+     ด่านที่กันทุกการแจ้งเตือนก็ "ไม่ซ้ำ" เหมือนกัน แต่ไม่มีใครรู้ว่าถึงคิวตัวเอง */
+  sent.length = 0;
+  api.Notify.stageArrived(DEAL, 12);
+  ck(sent.some(m => /ถึงคิวคุณ/.test(JSON.stringify(m))),
+     'กันแจ้งเตือนซ้ำแล้วขั้นของแผนกอื่นเงียบไปด้วย — ไม่มีใครรู้ว่าถึงคิวตัวเอง');
+  api.Repo.update(api.SHEETS.CONFIG, 'config_key', 'QC_APP_NOTIFY', {config_value: 'FALSE'});
+  api.Repo.flush(); api.Config.bust();
+}
+
 /* ---------- รายการต้องตอบได้เองว่า "ค้างที่ใคร ค้างมานานแค่ไหน" ---------- */
 /* คำถามแรกของทุกคนที่เปิดหน้ารายการคือ "ของฉันอยู่ไหน ติดที่ใคร"
    ตอบเป็นรหัสแผนกอย่าง AC_TH แปลว่าคนใช้ต้องไปถามต่อว่าใครคือ AC_TH
@@ -769,5 +813,6 @@ console.log('  รายการที่นำเข้าเริ่มท�
 console.log('  บัญชีแยกสองคิวตามสกุลเงิน · สีทุกแผนกผ่านคอนทราสต์ทั้งสองโหมด (' +
   Object.keys(F.ROLES).length + ' แผนก)');
 console.log('  ค่าที่ทุก API ส่งกลับแปลงข้ามไปหน้าจอได้จริง');
+console.log('  แจ้งเตือนไม่ซ้ำกับเว็บ QC · ปิดสวิตช์แล้วกลับมาแจ้งเอง · แผนกอื่นไม่เงียบ');
 console.log('  รายการบอกชื่อคนที่ถืองาน · เวลาที่ค้าง · กำหนดเทียบ · ธงเลยกำหนด');
 console.log('  หนึ่งคำขออ่านแต่ละแท็บรอบเดียว · เขียนแล้วแคชหมดอายุทันที');
