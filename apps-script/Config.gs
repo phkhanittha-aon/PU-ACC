@@ -133,6 +133,10 @@ function withLock_(fn, timeoutMs) {
   if (!lock.tryLock(timeoutMs || 20000))
     throw AppError('BUSY', 'ระบบกำลังบันทึกรายการอื่นอยู่ กรุณากดใหม่อีกครั้งใน 2-3 วินาที');
   __lockDepth++;
+  /* ล้างแคชต่อคำขอทันทีที่ได้ล็อก — สิ่งที่อ่านไว้ก่อนล็อกคือสภาพ "ก่อนคิว"
+     ถ้าไม่ล้าง การกันกดซ้ำจะไปตรวจกับสำเนาเก่าที่ยังไม่มีแถวของคนที่เข้าคิวก่อนเรา
+     ล็อกทำงานถูก แต่ผลลัพธ์จะได้สองแถว ซึ่งหาสาเหตุยากกว่าช้าหนึ่งรอบอ่าน */
+  if (typeof Repo !== 'undefined' && Repo.flush) Repo.flush();
   try { return fn(); } finally { __lockDepth--; lock.releaseLock(); }
 }
 

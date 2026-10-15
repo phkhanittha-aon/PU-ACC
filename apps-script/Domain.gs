@@ -41,6 +41,62 @@ var Domain = {
     return set;
   },
 
+  /** ทำไมหน้าจอของคนนี้ว่าง — ตอบเป็นเหตุผล ไม่ใช่ปล่อยให้เดา
+      หน้าจอว่างมีได้สามเหตุ และวิธีแก้ต่างกันคนละทาง
+        EMPTY_SHEET  ยังไม่มีใบไหนถูกนำเข้า            → ไปซิงก์จาก SAP
+        OTHER_LINES  มีใบ แต่เป็นของสายอื่น             → แก้ dept ในแท็บ Users
+        NOT_IN_PILOT เห็นใบ แต่ยังไม่มีใบไหนเปิดให้แก้  → เพิ่มเลขในแท็บ Pilot_Scope
+      ระบบที่ตอบว่าง ๆ เท่ากันทั้งสามกรณี ทำให้คนใช้สรุปว่าระบบพัง
+      เรียกเฉพาะตอนรายการที่ได้มาว่าง จึงไม่อยู่บนเส้นทางที่ใช้บ่อย */
+  listDiag: function (me, rowsOpt) {
+    var rows = rowsOpt || Repo.readAll(SHEETS.DEALS);
+    var pilotOnly = String(Config.get('PILOT_ONLY', 'TRUE')).toUpperCase() === 'TRUE';
+    var pilot = this.pilotSet_();
+    var lines = {}, visible = 0, editable = 0;
+    SR_TEAMS.forEach(function (t) { lines[t] = 0; });
+    rows.forEach(function (d) {
+      var side = srSideOf(d);
+      if (lines[side] !== undefined) lines[side]++;
+      if (canSeeDeal(me.dept, d)) {
+        visible++;
+        if (pilot[String(d.deal_no).trim()] === true) editable++;
+      }
+    });
+
+    var out = {total: rows.length, visible: visible, editable: editable,
+               pilotOnly: pilotOnly, dept: me.dept, lines: lines,
+               cause: 'OK', msg: ''};
+    if (rows.length === 0) {
+      out.cause = 'EMPTY_SHEET';
+      out.msg = 'ยังไม่มีรายการไหนอยู่ในระบบ — ต้องซิงก์จาก SAP หรือเพิ่มรายการเข้ามาก่อน';
+      return out;
+    }
+    if (visible === 0) {
+      if (SR_TEAMS.indexOf(String(me.dept)) >= 0) {
+        var other = [];
+        SR_TEAMS.forEach(function (t) {
+          if (t !== String(me.dept) && lines[t] > 0)
+            other.push(((ROLES[t] || {}).name || t) + ' ' + lines[t] + ' ใบ');
+        });
+        out.cause = 'OTHER_LINES';
+        out.msg = 'ในระบบมี ' + rows.length + ' ใบ แต่ไม่มีใบไหนเป็นของ' +
+          ((ROLES[me.dept] || {}).name || me.dept) + ' — จัดซื้อแต่ละสายเห็นเฉพาะใบของสายตัวเอง' +
+          (other.length ? ' (ใบที่มีอยู่: ' + other.join(' · ') + ')' : '') +
+          '. ถ้าควรเห็นใบเหล่านี้ ให้แก้ช่อง dept ของอีเมลนี้ในแท็บ Users';
+      } else {
+        out.cause = 'NO_ROWS_VISIBLE';
+        out.msg = 'ในระบบมี ' + rows.length + ' ใบ แต่ไม่มีใบไหนส่งถึงหน้าจอนี้ — แจ้ง IT ให้ตรวจแท็บ Deals';
+      }
+      return out;
+    }
+    if (pilotOnly && editable === 0) {
+      out.cause = 'NOT_IN_PILOT';
+      out.msg = 'เห็น ' + visible + ' ใบ แต่ยังไม่มีใบไหนอยู่ในช่วงทดลอง จึงกดทำอะไรไม่ได้ —' +
+        ' เพิ่มเลขใบที่ต้องการลงแท็บ Pilot_Scope ก่อน';
+    }
+    return out;
+  },
+
   /* ---------- ตัวกันเดียวของทั้งไฟล์: ใบนี้คนนี้แตะได้ไหม ----------
      จัดซื้อเห็นแค่สายของตัวเอง — ถ้ากันแค่ตอนอ่าน คนที่เดาเลขใบถูกก็ยังสั่งงานใบสายอื่นได้
      สิทธิ์ที่ครอบแค่การอ่านไม่ใช่สิทธิ์ จึงให้ทุกทางที่หยิบใบขึ้นมาผ่านตรงนี้ที่เดียว

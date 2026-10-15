@@ -570,7 +570,7 @@ window.addEventListener('error', function (e) {
     return;
   }
 
-  var BOOT = null, DEALS = [], DETAIL = null;
+  var BOOT = null, DEALS = [], DETAIL = null, DIAG = null;
   var page = 'home', openNo = null, busy = false;
 
   var $ = function (s) { return document.querySelector(s); };
@@ -688,7 +688,39 @@ window.addEventListener('error', function (e) {
   }
 
   function loadDeals() {
-    call('apiListDeals', [], function (list) { DEALS = list; chrome(); render(); startPulse(); });
+    call('apiListDeals', [], function (list) {
+      DEALS = list;
+      /* หน้าจอว่างต้องบอกเหตุผลของตัวเอง — "ว่างเพราะกรองสาย" กับ "ว่างเพราะยังไม่มีข้อมูล"
+         คนละเรื่องและคนละวิธีแก้ ถามเฉพาะตอนว่างจริง จึงไม่เพิ่มภาระตอนใช้งานปกติ */
+      if (!list.length) {
+        call('apiListDiag', [], function (d) {
+          DIAG = d; chrome(); render(); startPulse();
+        });
+        return;
+      }
+      DIAG = null;
+      chrome(); render(); startPulse();
+    });
+  }
+
+  /* กล่องอธิบายหน้าจอว่าง — บอกทั้งสาเหตุและคนที่แก้ได้ ไม่ใช่แค่ว่า "ไม่มีรายการ" */
+  function diagBox() {
+    if (!DIAG) return '';
+    var cls = DIAG.cause === 'OK' ? 'info' :
+              (DIAG.cause === 'OTHER_LINES' ? 'warn' : 'bad');
+    var fix = '';
+    if (DIAG.cause === 'OTHER_LINES')
+      fix = '<div class="sub" style="margin-top:6px">แก้ที่: แท็บ <b>Users</b> → แถวอีเมล ' +
+            esc(BOOT.me.email) + ' → ช่อง <b>dept</b> ' +
+            '(SR = ค่าใช้จ่าย · SR_FD = สายอาหาร · SR_MC = สายเครื่องจักร)</div>';
+    else if (DIAG.cause === 'NOT_IN_PILOT')
+      fix = '<div class="sub" style="margin-top:6px">แก้ที่: แท็บ <b>Pilot_Scope</b> ' +
+            '→ เพิ่มเลขใบที่ต้องการทดลอง</div>';
+    else if (DIAG.cause === 'EMPTY_SHEET')
+      fix = '<div class="sub" style="margin-top:6px">แก้ที่: เมนู MGS → ' +
+            '<b>ซิงก์จาก SAP</b> หรือให้ IT ตรวจการนำเข้า</div>';
+    return '<div class="note ' + cls + '" style="margin-bottom:18px"><span>' +
+      '<b>ยังไม่เห็นรายการ — ไม่ใช่ระบบค้าง</b><br>' + esc(DIAG.msg || '') + fix + '</span></div>';
   }
 
   /* สถานะเรียลไทม์ — ถามเซิร์ฟเวอร์เบา ๆ ว่ามีอะไรเปลี่ยนไหม
@@ -792,7 +824,10 @@ window.addEventListener('error', function (e) {
       '<div class="kpi g"><div class="n">' + doneN +
         '</div><div class="k">ปิดแล้ว</div></div></div>';
 
-    if (!mine.length)
+    /* ไม่เห็นใบเลย ≠ ไม่มีงานค้าง — ขึ้นข้อความเขียว "ไม่มีอะไรต้องทำ" ตอนที่ข้อมูลถูกกรองหายไป
+       คือการให้คำตอบที่ผิดกับคนที่กำลังหาของอยู่ จึงแยกสองกรณีนี้ออกจากกัน */
+    if (!DEALS.length) h += diagBox();
+    else if (!mine.length)
       h += '<div class="note good" style="margin-bottom:18px"><span>' +
         '<b>ตอนนี้ไม่มีอะไรที่คุณต้องทำ</b> — ' +
         'ระบบจะแจ้งเตือนทาง Lark เมื่อถึงคิวคุณ ไม่ต้องเปิดมานั่งเช็คเอง</span></div>';

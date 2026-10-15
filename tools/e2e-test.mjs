@@ -163,7 +163,14 @@ const app = new Function(...names, src + `
             STAGES, DOCS, usersReport_, healthCheck};
 `)(...names.map(n => g[n]));
 
-const as = (email, fn) => { currentUser = email; try { return fn(); } finally { currentUser = ''; } };
+/* ขอบเขตของหนึ่งคำขอ — ของจริง Apps Script รันหนึ่งคำขอหนึ่งครั้งแล้วทิ้งหน่วยความจำ
+   แต่ชุดทดสอบรันทุกคำขอในโปรเซสเดียว จึงต้องล้างแคชต่อคำขอที่ขอบเขตนี้
+   ไม่ล้าง = คำขอถัดไปอ่านสำเนาของคำขอก่อน ซึ่งไม่ใช่พฤติกรรมของของจริง */
+const as = (email, fn) => {
+  currentUser = email;
+  if (app.Repo && app.Repo.flush) app.Repo.flush();
+  try { return fn(); } finally { currentUser = ''; }
+};
 const ok = (r, what) => {
   if (!r || !r.ok) { bad.push(what + ' ล้มเหลว: ' + ((r && r.error) || 'ไม่มีผลลัพธ์')); return null; }
   return r.data;

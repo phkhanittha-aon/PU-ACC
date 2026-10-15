@@ -21,6 +21,7 @@ const ck = (cond, msg) => { if (!cond) bad.push(msg); };
 
 /* ---------- Google ปลอม ---------- */
 const store = {};          // ชื่อแท็บ -> array ของ array (แถวแรกเป็นหัวคอลัมน์)
+const reads = {};          // ชื่อแท็บ -> จำนวนครั้งที่ถูกอ่านเต็มแท็บในคำขอหนึ่ง
 const props = {};
 const cache = {};
 let currentUser = '';
@@ -36,6 +37,8 @@ function mkSheet(name) {
     getRange(r, c, nr = 1, nc = 1) {
       return {
         getValues: () => {
+          // นับเฉพาะการอ่านเนื้อข้อมูล (ไม่ใช่การอ่านหัวคอลัมน์) — หนึ่งครั้ง = หนึ่งรอบคุยกับ Sheets
+          if (r > 1) reads[name] = (reads[name] || 0) + 1;
           const out = [];
           for (let i = 0; i < nr; i++) {
             const row = rows()[r - 1 + i] || [];
@@ -140,7 +143,7 @@ const api = new Function(...names, src + `
   ; return {apiBoot, apiListDeals, apiGetDeal, apiSaveHandoff, apiAdvanceStage,
             apiRequestPayment, apiApprovePayment, apiRecordPayment, apiSendFeedback,
             apiListUsers, apiListFeedback, apiAddToPilot, apiCheckPayment,
-            apiRejectPayment, Repo, SHEETS, COLS,
+            apiRejectPayment, apiListDiag, Repo, SHEETS, COLS, withLock_,
             Auth, Domain, Config,
             STAGES, DOCS, ROLES, buildPayments, setupWorkspace,
             ownerDeptOf, deptCovers, isForeign};
@@ -191,7 +194,14 @@ api.Repo.insert(api.SHEETS.HANDOFF, {
   payload_json: JSON.stringify({ invNo: 'INV-ABC-0804', invAmt: 130000 })
 });
 
-const as = (email, fn) => { currentUser = email; try { return fn(); } finally { currentUser = ''; } };
+/* ขอบเขตของหนึ่งคำขอ — ของจริง Apps Script รันหนึ่งคำขอหนึ่งครั้งแล้วทิ้งหน่วยความจำ
+   แต่ชุดทดสอบรันทุกคำขอในโปรเซสเดียว จึงต้องล้างแคชต่อคำขอที่ขอบเขตนี้
+   ไม่ล้าง = คำขอถัดไปอ่านสำเนาของคำขอก่อน ซึ่งไม่ใช่พฤติกรรมของของจริง */
+const as = (email, fn) => {
+  currentUser = email;
+  if (api.Repo && api.Repo.flush) api.Repo.flush();
+  try { return fn(); } finally { currentUser = ''; }
+};
 
 /* ================= 1. ยอดเงินต้องไม่ออกจากเซิร์ฟเวอร์ ================= */
 const MONEY_RE = /130000|"?amount"?|invAmt|payment_term/;
@@ -281,6 +291,31 @@ LINES.forEach(([k, dept, mine, other]) => {
 const srSees = listOf('sr') || [];
 ck(srSees.indexOf(DEAL) < 0 && srSees.indexOf(MECH) < 0,
    'จัดซื้อทั่วไปเห็นใบของทีมย่อย — ต้องเห็นเฉพาะสายค่าใช้จ่าย');
+
+/* ---------- หน้าจอว่างต้องบอกเหตุผลของตัวเอง ---------- */
+/* เรื่องจริงที่เจอตอนทดลองใช้: นำเข้าใบสายอาหาร/เครื่องจักรขึ้นไปแล้ว
+   แต่คนที่ล็อกอินมี dept = SR จึงเห็นศูนย์ใบ และหน้าจอไม่บอกอะไรเลย
+   "ว่างเพราะกรองสาย" กับ "ว่างเพราะยังไม่มีข้อมูล" คนละเรื่องและคนละวิธีแก้
+   ระบบที่ตอบว่าง ๆ เท่ากันทั้งสองกรณี ทำให้คนใช้เดาว่าระบบพัง */
+const diagOf = k => { const r = as(U[k], () => api.apiListDiag()); return r && r.ok ? r.data : null; };
+const dSr = diagOf('sr');
+ck(dSr, 'จัดซื้อทั่วไป: ขอคำอธิบายหน้าจอว่างไม่ได้');
+if (dSr) {
+  ck(dSr.visible === 0, 'ข้อมูลทดสอบเปลี่ยนไป: จัดซื้อทั่วไปควรเห็นศูนย์ใบในชุดนี้');
+  ck(dSr.total >= 2, 'คำอธิบายไม่ได้นับใบทั้งระบบ (ได้ ' + dSr.total + ')');
+  ck(dSr.cause === 'OTHER_LINES',
+     'หน้าจอว่างเพราะกรองสาย แต่ระบบตอบเหตุผลเป็น ' + (dSr.cause || 'ไม่บอก'));
+  ck(dSr.lines && dSr.lines.SR_FD >= 1 && dSr.lines.SR_MC >= 1,
+     'คำอธิบายไม่ได้บอกว่าใบที่มองไม่เห็นอยู่สายไหน — คนใช้จะไม่รู้ว่าต้องไปแก้ที่ใคร');
+  ck(/สาย/.test(String(dSr.msg || '')), 'ข้อความอธิบายไม่ได้พูดถึงเรื่องสาย: ' + dSr.msg);
+}
+/* คนที่เห็นข้อมูลอยู่แล้วต้องไม่ถูกแจ้งว่าว่าง — ไม่งั้นกลายเป็นเตือนหลอกทุกครั้ง */
+const dGm = diagOf('gm');
+ck(dGm && dGm.cause === 'OK' && dGm.visible >= 2,
+   'ผู้บริหารเห็นใบครบแต่ระบบยังตอบว่าหน้าจอว่าง (' + ((dGm || {}).cause || '?') + ')');
+/* ต้องแยก "ชีตยังว่าง" ออกจาก "ถูกกรอง" ด้วย ไม่งั้นคำอธิบายจะชี้ผิดทางตอนเพิ่งติดตั้ง */
+ck(api.Domain.listDiag({dept: 'GM', email: U.gm}, []).cause === 'EMPTY_SHEET',
+   'ชีตไม่มีใบเลย แต่ระบบไม่ตอบว่า EMPTY_SHEET');
 // แผนกอื่นทำงานข้ามสาย ต้องไม่ถูกกติกานี้กระทบ
 ['qc', 'wh', 'ac', 'ach', 'gm'].forEach(k => {
   const all = listOf(k) || [];
@@ -624,6 +659,45 @@ function transferable(v, path, out) {
   ck(!JSON.stringify(res).includes('"_row"'), name + ' ส่ง _row ที่ใช้ภายในไปหน้าจอด้วย');
 });
 
+/* ---------- หนึ่งคำขอต้องไม่อ่านแท็บเดียวซ้ำหลายรอบ ---------- */
+/* Apps Script คิดเวลาจากรอบที่คุยกับ Sheets ไม่ใช่จากจำนวนบรรทัดโค้ด
+   เปิดใบเดียวเคยอ่านแท็บ Deals ใหม่ทุกครั้งที่มีใครเรียก findBy ซ้อนกันหลายชั้น
+   พอข้อมูลโตขึ้นเวลาจะบวกเป็นเท่าตัวโดยที่ตรรกะไม่ได้เปลี่ยนเลย
+   จึงวัดที่ "จำนวนรอบอ่าน" ตรง ๆ ไม่ใช่วัดที่เวลา ซึ่งแกว่งตามเครื่อง */
+Object.keys(reads).forEach(k => delete reads[k]);
+const oneGet = as(U.srFd, () => api.apiGetDeal(DEAL));
+ck(oneGet && oneGet.ok, 'เปิดใบเพื่อวัดรอบอ่านไม่สำเร็จ');
+ck((reads[api.SHEETS.DEALS] || 0) <= 1,
+   'เปิดใบเดียวอ่านแท็บ Deals ' + (reads[api.SHEETS.DEALS] || 0) +
+   ' รอบ — ควรอ่านรอบเดียวต่อคำขอ');
+const totalReads = Object.keys(reads).reduce((a, k) => a + reads[k], 0);
+ck(totalReads <= Object.keys(reads).length,
+   'เปิดใบเดียวอ่านชีตรวม ' + totalReads + ' รอบ จาก ' + Object.keys(reads).length +
+   ' แท็บ — มีแท็บที่ถูกอ่านซ้ำในคำขอเดียว');
+/* แคชต้องหมดอายุเมื่อเขียน ไม่งั้นระบบจะเร็วขึ้นแต่ตอบข้อมูลเก่า ซึ่งแย่กว่าช้า */
+const beforeW = api.Repo.readAll(api.SHEETS.DEALS).length;
+api.Repo.insert(api.SHEETS.DEALS, {
+  deal_no: 'PO-O326060099', entry: 'PO', module: 'OTHER', supplier: 'ร้านเครื่องเขียน',
+  item: 'กระดาษ A4', amount: 3000, currency: 'THB', stage: 7, status: 'ACTIVE',
+  created_at: new Date()
+});
+ck(api.Repo.readAll(api.SHEETS.DEALS).length === beforeW + 1,
+   'เพิ่มแถวแล้วอ่านซ้ำยังได้จำนวนเดิม — แคชไม่ถูกล้างตอนเขียน');
+api.Repo.update(api.SHEETS.DEALS, 'deal_no', 'PO-O326060099', {supplier: 'ร้านใหม่'});
+ck(String((api.Repo.findBy(api.SHEETS.DEALS, 'deal_no', 'PO-O326060099') || {}).supplier) === 'ร้านใหม่',
+   'แก้แถวแล้วอ่านซ้ำยังได้ค่าเดิม — แคชไม่ถูกล้างตอนแก้');
+
+/* แคชต้องหมดอายุตอนเข้าล็อกด้วย — ไม่ใช่แค่ตอนที่ตัวเองเขียน
+   ลำดับที่ทำให้พลาด: อ่านก่อนเข้าล็อก → คนอื่นแทรกแถว → เข้าล็อกแล้วเช็คกันกดซ้ำ
+   กับสำเนาเก่า → ได้สองแถว กฎ "กดสองครั้งต้องได้หนึ่งแถว" พังทั้งที่ล็อกทำงานถูก */
+api.Repo.readAll(api.SHEETS.DEALS);                       // อุ่นแคชก่อนเข้าล็อก
+store[api.SHEETS.DEALS].push(                              // อีกคำขอแทรกแถวตรงเข้าชีต
+  api.COLS.Deals.map(h => (h === 'deal_no' ? 'PO-O326060098' : h === 'stage' ? 7 : '')));
+const sawInsideLock = api.withLock_(() =>
+  api.Repo.readAll(api.SHEETS.DEALS).some(d => String(d.deal_no) === 'PO-O326060098'));
+ck(sawInsideLock,
+   'เข้าล็อกแล้วยังอ่านจากสำเนาก่อนล็อก — การกันกดซ้ำจะตรวจกับข้อมูลเก่า');
+
 /* ---------- สรุป ---------- */
 if (bad.length) {
   console.log('พบปัญหา ' + bad.length + ':');
@@ -643,3 +717,4 @@ console.log('  รายการที่นำเข้าเริ่มท�
 console.log('  บัญชีแยกสองคิวตามสกุลเงิน · สีทุกแผนกผ่านคอนทราสต์ทั้งสองโหมด (' +
   Object.keys(F.ROLES).length + ' แผนก)');
 console.log('  ค่าที่ทุก API ส่งกลับแปลงข้ามไปหน้าจอได้จริง');
+console.log('  หนึ่งคำขออ่านแต่ละแท็บรอบเดียว · เขียนแล้วแคชหมดอายุทันที');

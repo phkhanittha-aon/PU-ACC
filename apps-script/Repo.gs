@@ -85,17 +85,31 @@ var Repo = (function () {
     return sh.getRange(1, 1, 1, last).getValues()[0].map(function (h) { return String(h).trim(); });
   }
 
+  /* แคชอายุหนึ่งคำขอ — Apps Script รันหนึ่งคำขอหนึ่งครั้งแล้วจบ ตัวแปรนี้จึงไม่ข้ามผู้ใช้
+     เหตุผลที่ต้องมี: เวลาของ Apps Script หมดไปกับ "รอบที่คุยกับ Sheets" ไม่ใช่กับการคำนวณ
+     โค้ดชั้นบนเรียก findBy/where ซ้อนกันหลายชั้นโดยไม่รู้ว่าชั้นล่างอ่านแท็บเดิมไปแล้ว
+     จะแก้ด้วยการส่งข้อมูลต่อกันเป็นพารามิเตอร์ก็ได้ แต่ต้องรื้อทุกฟังก์ชัน
+     และทำให้ทุกคนที่เขียนเพิ่มต้องจำว่าใครอ่านอะไรไปแล้ว — จึงจัดการที่ชั้นเดียวตรงนี้
+     กติกาเดียวที่ห้ามพลาด: เขียนที่ไหน ล้างแคชแท็บนั้นทันที
+     แคชที่ไม่หมดอายุตอนเขียน ทำให้ระบบเร็วขึ้นแต่ตอบข้อมูลเก่า ซึ่งแย่กว่าช้า */
+  var memo = {};
+  function drop_(name) { delete memo[name]; }
+
   return {
     sheet: sheet_,
 
-    /** อ่านทั้งตารางเป็น array ของ object — อ่านครั้งเดียว */
+    /** ล้างแคชทั้งหมด — ใช้ตอนทดสอบ หรือเมื่อมีสคริปต์ภายนอกมาแก้ชีตกลางคำขอ */
+    flush: function (name) { if (name) drop_(name); else memo = {}; },
+
+    /** อ่านทั้งตารางเป็น array ของ object — อ่านครั้งเดียวต่อคำขอ */
     readAll: function (name) {
+      if (memo[name]) return memo[name];
       var sh = sheet_(name);
       var rows = sh.getLastRow() - 1;
       if (rows < 1) return [];
       var hd = headers_(sh);
       var vals = sh.getRange(2, 1, rows, hd.length).getValues();
-      return vals.map(function (r, i) {
+      memo[name] = vals.map(function (r, i) {
         var o = {_row: i + 2};
         hd.forEach(function (h, c) { o[h] = r[c]; });
         return o;
@@ -105,6 +119,7 @@ var Repo = (function () {
           return k !== '_row' && String(o[k]).trim() !== '';
         });
       });
+      return memo[name];
     },
 
     /** หาแถวเดียวด้วยคีย์ */
@@ -124,6 +139,7 @@ var Repo = (function () {
       var hd = headers_(sh);
       var row = hd.map(function (h) { return sanitizeCell_(obj[h] === undefined ? '' : obj[h]); });
       sh.appendRow(row);
+      drop_(name);
       return obj;
     },
 
@@ -136,6 +152,7 @@ var Repo = (function () {
         return hd.map(function (h) { return sanitizeCell_(obj[h] === undefined ? '' : obj[h]); });
       });
       sh.getRange(sh.getLastRow() + 1, 1, rows.length, hd.length).setValues(rows);
+      drop_(name);
       return rows.length;
     },
 
@@ -153,6 +170,7 @@ var Repo = (function () {
         hd.map(function (h) { return sanitizeCell_(after[h] === undefined ? '' : after[h]); })
       ]);
       after._row = cur._row;
+      drop_(name);
       return {before: cur, after: after};
     },
 
@@ -171,6 +189,7 @@ var Repo = (function () {
       sh.getRange(cur._row, 1, 1, hd.length).setValues([
         hd.map(function (h) { return sanitizeCell_(after[h] === undefined ? '' : after[h]); })
       ]);
+      drop_(name);
       return {before: cur, after: after};
     },
 

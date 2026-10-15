@@ -85,6 +85,15 @@ function apiListDeals() {
   });
 }
 
+/** หน้าจอว่าง — ถามเหตุผลแทนที่จะเดา เรียกเฉพาะตอนรายการที่ได้มาว่างเท่านั้น */
+function apiListDiag() {
+  return safely_('ตรวจว่าทำไมไม่เห็นข้อมูล', function () {
+    var me = Auth.me();
+    Auth.require(me, 'list');
+    return Domain.listDiag(me);
+  });
+}
+
 function apiGetDeal(dealNo) {
   return safely_('เปิดรายการ', function () {
     var me = Auth.me();
