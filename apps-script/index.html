@@ -222,6 +222,29 @@
   td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
   .pono{font-family:var(--mono);font-weight:600;color:var(--ink);white-space:nowrap}
   .sub{font-size:11.5px;color:var(--ink-3)}
+  /* แถบขั้น — ตอบคำถาม "ไปถึงไหนแล้ว" ด้วยสายตาเดียว ไม่ต้องอ่านเลขขั้น
+     จุดเดียวต่อหนึ่งขั้น เรียงซ้ายไปขวา ขั้นที่ผ่านแล้วทึบ ขั้นปัจจุบันเป็นวงใหญ่ */
+  .trk{display:flex;gap:2px;align-items:center;margin-top:5px}
+  .trk i{width:5px;height:5px;border-radius:50%;background:var(--line-2);flex:none}
+  .trk i.done{background:var(--ink-3)}
+  .trk i.now{width:9px;height:9px;background:var(--gold);box-shadow:0 0 0 2px var(--gold-bg)}
+  .trk i.now.late{background:var(--stop);box-shadow:0 0 0 2px var(--stop-bg)}
+  .trk i.skip{background:transparent;border:1px solid var(--line-2)}
+  /* ค้างที่ใคร — ชื่อคนมาก่อน รหัสแผนกเป็นตัวประกอบ
+     รหัสอย่าง AC_TH ไม่ได้บอกใคร คนใช้ต้องไปถามต่อ ซึ่งคือสิ่งที่ระบบควรตอบให้ */
+  .hold b{display:block;font-weight:600;font-size:12.5px}
+  .wait{font-family:var(--mono);font-size:11px;color:var(--ink-3);white-space:nowrap}
+  .wait.late{color:var(--stop);font-weight:600}
+  /* ตัวกรองกดเดียว — คำถามที่คนถามจริงทุกวัน ทำเป็นปุ่มไว้เลย
+     กรองจากข้อมูลที่โหลดมาแล้ว ไม่ยิงคำขอใหม่ จึงกดสลับได้ทันทีไม่มีรอ */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+  .chips button{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;font:inherit;
+    font-size:12.5px;color:var(--ink-2);background:var(--paper);border:1px solid var(--line-2);
+    border-radius:999px;cursor:pointer}
+  .chips button:hover{border-color:var(--gold)}
+  .chips button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .chips button .c{font-family:var(--mono);font-size:11px;opacity:.75}
+  .chips button[aria-pressed="true"] .c{opacity:.9}
   /* ---------- ป้ายสถานะ ---------- */
   .pill{display:inline-block;font-size:11px;padding:3px 10px;white-space:nowrap;font-family:var(--mono);border-radius:999px}
   .pill.ok{color:var(--go);background:var(--go-bg)}
@@ -778,8 +801,39 @@ window.addEventListener('error', function (e) {
       esc(BOOT.me.roleName) + '</span></span>';
   }
 
+  /* เจ้าของขั้นที่แท้จริงมาจากเซิร์ฟเวอร์ (owner_dept) ไม่ใช่ STAGES[i].o ตรง ๆ
+     เพราะขั้นของบัญชีแตกเป็นสองคิวตามสกุลเงิน และขั้นจัดซื้อแตกตามสายสินค้า
+     เทียบกับ STAGES[i].o จะได้ 'AC' ชนกับ 'AC_TH' แล้วงานของตัวเองจะไม่ขึ้นในหน้าแรก */
+  function heldBy(d) { return String(d.owner_dept || S(d.stage).o || ''); }
   function isMine(d) {
-    return d.status === 'ACTIVE' && S(d.stage).o === BOOT.me.dept;
+    if (d.status !== 'ACTIVE') return false;
+    var own = heldBy(d), me = String(BOOT.me.dept);
+    if (own === me) return true;
+    // แผนกแม่ครอบแผนกย่อย: บัญชีทำแทนสองคิวได้ แต่จัดซื้อแต่ละสายทำแทนกันไม่ได้
+    return own.indexOf(me + '_') === 0 && me === 'AC';
+  }
+
+  /* ค้างมานานแค่ไหน เทียบกับเวลาที่ให้ — ตัวเลขดิบไม่สื่อ ต้องเทียบให้เห็นคู่กัน */
+  function waitText(d) {
+    if (d.status === 'COMPLETED') return '<span class="wait">ปิดแล้ว</span>';
+    var w = Number(d.waiting_h || 0), sla = Number(d.sla_h || 0);
+    var t = w < 1 ? 'เพิ่งถึงคิว' : (w < 48 ? w + ' ชม.' : Math.round(w / 24) + ' วัน');
+    if (!sla) return '<span class="wait">' + t + '</span>';
+    return '<span class="wait' + (d.late ? ' late' : '') + '">' + t +
+      (d.late ? ' · เลยมา ' + Math.round(w - sla) + ' ชม.' : ' / ให้ ' + sla + ' ชม.') + '</span>';
+  }
+
+  /* แถบ 17 จุด — ขั้นที่ผ่านทึบ ขั้นปัจจุบันเป็นวงใหญ่ ที่เหลือจาง
+     หนึ่งบรรทัดตอบว่า "ไปถึงไหนแล้ว" โดยไม่ต้องเปิดใบ */
+  function trackStrip(d) {
+    var n = BOOT.flow.STAGES.length, cur = Number(d.stage);
+    var h = '<div class="trk" aria-label="ขั้นที่ ' + (cur + 1) + ' จาก ' + n + '">';
+    for (var i = 0; i < n; i++) {
+      var cls = i < cur ? 'done' : (i === cur ? 'now' + (d.late ? ' late' : '') : '');
+      if (d.status === 'COMPLETED') cls = 'done';
+      h += '<i class="' + cls + '"></i>';
+    }
+    return h + '</div>';
   }
 
   /* ---------- วาดหน้า ---------- */
@@ -837,9 +891,41 @@ window.addEventListener('error', function (e) {
     return h;
   }
 
+  /* ตัวกรองกดเดียว — ห้าคำถามที่คนถามจริงทุกวัน
+     เดิมต้องไล่อ่านทั้งตารางเอง ซึ่งพอใบเกินสองสามสิบใบก็เลิกไล่
+     กรองจาก DEALS ที่โหลดมาแล้วในหน่วยความจำ ไม่ยิงคำขอใหม่ จึงสลับได้ทันที */
+  var FILTERS = [
+    { k: 'all',   t: 'ทั้งหมด',                f: function () { return true; } },
+    { k: 'mine',  t: 'ค้างที่ฉัน',             f: isMine },
+    { k: 'late',  t: 'เลยกำหนด',               f: function (d) { return !!d.late; } },
+    { k: 'stuck', t: 'ค้างที่คนอื่นเกิน 2 วัน', f: function (d) {
+        return d.status === 'ACTIVE' && !isMine(d) && Number(d.waiting_h || 0) >= 48; } },
+    { k: 'open',  t: 'ยังไม่ปิด',              f: function (d) { return d.status === 'ACTIVE'; } },
+    { k: 'done',  t: 'ปิดแล้ว',                f: function (d) { return d.status === 'COMPLETED'; } }
+  ];
+  var filter = 'all';
+  function filterOf(k) {
+    var hit = FILTERS.filter(function (x) { return x.k === k; });
+    return (hit[0] || FILTERS[0]).f;
+  }
+
   function viewList(list, title) {
-    return '<div class="ph"><h1>' + esc(title) + '</h1><span class="d">' +
-      list.length + ' รายการ</span></div>' + table('', list);
+    var shown = list.filter(filterOf(filter));
+    var h = '<div class="ph"><h1>' + esc(title) + '</h1><span class="d">' +
+      (filter === 'all'
+        ? list.length + ' รายการ'
+        : shown.length + ' จาก ' + list.length + ' รายการ') + '</span></div>';
+    h += '<div class="chips">' + FILTERS.map(function (x) {
+      var n = list.filter(x.f).length;
+      return '<button data-filter="' + x.k + '" aria-pressed="' +
+        (x.k === filter) + '">' + esc(x.t) + '<span class="c">' + n + '</span></button>';
+    }).join('') + '</div>';
+    /* ตัวกรองที่กดแล้วได้ความว่างเปล่าต้องบอกว่าว่างเพราะตัวกรอง ไม่ใช่เพราะไม่มีข้อมูล */
+    if (!shown.length && list.length)
+      return h + '<div class="card"><div class="empty">ไม่มีใบไหนเข้าเงื่อนไข "' +
+        esc((FILTERS.filter(function (x) { return x.k === filter; })[0] || {}).t || '') +
+        '" — กด <b>ทั้งหมด</b> เพื่อดูทุกใบ</div></div>';
+    return h + table('', shown);
   }
 
   function table(title, list) {
@@ -850,7 +936,7 @@ window.addEventListener('error', function (e) {
 
     h += '<div class="tw"><table><thead><tr><th>เลขที่</th><th>ผู้ขาย / สินค้า</th>';
     if (money()) h += '<th class="num">มูลค่า</th>';
-    h += '<th>ขั้นตอน</th><th>ค้างที่</th><th></th></tr></thead><tbody>';
+    h += '<th>ขั้นตอน</th><th>ค้างที่ใคร</th><th>ค้างมา</th><th></th></tr></thead><tbody>';
 
     list.forEach(function (d) {
       h += '<tr class="click" data-po="' + esc(d.deal_no) + '">';
@@ -858,9 +944,16 @@ window.addEventListener('error', function (e) {
       if (d.b1_po_no) h += '<div class="sub">B1 ' + esc(d.b1_po_no) + '</div>';
       h += '</td><td>' + esc(d.supplier) + '<div class="sub">' + esc(d.item) + '</div></td>';
       if (money()) h += '<td class="num">' + baht(d.amount) + '</td>';
-      h += '<td>' + esc(d.stage_name) + '</td>';
-      h += '<td><span class="dept" style="color:var(--' +
-        String(d.owner_dept).toLowerCase() + ')">' + esc(d.owner_dept) + '</span></td>';
+      // ขั้นตอน: ชื่อขั้น + ตำแหน่งในเส้น + แถบจุด — สามอย่างนี้ตอบ "ไปถึงไหน" ครบ
+      h += '<td>' + esc(d.stage_name) +
+        '<div class="sub">ขั้นที่ ' + (Number(d.stage) + 1) + ' จาก ' +
+        BOOT.flow.STAGES.length + '</div>' + trackStrip(d) + '</td>';
+      // ค้างที่ใคร: ชื่อคนมาก่อน รหัสแผนกเป็นตัวประกอบ
+      h += '<td class="hold">' + (d.status === 'COMPLETED' ? '<span class="sub">—</span>'
+        : '<b>' + esc(d.owner_name || 'ยังไม่มีผู้รับผิดชอบในตารางผู้ใช้') + '</b>' +
+          '<span class="dept" style="color:var(--' +
+          String(d.owner_dept).toLowerCase() + ')">' + esc(d.owner_dept) + '</span>') + '</td>';
+      h += '<td>' + waitText(d) + '</td>';
       h += '<td>' + (d.inPilot
         ? '<span class="pill ok">ทดลอง</span>'
         : '<span class="ro">ดูอย่างเดียว</span>') + '</td></tr>';
@@ -1167,6 +1260,9 @@ window.addEventListener('error', function (e) {
     if (t.closest('[data-back]')) {
       page = 'home'; openNo = null; chrome(); render(); return;
     }
+
+    var flt = t.closest('[data-filter]');
+    if (flt) { filter = flt.dataset.filter; render(); return; }
 
     var po = t.closest('[data-po]');
     if (po) { openDeal(po.dataset.po); return; }

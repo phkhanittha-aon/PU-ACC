@@ -659,6 +659,58 @@ function transferable(v, path, out) {
   ck(!JSON.stringify(res).includes('"_row"'), name + ' ส่ง _row ที่ใช้ภายในไปหน้าจอด้วย');
 });
 
+/* ---------- รายการต้องตอบได้เองว่า "ค้างที่ใคร ค้างมานานแค่ไหน" ---------- */
+/* คำถามแรกของทุกคนที่เปิดหน้ารายการคือ "ของฉันอยู่ไหน ติดที่ใคร"
+   ตอบเป็นรหัสแผนกอย่าง AC_TH แปลว่าคนใช้ต้องไปถามต่อว่าใครคือ AC_TH
+   และ "ขั้นที่ 12" ไม่ได้บอกว่าช้าหรือไม่ช้า ถ้าไม่บอกกำหนดเทียบไว้ข้าง ๆ
+   ข้อมูลพวกนี้ต้องมาพร้อมรายการในคำขอเดียว ไม่ใช่ให้หน้าจอยิงถามทีละใบ */
+api.Repo.insert(api.SHEETS.STAGES, {
+  deal_no: MECH, seq: 8, stage_code: api.STAGES[8].c, owner_dept: 'SR_MC',
+  entered_at: new Date(Date.now() - 10 * 24 * 36e5), sla_hours: api.STAGES[8].sla
+});
+const mcList = as(U.srMc, () => api.apiListDeals());
+const mcRow = mcList && mcList.ok ? mcList.data.filter(x => x.deal_no === MECH)[0] : null;
+ck(mcRow, 'ไม่พบใบสายเครื่องจักรในรายการของเจ้าของสาย');
+if (mcRow) {
+  ck(/คุณเอกชัย/.test(String(mcRow.owner_name || '')),
+     'รายการบอกแค่รหัสแผนก ไม่ได้บอกชื่อคนที่ถืองานอยู่ (ได้ "' + mcRow.owner_name + '")');
+  ck(mcRow.waiting_h >= 239 && mcRow.waiting_h <= 241,
+     'นับเวลาที่ค้างผิด — ค้างมา 10 วัน แต่ได้ ' + mcRow.waiting_h + ' ชม.');
+  ck(Number(mcRow.sla_h) === api.STAGES[8].sla,
+     'ไม่ได้ส่งกำหนดเวลาของขั้นมาเทียบ (ได้ ' + mcRow.sla_h + ')');
+  ck(mcRow.late === true, 'ค้าง 10 วันเกินกำหนดแล้วแต่ไม่ได้ติดธงว่าช้า');
+}
+/* ของที่ยังไม่ช้าต้องไม่ติดธง ไม่งั้นธงจะหมดความหมายเพราะขึ้นทุกใบ */
+api.Repo.insert(api.SHEETS.STAGES, {
+  deal_no: DEAL, seq: 12, stage_code: api.STAGES[12].c, owner_dept: 'AC_TH',
+  entered_at: new Date(Date.now() - 2 * 36e5), sla_hours: api.STAGES[12].sla
+});
+const fdRow = (as(U.srFd, () => api.apiListDeals()).data || [])
+  .filter(x => x.deal_no === DEAL)[0];
+ck(fdRow && fdRow.late === false,
+   'ใบที่เพิ่งเข้าขั้นมา 2 ชม. ถูกติดธงว่าช้า — ธงที่ขึ้นทุกใบเท่ากับไม่มีธง');
+/* ขั้นของบัญชีต้องชี้ถึงคนได้ด้วย ทั้งที่คนกรอก dept ไว้เป็น AC ตัวแม่
+   ถ้าผูกชื่อแบบตรงตัวอักษร ขั้น AC_TH/AC_FN จะกลายเป็น "ไม่มีใครถือ" ทั้งแถว */
+const ACD = 'PO-O326060077';
+api.Repo.insert(api.SHEETS.DEALS, {
+  deal_no: ACD, entry: 'PO', module: 'OTHER', supplier: 'ร้านวัสดุ', item: 'ลังไม้',
+  amount: 9000, currency: 'THB', stage: 12, status: 'ACTIVE', created_at: new Date()
+});
+api.Repo.insert(api.SHEETS.STAGES, {
+  deal_no: ACD, seq: 12, stage_code: api.STAGES[12].c, owner_dept: 'AC_TH',
+  entered_at: new Date(Date.now() - 3 * 36e5), sla_hours: api.STAGES[12].sla
+});
+const acRow = (as(U.gm, () => api.apiListDeals()).data || [])
+  .filter(x => x.deal_no === ACD)[0];
+ck(acRow && acRow.owner_dept === 'AC_TH',
+   'ใบในประเทศที่ขั้นบัญชีไม่ได้ตกไปคิวบาทไทย (ได้ ' + ((acRow || {}).owner_dept || '') + ')');
+ck(acRow && /คุณวิภา|คุณนิด/.test(String(acRow.owner_name || '')),
+   'ขั้นของบัญชีไม่ชี้ถึงคน เพราะในแท็บ Users กรอก dept เป็น AC (ได้ "' +
+   ((acRow || {}).owner_name || '') + '")');
+/* ข้อมูลใหม่ต้องไม่กลายเป็นช่องให้ยอดเงินรั่ว */
+ck(!/130000/.test(JSON.stringify((as(U.qc, () => api.apiListDeals()) || {}).data || [])),
+   'QC ได้ยอดเงินติดมากับข้อมูล "ค้างที่ใคร"');
+
 /* ---------- หนึ่งคำขอต้องไม่อ่านแท็บเดียวซ้ำหลายรอบ ---------- */
 /* Apps Script คิดเวลาจากรอบที่คุยกับ Sheets ไม่ใช่จากจำนวนบรรทัดโค้ด
    เปิดใบเดียวเคยอ่านแท็บ Deals ใหม่ทุกครั้งที่มีใครเรียก findBy ซ้อนกันหลายชั้น
@@ -717,4 +769,5 @@ console.log('  รายการที่นำเข้าเริ่มท�
 console.log('  บัญชีแยกสองคิวตามสกุลเงิน · สีทุกแผนกผ่านคอนทราสต์ทั้งสองโหมด (' +
   Object.keys(F.ROLES).length + ' แผนก)');
 console.log('  ค่าที่ทุก API ส่งกลับแปลงข้ามไปหน้าจอได้จริง');
+console.log('  รายการบอกชื่อคนที่ถืองาน · เวลาที่ค้าง · กำหนดเทียบ · ธงเลยกำหนด');
 console.log('  หนึ่งคำขออ่านแต่ละแท็บรอบเดียว · เขียนแล้วแคชหมดอายุทันที');

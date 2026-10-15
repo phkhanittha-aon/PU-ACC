@@ -110,6 +110,7 @@ node tools/domain-test.mjs  # กติกาฝั่งเซิร์ฟเ�
 node tools/walkthrough.js   # เดินทั้งกระบวนการตั้งแต่ใบขอราคาจนปิดบัญชี พิมพ์ใบส่งงานทุกทอด
 node tools/smoke.js         # ชุดทดสอบ 504 การเรนเดอร์ (12 บทบาท) + เคสของทุกฟีเจอร์
 node tools/flow-parity.mjs  # นิยามกระบวนการใน Flow.gs กับในตัวอย่าง ยังตรงกันอยู่ไหม
+node tools/render-index.mjs # เปิดหน้าจอจริงในเบราว์เซอร์ — ตรวจที่ DOM ว่าวาดค่าที่เซิร์ฟเวอร์ส่งมาจริง
 python3 tools/build-schema-xlsx.py   # สร้างไฟล์ Excel โครงสร้างหลังบ้านใหม่ (ต้องมี openpyxl)
 python3 tools/costing-extract.py "Costing Mech.xlsx" "Costing Food.xlsx"   # ตรวจข้อมูล Costing จาก SAP (หลายสายได้)
 python3 tools/costing-extract-test.py                  # กฎการสกัดข้อมูล + เทียบ Python กับ Apps Script

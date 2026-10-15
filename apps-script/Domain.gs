@@ -21,7 +21,17 @@ var Domain = {
   listDeals: function (me) {
     var pilot = this.pilotSet_();
     var pilotOnly = String(Config.get('PILOT_ONLY', 'TRUE')).toUpperCase() === 'TRUE';
-    // จัดซื้อเห็นแค่สายของตัวเอง — กรองก่อนประกอบคำตอบ ไม่ใช่ส่งไปครบแล้วให้หน้าจอซ่อน
+    /* คำถามแรกของทุกคนที่เปิดหน้ารายการคือ "ของฉันอยู่ไหน ติดที่ใคร ช้าหรือยัง"
+       สามข้อนี้ต้องมาพร้อมรายการในคำขอเดียว — ให้หน้าจอยิงถามทีละใบคือทางที่ทำให้ช้า
+       อ่านเพิ่มสองแท็บรวมสองรอบต่อคำขอ ไม่ใช่สองรอบต่อใบ */
+    var now = new Date();
+    var open = {};                      // เลขใบ -> ขั้นที่ยังไม่ปิด (ใบหนึ่งเปิดได้ขั้นเดียว)
+    Repo.readAll(SHEETS.STAGES).forEach(function (st) {
+      if (String(st.done_at).trim() !== '') return;
+      open[String(st.deal_no).trim()] = st;
+    });
+    var who = this.holders_();
+
     return Repo.readAll(SHEETS.DEALS).filter(function (d) {
       return canSeeDeal(me.dept, d);
     }).map(function (d) {
@@ -31,8 +41,44 @@ var Domain = {
       out.editable = out.inPilot || !pilotOnly;
       out.owner_dept = ownerDeptOf(out.stage, d) || '';
       out.stage_name = (STAGES[out.stage] || {}).n || '';
+
+      var st = open[String(d.deal_no).trim()];
+      var ent = st && st.entered_at instanceof Date ? st.entered_at : null;
+      out.waiting_h = ent ? Math.max(0, Math.round((now - ent) / 36e5)) : 0;
+      out.sla_h = Number((st && st.sla_hours) || (STAGES[out.stage] || {}).sla || 0);
+      /* ธงช้าต้องขึ้นเฉพาะที่ช้าจริง ธงที่ขึ้นทุกใบเท่ากับไม่มีธง
+         ใบที่ปิดแล้วไม่มีขั้นเปิดค้าง จึงไม่ติดธงเพราะไม่มีใครต้องทำอะไร */
+      out.late = !!(ent && out.sla_h && out.waiting_h > out.sla_h &&
+                    d.status !== 'COMPLETED');
+      out.owner_name = who(out.owner_dept);
       return out;
     });
+  },
+
+  /** ชื่อคนที่ถือขั้นของแผนกหนึ่ง — คืนฟังก์ชันที่จำคำตอบไว้ จึงอ่านแท็บ Users รอบเดียว
+      ต้องผูกผ่าน deptCovers ไม่ใช่เทียบตัวอักษรตรง ๆ เพราะในแท็บ Users คนกรอก
+      dept เป็น AC ตัวแม่ แต่ขั้นจริงเป็น AC_TH/AC_FN — เทียบตรงตัวจะได้ "ไม่มีใครถือ"
+      บอกไม่เกินสองชื่อแล้วตามด้วยจำนวนที่เหลือ เพราะแถวในรายการมีที่จำกัด */
+  holders_: function () {
+    var users = Repo.readAll(SHEETS.USERS).filter(function (u) {
+      return String(u.is_active).toUpperCase() !== 'FALSE' && String(u.email).trim();
+    });
+    var memo = {};
+    return function (dept) {
+      var key = String(dept || '').trim().toUpperCase();
+      if (!key) return '';
+      if (memo[key] !== undefined) return memo[key];
+      var names = [];
+      users.forEach(function (u) {
+        var ud = String(u.dept).trim().toUpperCase();
+        if (ud === key || deptCovers(ud, key))
+          names.push(String(u.full_name || u.email).trim());
+      });
+      memo[key] = names.length > 2
+        ? names.slice(0, 2).join(' / ') + ' +' + (names.length - 2)
+        : names.join(' / ');
+      return memo[key];
+    };
   },
 
   pilotSet_: function () {
